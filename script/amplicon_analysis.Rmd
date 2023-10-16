@@ -1,0 +1,586 @@
+---
+title: "Amplicon_analysis"
+author: "Luyao Kang"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: yes
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r setup, include = F}
+knitr::opts_chunk$set(
+  collapse = T, echo = T, comment = "#>", message = F, warning = F,
+	fig.align = "center", fig.width= 4.5, fig.height = 3, dpi = 150)
+```
+## Data input 
+Set work directory
+```{r}
+setwd('e:/thermokarst_gully/')
+wd_16s <- file.path(getwd(),"data/16S")
+# if (!dir.exists(wd_16s)) {
+#   dir.create(wd_16s)
+# }
+wd_fun <- file.path(getwd(),"data/metagenome")
+save.dir <- file.path(getwd(),"result")
+```
+Loading packages
+```{r}
+library(phyloseq)
+library(ape)
+library(vegan)
+library(Biostrings)
+library(microbiome)
+library(tidyverse)
+```
+Data input
+```{r}
+source("script/read_data.R")
+```
+
+## Alpha diversity
+Determine the alpha diversity including **Observed**, **Chao1**, **Shannon** and **Simpson**.
+```{r}
+alpha_div <- estimate_richness(phylo_rare, measures = c("Observed", "Chao1", 'Shannon', 'Simpson'))
+library(picante)
+pd <- pd(t(otu), tree, include.root = F) # estimate the phylogenetic diversity
+alpha_div <- cbind(metadata[, c('Gully_id', 'Group')], alpha_div, Faith = pd$PD,
+                   Evenness = alpha_div$Shannon/log(alpha_div$Observed)) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')))
+```
+Box plot for alpha index using ggplot2
+```{r}
+library(ggpubr)
+library(ggplot2)
+main_theme = theme_linedraw() + 
+  theme(panel.grid=element_blank(), 
+        strip.text = element_text(colour = 'black', size = 12),
+        strip.background = element_rect(colour = 'grey', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 14),
+        axis.ticks.length = unit(0.4,"lines"), axis.ticks = element_line(color = 'black'),
+        axis.line = element_line(colour = "black"), 
+        axis.text.y = element_text(colour = 'black', size = 12),
+        axis.text.x = element_text(colour = 'black', size = 12, angle = 45, hjust = 1),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.key = element_blank(),
+        legend.background = element_rect(colour = "white"))
+# box plot
+my_comparisons <- list(c('Control', 'Collapsed'))
+p_chao1 <- ggplot(alpha_div, aes(x = Group, y = Chao1)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group)) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
+  stat_compare_means(comparisons = my_comparisons, paired = F, 
+                     p.adjust.method = "BH", label = "p.signif") +
+  labs(x = 'Group', y = 'Chao1', fill= 'Group') +
+  main_theme
+
+p_evenness <-ggplot(alpha_div, aes(x = Group, y = Evenness)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group)) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
+  stat_compare_means(comparisons = my_comparisons, paired = F, 
+                     p.adjust.method = "BH", label = "p.signif") +
+  #scale_fill_manual(values= cols)+
+  labs(x = 'Group', y = 'Evenness', fill= 'Group') +
+  main_theme
+
+p_shannon <-ggplot(alpha_div, aes(x = Group, y = Shannon)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group)) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
+  stat_compare_means(comparisons = my_comparisons, paired = F, 
+                     p.adjust.method = "BH", label = "p.signif") +
+  #scale_fill_manual(values= cols)+
+  labs(x = 'Group', y = 'Shannon', fill= 'Group') +
+  main_theme
+
+p_faith <- ggplot(alpha_div, aes(x = Group, y = Faith)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group)) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
+  stat_compare_means(comparisons = my_comparisons,  paired = F, 
+                     p.adjust.method = "BH", label = "p.signif") +
+  #scale_fill_manual(values= cols)+
+  labs(x = 'Group', y = 'Faith index', fill= 'Group') +
+  main_theme
+
+# ggsave(file.path(save.dir, "./figs/alpha/alpha_boxplot_evenness.pdf"), 
+#        p, width = 89, height = 89, units = "mm")
+```
+
+Then, we combine above two alpha diversity plot into one.
+```{r, fig.align='center', fig.width=8, fig.height=15}
+cowplot::plot_grid(p_chao1, p_evenness, p_shannon, p_faith, nrow = 4)
+```
+## Beta diversity
+```{r}
+library(vegan)
+## taxonomy
+### PERMANOVA test
+tax_dist <- as.matrix(vegdist(t(otu), "bray" ))
+# phy_dist <- as.matrix(UniFrac(phylo, weighted = TRUE, normalized = TRUE, parallel = T, fast = TRUE))
+# fun_dist <- as.matrix(vegdist(t(ko_tpm_table), "bray" ))
+```
+
+```{r}
+#permanova, ANOSIM and MRPP analysis
+library(vegan)
+adonis2(tax_dist ~ Group, data = metadata)
+mrpp(tax_dist, metadata$Group, perm = 999)
+anosim(tax_dist, metadata$Group, perm = 999)
+```
+
+### PCoA plot with bray-curties as distance
+```{r, fig.align='center', fig.width=8, fig.height=6}
+# taxa
+ord.tax <-  cmdscale(tax_dist,  k = 2, eig = T, add = T)
+pcoa_tax_plot <- data.frame(Group = metadata$Group, scores(ord.tax)) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
+  geom_point(size = 1, alpha = 0.8) + 
+  stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
+  # scale_colour_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  # scale_fill_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  labs(x = paste("PCoA1 (", format(100 * ord.tax$eig[1] / sum(ord.tax$eig), digits = 3), "%)", sep = ""),
+       y = paste("PCoA2 (", format(100 * ord.tax$eig[2] / sum(ord.tax$eig), digits = 3), "%)", sep = "")) +
+  main_theme
+pcoa_tax_plot
+# ggsave(file.path(save.dir, "./figs/beta/PCoA_tax_bray.pdf"),
+#        pcoa_tax_plot, width = 89, height = 59, units = "mm")
+```
+
+### Difference in taxonomic variance among layers
+```{r}
+my_comparisons <- list(c('Control', 'Collapsed'))
+vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
+beta_tax_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x, metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Group, y = distance)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group)) +
+  # scale_fill_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
+  stat_compare_means(comparisons = my_comparisons,
+                     p.adjust.method = "BH", label = "p.signif") +
+  labs(x = 'Group', y = 'Bray-Curties distance', fill='Group') +
+  main_theme
+beta_tax_plot
+# ggsave(file.path(save.dir, "./figs/beta/tax_variance.pdf"),
+#        beta_tax_plot, width = 89, height = 89, units = "mm")
+```
+
+### Couple or decouple effect between taxonomic, phylogenetic and functional profile
+
+```{r}
+pcoa1_tax <- data.frame(Layers = metadata$Layer, scores(ord.tax)) %>%
+  mutate(Layers = factor(Layers, levels = c('SUR', 'SUB', 'PL')))
+pcoa1_phy <- data.frame(Layers = metadata$Layer, ord.phy$vectors[, 1:2]) %>%
+  mutate(Layers = factor(Layers, levels = c('SUR', 'SUB', 'PL')))
+pcoa1_fun <- data.frame(Layers = metadata$Layer, scores(ord.fun)) %>%
+  mutate(Layers = factor(Layers, levels = c('SUR', 'SUB', 'PL')))
+pcoa1_dat <- data.frame(pcoa1_tax[, 1:2], pcoa1_phy[,2], pcoa1_fun[,2])
+colnames(pcoa1_dat) <- c("Layers", "Taxnomic_PCoA1", "Phylogenetic_PCoA1", "Functional_PCoA1")
+```
+Regression plot with PcoA axis using ggplot
+```{r}
+library(ggpmisc)
+p_linear_fun_tax <- ggplot(pcoa1_dat, aes(x = Taxnomic_PCoA1, y = Functional_PCoA1, fill = Layers)) +
+  geom_point(size=3.5, alpha=0.8, aes(colour = Layers)) +
+  # geom_smooth(method="lm", size=1, se=T, colour='black') +
+  stat_poly_line(colour='black') +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*"), colour = Layers)) +
+  scale_colour_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  ylab("Taxnomic PCoA1")+xlab("Functional PCoA1") +
+  theme_bw() +
+  theme(panel.grid=element_blank(), 
+        axis.title = element_text(color = 'black', size = 6),
+        axis.ticks.length = unit(0.2, "lines"), axis.ticks = element_line(color = 'black'),
+        axis.line = element_blank(), 
+        axis.text = element_text(colour = 'black',size = 5),
+        strip.text = element_text(size = 6))
+
+```
+Regression plot with dbRDA axis using ggplot
+```{r}
+dist_tax <- sapply(unique(metadata$Layer), function(x) usedist::dist_subset(tax_dist, grep(x, metadata$sample_id, value = T))) %>%
+  data.frame() %>% gather("Layers", "distance") %>%
+  mutate(Layers = factor(Layers, levels = c('SUR', 'SUB', 'PL')))
+dist_phy <- sapply(unique(metadata$Layer), function(x) usedist::dist_subset(beta.mntd.weighted, grep(x, metadata$sample_id, value = T))) %>%
+  data.frame() %>% gather("Layers", "distance") %>%
+  mutate(Layers = factor(Layers, levels = c('SUR', 'SUB', 'PL')))
+dist_fun <- sapply(unique(metadata$Layer), function(x) usedist::dist_subset(fun_dist, grep(x, metadata$sample_id, value = T))) %>%
+  data.frame() %>% gather("Layers", "distance") %>%
+  mutate(Layers = factor(Layers, levels = c('SUR', 'SUB', 'PL')))
+dist_dat <- data.frame(dist_tax[, 1:2], dist_phy[,2], dist_fun[,2])
+colnames(dist_dat) <- c("Layers", "Taxnomic_distance", "Phylogenetic_distance", "Functional_distance")
+p_linear_phy_tax <- ggplot(dist_dat, aes(x = Phylogenetic_distance, y = Functional_distance, fill = Layers)) +
+  geom_point(size=3.5, alpha=0.8, aes(colour = Layers)) +
+  geom_smooth(method="lm", size=1, se=T, colour='black') +
+  scale_colour_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  stat_poly_line(colour='black') +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*"), colour = Layers)) +
+  ylab("Taxnomic distance")+xlab("Phylogenetic distance") +
+  theme_bw() +
+  theme(panel.grid=element_blank(), 
+        axis.title = element_text(color='black',size=14),
+        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
+        axis.line = element_blank(), 
+        axis.text.y = element_text(colour='black',size=12),
+        axis.text.x = element_text(colour='black', size = 12),
+        strip.text = element_text(size = 14),
+        legend.position='none')
+```
+
+
+```{r, fig.align='center', fig.width=8, fig.height=4}
+cowplot::plot_grid(p_linear_fun_tax, p_linear_phy_tax)
+```
+
+## Composition
+### Determine the OTU numbers within each dominant phylum
+```{r}
+# data preparation
+otu_num_in_phylum <- data.frame(table(tax_table(phylo)[,"Phylum"]))
+otu_num_in_phylum <- otu_num_in_phylum %>% arrange(desc(Freq))
+otu_num_in_phylum <- rbind(otu_num_in_phylum[1:11, ], data.frame(Var1 = c('Others'), Freq = sum(otu_num_in_phylum[-c(1:11), 2])))
+
+otu_num_in_phylum <- data.frame(Phylum = otu_num_in_phylum$Var1, otu_num = otu_num_in_phylum$Freq ,
+                                prop = otu_num_in_phylum$Freq/sum(otu_num_in_phylum$Freq)*100)
+otu_count.data <- otu_num_in_phylum %>%
+  mutate(lab.ypos = cumsum(prop) - 0.5*prop)
+otu_count.data$Phylum <- factor(otu_count.data$Phylum, ordered = T, levels = otu_num_in_phylum$Phylum)
+```
+
+```{r}
+# pie plot 
+# Define the colors you want
+mycols <- c("#89c5da", "#ffc15c", "#74d944", "#CE50CA", "#5e738f", "#C0717C", "#CBD5ec", "#5F7FC7", 
+                     "#00718b", "#00b0f6", "#a3a500", "#f8766d", "#D7C1B1", "#689030", "#AD6F3B", "#CD9BCD", 
+                     "#D14285", "#6DDE88", "#652926", "#7FDCC0", "#C84248", "#8569D5", "#5E738F", "#D1A33D", 
+                     "#8A7C64", "#599861")
+
+pie_for_otu_num_phylum <- ggplot(otu_count.data, aes(x = "", y = prop, 
+                                                     fill = reorder(Phylum, -lab.ypos))) +
+  geom_bar(width = 1, stat = "identity") + 
+  coord_polar("y", start = 0) +
+  geom_text(aes(x = 1.35, y = lab.ypos, 
+                label = paste0(otu_num, ' (', round(prop, 1), '%', ')', sep = '')),
+            color = "black", size = 3) +
+  scale_fill_manual('Phylum', values = mycols) +
+  guides(fill = guide_legend(reverse = T)) +
+  theme_void() +
+  theme(legend.position = "left")
+```
+
+### Determine the microbial composition within top 10 phyla
+```{r}
+# write a function for data organization
+arrange.tab <- function(phylo, N, taxrank, vect) {
+  subphylo <- tax_glom(phylo, taxrank)
+  subphylo.rel <- microbiome::transform(subphylo, "compositional")
+  ra.tab <- otu_table(subphylo.rel)
+  MRA <- rowMeans(ra.tab)
+  group <- tax_table(subphylo.rel)[,vect]
+  mra.tab <- data.frame(group,MRA)
+  colnames(mra.tab) <- c('level1', 'level2', 'MRA')
+  #arrange the class table
+  mra.tab_level1 = mra.tab %>% group_by(level1) %>% 
+    summarise(sum_MRA = sum(MRA)) %>% 
+    arrange(desc(sum_MRA))
+  top_N_level1 = mra.tab_level1[1:N, ]$'level1'
+  top_N_tab = mra.tab[mra.tab$'level1' %in% top_N_level1, ]
+  mra.tab_level2 = top_N_tab %>% group_by(level2) %>% 
+    summarise(sum_MRA = sum(MRA)) %>% 
+    arrange(desc(sum_MRA))
+  order_level2 = mra.tab_level2$'level2'
+  top_N_tab$'level1' = factor(top_N_tab$'level1', ordered = T, levels = top_N_level1)
+  top_N_tab$'level2' = factor(top_N_tab$'level2', ordered = T, levels = rev(order_level2))
+  top_N_tab$MRA = top_N_tab$MRA*100
+  return(top_N_tab)
+}
+```
+Determine the relative abundance of the taxa at the phylum level.
+```{r}
+top10phylum <- arrange.tab(phylo, 10, 'Order', c(2,4))
+mra.tab_level1 = top10phylum %>% group_by(level1) %>% 
+  summarise(sum_MRA = sum(MRA)) %>% 
+  arrange(desc(sum_MRA)) %>%
+  dplyr::rename(Phylum = level1, prop = sum_MRA) %>%
+  bind_rows(summarise_all(., ~if(is.numeric(.)) 100-sum(.) else "Others"))
+mra.tab_level1
+```
+Pie plot for the relative abundance of dominant phyla
+```{r, fig.align='center', fig.width=8, fig.height=4.5}
+rel_abun_phyla_tab <- mra.tab_level1 %>%
+  mutate(lab.ypos = cumsum(prop) - 0.5*prop)
+rel_abun_phyla_tab$Phylum <- factor(rel_abun_phyla_tab$Phylum, 
+                                ordered = T, levels = c(mra.tab_level1$Phylum))
+
+pie_for_abun_phylum <- ggplot(rel_abun_phyla_tab, aes(x = "", y = prop, 
+                                                     fill = reorder(Phylum, -lab.ypos))) +
+  geom_bar(width = 1, stat = "identity") + 
+  coord_polar("y", start = 0) +
+  geom_text(aes(x = 1.35, y = lab.ypos, label = paste0(round(prop, 1), '%', sep= '')),
+            color = "black", size = 3) +
+  scale_fill_manual('Phylum', values = mycols[-1]) +
+  guides(fill = guide_legend(reverse = T)) +
+  theme_void() +
+  theme(legend.position = "left")
+cowplot::plot_grid(pie_for_otu_num_phylum, pie_for_abun_phylum)
+```
+
+Determine the relative abundance of the taxa at the order level.
+```{r}
+mra.tab_level2 = top10phylum %>% group_by(level2) %>% 
+  summarise(sum_MRA = sum(MRA)) %>% 
+  arrange(desc(sum_MRA))
+order_level2 = mra.tab_level2$'level2'
+mra.tab_level2 [1:20, ]
+```
+
+```{r, fig.width = 8, fig.height = 6}
+#stack bar plot
+taxa_barplot <- ggplot(top10phylum, aes(fill=level2, y=MRA, x=level1)) + 
+  geom_bar(position="stack", stat="identity") +
+  scale_fill_manual('Order', breaks = order_level2[1:15], 
+                    values = rep(c(rev(mycols[1:12]), mycols[-c(1:12)]), 20)[1:nrow(top10phylum)]) + #only the top 10 phylum and top 10 order are showed
+  labs(x = 'Phylum', y = 'Mean relative abundance (%)') +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 30)) +
+  theme_classic()+
+  theme(legend.position = c(0.6,0.6),
+        panel.grid=element_blank(), 
+        axis.title = element_text(color = 'black', size = 8),
+        axis.ticks.length = unit(0.4, "lines"), axis.ticks = element_line(color = 'black'),
+        axis.line = element_line(colour = "black"), 
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6, angle = 45, hjust = 1),
+        legend.text = element_text(size = 6),
+        legend.key = element_blank(),
+        legend.background = element_rect(colour = "white"))
+taxa_barplot
+```
+
+### Determine the compositions within top 10 phylums for each layer
+```{r}
+subphylo <- tax_glom(phylo, 'Phylum')
+subphylo.rel  = transform_sample_counts(subphylo, function(x) x / sum(x) )
+ntaxa(subphylo.rel)
+ra.tab <- otu_table(subphylo.rel)
+sum(ra.tab[, 1])
+subtaxa_tab <- tax_table(subphylo.rel)[, 2]
+Phylum_tax_table <- data.frame(subtaxa_tab, ra.tab) %>% 
+  mutate(MRA = rowMeans(select(., colnames(ra.tab)))) %>%
+  arrange(desc(MRA)) %>% dplyr::top_n(10, MRA) %>%
+  select(., -c('MRA')) %>% 
+  bind_rows(summarise_all(., ~if(is.numeric(.)) 1-sum(.) else "Others")) %>%
+  mutate(Phylum = factor(Phylum, levels = Phylum)) %>%
+  pivot_longer(cols = -c(Phylum), names_to = "Sample_name", values_to = 'rel_abun') %>%
+  right_join(data.frame(Sample_name = rownames(metadata), Layer = metadata$Layer), by = c("Sample_name")) %>%
+  select(., -c('Sample_name')) %>% 
+  group_by(Layer, Phylum) %>%
+  dplyr::summarise(across(, mean, na.rm = TRUE))
+print(Phylum_tax_table, n = 32)
+```
+
+```{r, fig.width = 8, fig.height = 4.5}
+## boxplot shows the community composition for each layer
+box_plot <- data.frame(subtaxa_tab, ra.tab) %>% group_by(Phylum) %>% 
+  summarise(across(everything(), sum)) %>% 
+  mutate(MRA = rowMeans(select(., colnames(ra.tab)))) %>%
+  arrange(desc(MRA)) %>% dplyr::top_n(10, MRA) %>%
+  select(., -c('MRA')) %>% 
+  mutate(Phylum = factor(Phylum, levels = Phylum)) %>%
+  tidyr::pivot_longer(cols = -c(Phylum), names_to = "sample_id", values_to = 'rel_abun') %>%
+  mutate(layer = sapply(stringr::str_split(sample_id, "_",  n = 2), `[`, 1)) %>%
+  mutate(layer = factor(layer, levels = c('SUR', 'SUB', 'PL'))) %>%
+  ggplot(aes(Phylum, rel_abun*100)) + 
+  geom_boxplot(width = 0.5, aes(fill = layer)) +
+  stat_compare_means(aes(group = layer),  paired = TRUE, 
+                     p.adjust.method = "BH", label = "p.signif") +
+  scale_fill_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  labs(x = 'Phylum', y = 'Relative abundance (%)', fill='Layers') +
+  theme_bw() +
+  guides(fill = guide_legend(keywidth = 0.5, keyheight = 0.5)) +
+  theme(axis.title = element_text(size = 8, colour = "black"),
+        axis.text.x = element_text(size = 6, colour = "black", 
+                                   angle = 45, vjust = 1, hjust = 1),
+        axis.text.y = element_text(size = 6, colour = "black"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        panel.grid = element_blank())
+box_plot
+```
+### Barplot shows the community composition
+```{r, fig.width = 8, fig.height = 4.5}
+# Barplot shows the community composition for each sample
+bar_plot_each_sample <- data.frame(subtaxa_tab, ra.tab) %>% 
+  mutate(MRA = rowMeans(select(., colnames(ra.tab)))) %>%
+  arrange(desc(MRA)) %>% dplyr::top_n(10, MRA) %>%
+  select(., -c('MRA')) %>% 
+  bind_rows(summarise_all(., ~if(is.numeric(.)) 1-sum(.) else "Other")) %>%
+  mutate(Phylum = factor(Phylum, levels = Phylum)) %>%
+  pivot_longer(cols = -c(Phylum), names_to = "sample_id", values_to = 'rel_abun') %>%
+  mutate(layer = sapply(stringr::str_split(sample_id, "_",  n = 2), `[`, 1)) %>%
+  mutate(layer = factor(layer, levels = c('SUR', 'SUB', 'PL'))) %>%
+  ggplot(aes(x = sample_id, y = 100*rel_abun, fill = Phylum))+
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Paired")+
+  scale_y_continuous(expand = c(0,0))+
+  labs(x = 'Sample', y = 'Mean relative abundance (%)') +
+  theme_linedraw() + 
+  guides(fill = guide_legend(keywidth = 0.5, keyheight = 0.5)) +
+  facet_grid(~layer, scales = "free_x", space = "free_x") + 
+  theme(axis.title.x = element_blank(), 
+        axis.title.y = element_text(size = 8, colour = "black"),
+        panel.grid.minor = element_blank(), 
+        panel.grid.major = element_blank(), 
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6), 
+        axis.text.y = element_text(size = 6), 
+        panel.spacing = unit(0, "lines"),
+        strip.text = element_blank(),
+        strip.background = element_blank(),
+        legend.title = element_text(size = 8), 
+        legend.text = element_text(size = 6))
+# ggsave(file.path(save.dir, "./figs/composition/tax_composition_10.pdf"), box_plot, width = 189, height = 95, units = "mm")  
+# ggsave(file.path(save.dir, "./figs/composition/tax_composition_bar.pdf"), bar_plot, width = 120, height = 65, units = "mm") 
+bar_plot_each_sample
+```
+
+```{r, fig.width = 8, fig.height = 6}
+# Barplot shows the community composition for each layer
+# bar plot at the Phylum level
+bar_plot_each_layer <- Phylum_tax_table %>%
+  ggplot(aes(x = Layer, y = 100*rel_abun, fill = Phylum))+
+  geom_bar(stat = "identity") +
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_x_discrete(limits = rev(c('SUR', 'SUB', 'PL'))) +
+  scale_fill_manual(values =  mycols) +
+  labs(x = 'Layer', y = 'Mean relative abundance (%)') +
+  guides(fill = guide_legend(keywidth = 0.5, keyheight = 0.5)) +
+  theme_linedraw() + 
+  theme(panel.grid=element_blank(), 
+        strip.text = element_text(colour = 'black', size = 8),
+        strip.background = element_rect(colour = 'grey', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 8),
+        axis.ticks.length = unit(0.4,"lines"), axis.ticks = element_line(color = 'black'),
+        axis.line = element_line(colour = "black"), 
+        axis.text.y = element_text(colour = 'black', size = 8),
+        axis.text.x = element_text(colour = 'black', size = 8),
+        legend.position = "bottom",
+        legend.title = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.key = element_blank(),
+        legend.background = element_rect(colour = "white")) +
+  guides(fill = guide_legend(ncol = 5)) +
+  coord_flip()
+
+library(cowplot)
+compositional_plot <- ggdraw() +
+  draw_plot(pie_for_otu_num_phylum, x = 0, y = 1/2, width = 0.5, height = 1/2) +
+  draw_plot(pie_for_abun_phylum, x = 0.5, y = 1/2, width = 0.5, height = 1/2) +
+  draw_plot(bar_plot_each_layer, x = 0, y = 0, width = 1, height = 1/2) +
+  draw_plot_label(label = c("A", "B", "C"), size = 8,
+                  x = c(0, 0.5, 0), y = c(1, 1, 0.5))
+compositional_plot
+```
+
+### Unique otus profile among three layers
+```{r, fig.width = 6, fig.height = 4.5}
+# Load the library
+library(limma)
+# Generate example data
+sur_venn <- otu %>% data.frame() %>%
+  mutate(rowsum = rowSums(select(., grep('SUR', metadata$sample_id, value = T)))) %>%
+  filter(rowsum > 0) %>%
+  rownames()
+sub_venn <- otu %>% data.frame() %>%
+  mutate(rowsum = rowSums(select(., grep('SUB', metadata$sample_id, value = T)))) %>%
+  filter(rowsum > 0) %>%
+  rownames()
+pl_venn <- otu %>% data.frame() %>%
+  mutate(rowsum = rowSums(select(., grep('PL', metadata$sample_id, value = T)))) %>%
+  filter(rowsum > 0) %>%
+  rownames()
+
+# What are the possible letters in the universe?
+universe <- sort(unique(c(sur_venn, sub_venn, pl_venn)))
+
+# Generate a matrix, with the sets in columns and possible letters on rows
+Counts <- matrix(0, nrow=length(universe), ncol=3)
+# Populate the said matrix
+for (i in 1:length(universe)) {
+  Counts[i,1] <- universe[i] %in% sur_venn
+  Counts[i,2] <- universe[i] %in% sub_venn
+  Counts[i,3] <- universe[i] %in% pl_venn
+}
+
+# Specify the colors for the sets
+# Prepare a palette of 3 colors:
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+n = 3
+cols = gg_color_hue(n)
+# Name the columns with the sample names
+colnames(Counts) <- c("SUR","SUB","PL")
+vennDiagram(vennCounts(Counts), circle.col = cols)
+```
+Venn plot using VennDiagram
+```{r}
+# library
+library(VennDiagram)
+
+#Make the plot
+venn_plot <- venn.diagram(
+  x = list(
+    otu %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('SUR', metadata$sample_id, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames(), 
+    otu %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('SUB', metadata$sample_id, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames(), 
+    otu %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('PL', metadata$sample_id, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames()
+  ),
+  category.names = c("SUR" , "SUB" , "PL"),
+  filename = NULL,
+  # output = F,
+  # imagetype="png" ,
+  # height = 480 ,
+  # width = 480 ,
+  # resolution = 300,
+  # compression = "lzw",
+  # Circles
+  lwd = 2,
+  lty = 'blank',
+  fill = cols,
+  # Numbers
+  cex = 1,
+  fontfamily = "sans",
+  # Set names
+  cat.cex = 1,
+  cat.default.pos = "outer",
+  cat.pos = c(-27, 27, 135),
+  cat.dist = c(0.055, 0.055, 0.085),
+  cat.fontfamily = "sans",
+  cat.col = 'black',
+  rotation = 1
+)
+# grid.newpage()
+# pdf(file= file.path(save.dir, "OTU_Group_venn.pdf"), height = 3, width = 3)
+# grid.draw(venn_plot)
+# dev.off()
+grid::grid.draw(venn_plot)
+```
