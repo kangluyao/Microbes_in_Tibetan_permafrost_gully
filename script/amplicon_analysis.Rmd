@@ -113,14 +113,59 @@ Then, we combine above two alpha diversity plot into one.
 ```{r, fig.align='center', fig.width=8, fig.height=15}
 cowplot::plot_grid(p_chao1, p_evenness, p_shannon, p_faith, nrow = 4)
 ```
+## linear mixed models test the effect of collapsed and gully_id
+```{r}
+library(lme4)
+library(car)
+fm1 <- lmer(Chao1 ~ Group + (1 | Gully_id), data = alpha_div)
+summary(fm1)
+car::Anova(fm1, type = 2)
+
+fm2 <- lmer(Evenness ~ Group + (1 | Gully_id), data = alpha_div)
+summary(fm2)
+car::Anova(fm2, type = 2)
+
+fm3 <- lmer(Shannon ~ Group + (1 | Gully_id), data = alpha_div)
+summary(fm3)
+car::Anova(fm3, type = 2)
+
+fm4 <- lmer(Faith ~ Group + (1 | Gully_id), data = alpha_div)
+summary(fm4)
+car::Anova(fm4, type = 2)
+```
+
 ## Beta diversity
 ```{r}
 library(vegan)
 ## taxonomy
-### PERMANOVA test
-tax_dist <- as.matrix(vegdist(t(otu), "bray" ))
+# determine the dissimilarity matrix based on the bray-curties distance
+tax_dist <-vegdist(t(otu), "bray" )
 # phy_dist <- as.matrix(UniFrac(phylo, weighted = TRUE, normalized = TRUE, parallel = T, fast = TRUE))
 # fun_dist <- as.matrix(vegdist(t(ko_tpm_table), "bray" ))
+```
+
+##
+```{r, fig.align='center', fig.width=6, fig.height=4.5}
+#########################
+### difference in taxonomic variance among Group
+my_comparisons <- list(c('Control', 'Collapsed'))
+vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
+sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x, metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Group, y = distance)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group)) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
+  stat_compare_means(comparisons = my_comparisons,
+                     p.adjust.method = "BH", label = "p.signif") +
+  labs(x = 'Group', y = 'Bray-Curties distance', fill='Group') +
+  main_theme
+# ggsave(file.path(save.dir, "./figs/beta/tax_variance.pdf"),
+#        beta_tax_plot, width = 89, height = 89, units = "mm")
 ```
 
 ```{r}
