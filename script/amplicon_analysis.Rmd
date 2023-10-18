@@ -104,7 +104,6 @@ p_faith <- ggplot(alpha_div, aes(x = Group, y = Faith)) +
   #scale_fill_manual(values= cols)+
   labs(x = 'Group', y = 'Faith index', fill= 'Group') +
   main_theme
-
 # ggsave(file.path(save.dir, "./figs/alpha/alpha_boxplot_evenness.pdf"), 
 #        p, width = 89, height = 89, units = "mm")
 ```
