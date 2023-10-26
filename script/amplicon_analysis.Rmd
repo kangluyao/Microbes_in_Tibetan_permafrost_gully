@@ -112,7 +112,7 @@ Then, we combine above two alpha diversity plot into one.
 ```{r, fig.align='center', fig.width=8, fig.height=15}
 cowplot::plot_grid(p_chao1, p_evenness, p_shannon, p_faith, nrow = 4)
 ```
-## linear mixed models test the effect of collapsed and gully_id
+## Linear mixed models test the effect of collapsed and gully_id
 ```{r}
 library(lme4)
 library(car)
@@ -134,19 +134,11 @@ car::Anova(fm4, type = 2)
 ```
 
 ## Beta diversity
-```{r}
+```{r, fig.align='center', fig.width=6, fig.height=4.5}
 library(vegan)
-## taxonomy
 # determine the dissimilarity matrix based on the bray-curties distance
 tax_dist <-vegdist(t(otu), "bray" )
-# phy_dist <- as.matrix(UniFrac(phylo, weighted = TRUE, normalized = TRUE, parallel = T, fast = TRUE))
-# fun_dist <- as.matrix(vegdist(t(ko_tpm_table), "bray" ))
-```
-
-##
-```{r, fig.align='center', fig.width=6, fig.height=4.5}
-#########################
-### difference in taxonomic variance among Group
+# difference in taxonomic variance among Group
 my_comparisons <- list(c('Control', 'Collapsed'))
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
 sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x, metadata$Sample_name, value = T))) %>%
@@ -195,7 +187,7 @@ pcoa_tax_plot
 ```
 
 ### Difference in taxonomic variance among layers
-```{r}
+```{r, fig.align='center', fig.width=8, fig.height=6}
 my_comparisons <- list(c('Control', 'Collapsed'))
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
 beta_tax_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x, metadata$Sample_name, value = T))) %>%
@@ -216,6 +208,65 @@ beta_tax_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x,
 beta_tax_plot
 # ggsave(file.path(save.dir, "./figs/beta/tax_variance.pdf"),
 #        beta_tax_plot, width = 89, height = 89, units = "mm")
+```
+
+## Composition
+### Difference in the taxonomic composition between group control and Collapsed.
+```{r, fig.align='center', fig.width=8, fig.height=4}
+subphylo <- tax_glom(phylo, 'Phylum', NArm = F)
+subphylo.rel  = transform_sample_counts(subphylo, function(x) x / sum(x))
+ntaxa(subphylo.rel)
+ra.tab <- otu_table(subphylo.rel)
+sum(ra.tab[, 1])
+subtaxa_tab <- tax_table(subphylo.rel)[, 2]
+
+# boxplot shows the community composition
+box_plot <- data.frame(subtaxa_tab, ra.tab) %>% group_by(Phylum) %>% 
+  summarise(across(everything(), sum)) %>% 
+  mutate(MRA = rowMeans(select(., colnames(ra.tab)))) %>%
+  arrange(desc(MRA)) %>% dplyr::top_n(15, MRA) %>%
+  select(., -c('MRA')) %>% 
+  mutate(Phylum = factor(Phylum, levels = Phylum)) %>%
+  tidyr::pivot_longer(cols = -c(Phylum), names_to = "sample_id", values_to = 'rel_abun') %>%
+  mutate(Group = sapply(stringr::str_split(sample_id, "_",  n = 2), `[`, 2)) %>%
+  mutate(Group = sapply(stringr::str_split(Group, "",  n = 2), `[`, 1)) %>%
+  mutate(Group = factor(Group, levels = c('C', 'T'))) %>%
+  ggplot(aes(Phylum, rel_abun*100)) + 
+  geom_boxplot(aes(fill = Group), outlier.shape = NA, width = 0.5) +
+  stat_compare_means(aes(group = Group),  paired = F, 
+                     p.adjust.method = "BH", label = "p.signif", label.y = 45) +
+  scale_y_continuous(limits=c(0, 50)) +
+  #scale_fill_manual(values= cols) +
+  labs(x = 'Phylum', y = 'Relative abundance (%)', fill='Group') +
+  main_theme
+box_plot
+# ggsave(file.path(save.dir, "./figs/composition/tax_composition_10.pdf"), box_plot, width = 189, height = 95, units = "mm")  
+```
+
+```{r, fig.align='center', fig.width=8, fig.height=4}
+bar_plot <- data.frame(subtaxa_tab, ra.tab) %>% 
+  mutate(MRA = rowMeans(select(., colnames(ra.tab)))) %>%
+  arrange(desc(MRA)) %>% dplyr::top_n(10, MRA) %>%
+  select(., -c('MRA')) %>% 
+  bind_rows(summarise_all(., ~if(is.numeric(.)) 1-sum(.) else "Other")) %>%
+  mutate(Phylum = factor(Phylum, levels = Phylum)) %>%
+  pivot_longer(cols = -c(Phylum), names_to = "Sample_name", values_to = 'rel_abun') %>%
+  right_join(metadata[, c('Sample_name', 'Gully_id', 'Group')], by = c("Sample_name")) %>%
+  select(., -c('Sample_name')) %>% 
+  group_by(Gully_id, Group, Phylum) %>%
+  dplyr::summarise(across(, mean, na.rm = TRUE)) %>%
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Group, y = 100*rel_abun, fill = Phylum))+
+  geom_bar(stat = "identity") +
+  scale_fill_brewer(palette = "Paired")+
+  scale_y_continuous(expand = c(0,0))+
+  labs(x = 'Sample', y = 'Mean relative abundance (%)') +
+  guides(fill = guide_legend(keywidth = 0.5, keyheight = 0.5)) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") + 
+  main_theme
+bar_plot
+# ggsave(file.path(save.dir, "./figs/composition/tax_composition_bar.pdf"), bar_plot, width = 120, height = 65, units = "mm")  
 ```
 
 ### Couple or decouple effect between taxonomic, phylogenetic and functional profile
@@ -413,8 +464,8 @@ taxa_barplot
 
 ### Determine the compositions within top 10 phylums for each layer
 ```{r}
-subphylo <- tax_glom(phylo, 'Phylum')
-subphylo.rel  = transform_sample_counts(subphylo, function(x) x / sum(x) )
+subphylo <- tax_glom(phylo, 'Phylum', NArm = F)
+subphylo.rel  = transform_sample_counts(subphylo, function(x) x / sum(x))
 ntaxa(subphylo.rel)
 ra.tab <- otu_table(subphylo.rel)
 sum(ra.tab[, 1])
