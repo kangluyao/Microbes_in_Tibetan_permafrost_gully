@@ -14,7 +14,7 @@ vignette: >
 ```{r setup, include = F}
 knitr::opts_chunk$set(
   collapse = T, echo = T, comment = "#>", message = F, warning = F,
-	fig.align = "center", fig.width= 4.5, fig.height = 3, dpi = 150)
+	fig.align = "center", fig.width= 4.5, fig.height = 3, dpi = 300)
 ```
 
 ## set work directory
@@ -42,7 +42,7 @@ ipak(pkgs)
 ## reading input files
 
 ```{r}
-source("script/read_data.R")
+source("script/read_rdp_data.R")
 # tree.file <- file.path(wd_fun, 'binning_70/result/gtdb_tree/bacteria/tax.unrooted.tree')
 abundance_tab.file <- file.path(wd_fun, "metabolic/METABOLIC_70_layer/METABOLIC_70_all/bin_abundance_table.tab")
 tax.file <- file.path(wd_fun, "binning_70/result/tax.txt")

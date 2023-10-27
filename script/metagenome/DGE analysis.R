@@ -46,11 +46,11 @@ d <- estimateTagwiseDisp(d)
 # Testing for differential gene expression
 et <- exactTest(object = d)
 # topTags() function is useful to extract the table with adjusted p values (FDR).
-top_degs = topTags(object = et, n = "Inf")
+top_degs <- topTags(object = et, n = "Inf")
 top_degs
 #Get a summary DGE table (returns significant genes with absolute log fold change at least 1 and adjusted p value < 0.05)
 summary(decideTests(object = et, lfc = 1))
-write.csv(as.data.frame(top_degs), file = file.path(save.dir, "tables/kegg_Collapsed_vs_control_edge.csv"))
+# write.csv(as.data.frame(top_degs), file = file.path(save.dir, "tables/kegg_Collapsed_vs_control_edge.csv"))
 # DGE Visualization
 # Create a volcano plot
 # set the plot theme
@@ -69,18 +69,18 @@ main_theme = theme_linedraw() +
         legend.key = element_blank(),
         legend.background = element_rect(colour = "white"))
 data <- top_degs %>% as.data.frame() %>% 
-  mutate(
-    Expression = case_when(logFC >= log(2) & FDR <= 0.05 ~ "Up-regulated",
+  mutate(Expression = case_when(logFC >= log(2) & FDR <= 0.05 ~ "Up-regulated",
                            logFC <= -log(2) & FDR <= 0.05 ~ "Down-regulated",
-                           TRUE ~ "Unchanged")
-  )
+                           TRUE ~ "Unchanged"))
 ggplot(data, aes(logFC, -log(FDR,10))) +
   geom_point(aes(color = Expression), size = 1) +
   xlab(expression("log"[2]*"FC")) + 
   ylab(expression("-log"[10]*"FDR")) +
   scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
   guides(colour = guide_legend(override.aes = list(size=1.5))) +
-  main_theme
+  main_theme +
+  theme(legend.background = element_blank(),
+        legend.key = element_blank())
 
 
 data <- top_degs %>% as.data.frame() %>%
@@ -97,19 +97,25 @@ ggplot(data, aes(logFC, -log(FDR,10))) +
   xlab(expression("log"[2]*"FC")) + 
   ylab(expression("-log"[10]*"FDR")) +
   scale_color_viridis_d() +
-  guides(colour = guide_legend(override.aes = list(size=1.5))) 
+  guides(colour = guide_legend(override.aes = list(size=1.5))) +
+  main_theme +
+  theme(legend.background = element_blank(),
+        legend.key = element_blank())
 
 
 
 # 2. DESeq2 analysis
-metadata$Group <- as.factor(metadata$Group)
-KEGG_dds <- DESeqDataSetFromMatrix(countData = round(ko_count_table + 1), colData=metadata, design = ~Group)
+group_df <- metadata
+rownames(group_df) <- metadata$Sample_name # make sure the colnames of count table match the rownames of group_df.
+group_df$Group <- factor(group_df$Group, levels = c("Control", "Collapsed"))
+KEGG_dds <- DESeqDataSetFromMatrix(countData = round(ko_count_table + 1), 
+                                   colData = group_df, design = ~ Group)
 KEGG_deseq <- DESeq(KEGG_dds)
 KEGG_res <- results(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Control'))
 KEGG_res$padj[is.na(KEGG_res$padj)] = 1
 KEGG_significant = rownames(KEGG_res)[(KEGG_res$padj < 0.05) & (KEGG_res$log2FoldChange > 1)]
 length(KEGG_significant)
-write.csv(as.data.frame(KEGG_res), file = 'tables/kegg_Collapsed_vs_control_deseq.csv')
+write.csv(as.data.frame(KEGG_res), file = file.path(save.dir, "tables/kegg_Collapsed_vs_control_deseq.csv"))
 # Volcano plot
 data <- KEGG_res %>% as.data.frame() %>% 
   mutate(
@@ -124,22 +130,6 @@ ggplot(data, aes(log2FoldChange, -log(padj,10))) +
   scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
   guides(colour = guide_legend(override.aes = list(size=1.5))) 
 
-
-data <- top_degs %>% as.data.frame() %>%
-  mutate(
-    Significance = case_when(
-      abs(logFC) >= log(2) & FDR <= 0.05 & FDR > 0.01 ~ "FDR 0.05", 
-      abs(logFC) >= log(2) & FDR <= 0.01 & FDR > 0.001 ~ "FDR 0.01",
-      abs(logFC) >= log(2) & FDR <= 0.001 ~ "FDR 0.001", 
-      TRUE ~ "Unchanged")
-  )
-
-ggplot(data, aes(logFC, -log(FDR,10))) +
-  geom_point(aes(color = Significance), size = 2/5) +
-  xlab(expression("log"[2]*"FC")) + 
-  ylab(expression("-log"[10]*"FDR")) +
-  scale_color_viridis_d() +
-  guides(colour = guide_legend(override.aes = list(size=1.5))) 
 
 EnhancedVolcano(KEGG_res,
                 lab = rownames(KEGG_res),

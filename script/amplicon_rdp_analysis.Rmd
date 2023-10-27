@@ -139,9 +139,7 @@ alpha_div %>% select(-c("Gully_id", "Observed", "se.chao1", "Simpson")) %>%
         axis.text.y = element_text(color = "black", size = 10),
         legend.position = "none",
         axis.ticks = element_line(color = "black", linewidth = 1))
-  
 ```
-
 ## Beta diversity
 ```{r, fig.align='center', fig.width=6, fig.height=3}
 library(vegan)
