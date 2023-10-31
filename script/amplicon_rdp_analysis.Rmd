@@ -170,7 +170,7 @@ sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x, metadata$Sample_
 ```
 
 ```{r}
-#permanova, ANOSIM and MRPP analysis
+# permanova, ANOSIM and MRPP analysis
 library(vegan)
 adonis2(tax_dist ~ Group, data = metadata)
 mrpp(tax_dist, metadata$Group, perm = 999)
@@ -234,7 +234,7 @@ beta_tax_plot
 ## Composition
 ### Difference in the taxonomic composition between group control and Collapsed.
 ```{r, fig.align='center', fig.width=8, fig.height=4}
-#extract the taxa at phylum level
+# extract the taxa at phylum level
 subphylo <- tax_glom(phylo, 'Phylum', NArm = F)
 subphylo.rel  = transform_sample_counts(subphylo, function(x) x / sum(x))
 ntaxa(subphylo.rel)
@@ -242,7 +242,7 @@ ra.tab <- otu_table(subphylo.rel)
 sum(ra.tab[, 1])
 subtaxa_tab <- tax_table(subphylo.rel)[, 2]
 
-#extract the taxa at class level
+# extract the taxa at class level
 subphylo_class <- tax_glom(phylo, 'Class', NArm = F)
 subphylo.class.rel  = transform_sample_counts(subphylo_class, function(x) x / sum(x))
 ntaxa(subphylo.class.rel)
@@ -325,7 +325,7 @@ phyla_tab <- otu_final_tab %>%
 vars <- colnames(phyla_tab)
 phyla_tab <- data.frame(metadata[, c(3, 4)], phyla_tab)
 
-#determine the mean, standard deviations, standard errors for each phylum
+# determine the mean, standard deviations, standard errors for each phylum
 avg_abun_in_control <- phyla_tab %>% select(-c("Gully_id")) %>%
     group_by(Group) %>% 
     summarise(across(where(is.numeric), list(mean = ~mean(., na.rm = T), 
@@ -356,12 +356,12 @@ avg_abun_in_control_plot <- avg_abun_in_control%>%
 ```
 ### test the difference in abundance of main taxa using liner models
 ```{r}
-#determine the effect size of the permafrost thawing on each phylum
+# determine the effect size of the permafrost thawing on each phylum
 phyla_tab_scale <- phyla_tab %>% 
   mutate(across(where(is.numeric), scale)) %>%
   mutate(Group = factor(Group, levels = c("Control", "Collapsed")))
 
-#codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
+# codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
 phylaS1 <- sapply(3:ncol(phyla_tab_scale), function(j) {
     message("Now j=", j, " in ", ncol(phyla_tab_scale), ". ", date())
     if (length(unique(phyla_tab_scale[, j])) < 3) {
@@ -431,4 +431,175 @@ library(aplot) # Decorate a 'ggplot' with Associated Information
 avg_abun_in_control_plot %>% insert_right(eff_siz_tax_plot, width = 2)
 ```
 
-##  Produce the Figure 1
+##  Network analysis
+```{r}
+# loading packages
+pacman::p_load(microeco, file2meco, igraph, WGCNA, rgexf)
+# construct the phyloseq projects for control and collapsed groups
+ctrl_phylo <- subset_samples(phylo, Group == "Control")
+ctrl_phylo <- prune_taxa(taxa_sums(ctrl_phylo) > 0, ctrl_phylo) 
+collap_phylo <- subset_samples(phylo, Group == "Collapsed")
+collap_phylo <- prune_taxa(taxa_sums(collap_phylo) > 0, collap_phylo)
+
+# transform the phyloseq objects to microeco objects
+meco_ctrl_obj <- phyloseq2meco(ctrl_phylo)
+meco_collap_obj <- phyloseq2meco(collap_phylo)
+
+# determine the adjacency matrixes
+t1 <- trans_network$new(dataset = meco_ctrl_obj, cal_cor = "WGCNA", taxa_level = "OTU", filter_thres = 0.0001, cor_method = "spearman")
+t2 <- trans_network$new(dataset = meco_collap_obj, cal_cor = "WGCNA", taxa_level = "OTU", filter_thres = 0.0001, cor_method = "spearman")
+
+# use arbitrary coefficient threshold to contruct network
+t1$cal_network(COR_p_thres = 0.01, COR_cut = 0.7)
+t2$cal_network(COR_p_thres = 0.01, COR_cut = 0.7)
+
+# invoke igraph cluster_fast_greedy function for this undirected network 
+t1$cal_module(method = "cluster_fast_greedy")
+t2$cal_module(method = "cluster_fast_greedy")
+
+# require rgexf package to be installed
+t1$save_network(filepath = file.path(save.dir, "./figs/ctrl_network.gexf"))
+t2$save_network(filepath = file.path(save.dir, "./figs/collapsed_network.gexf"))
+
+# calculate network attributes
+t1$cal_network_attr()
+t2$res_network_attr()
+```
+
+
+```{r, fig.align='center', fig.width=6.5, fig.height=4.5}
+# get node properties
+t1$get_node_table(node_roles = TRUE)
+t2$get_node_table(node_roles = TRUE)
+# return t1$res_node_table
+
+# get edge properties
+t1$get_edge_table()
+t2$get_edge_table()
+# return t1$res_edge_table 
+t1$get_adjacency_matrix()
+t2$get_adjacency_matrix()
+# return t1$res_adjacency_matrix
+
+# add_label = TRUE can be used to directly add text label for points
+t1$plot_taxa_roles(use_type = 1)
+t2$plot_taxa_roles(use_type = 1)
+```
+
+```{r, fig.align='center', fig.width=6.5, fig.height=5}
+# plot node roles with phylum information
+t1$plot_taxa_roles(use_type = 2)
+t2$plot_taxa_roles(use_type = 2)
+```
+### Network robustness test
+```{r}
+# Network attack analysis
+# Libraries
+pacman::p_load(SpiecEasi, reshape2, phyloseq, igraph)
+# get the igraph objects
+ig.ctrl <- t1$res_network
+ig.collapsed <- t2$res_network
+# calculating the natural connectivity from adjacency matrix
+ncc <- function(ig) {
+  evals <- eigen(ig)$value
+  nc <- log(mean(exp(evals)))
+}
+
+# calculating the natural connectivity from adjacency matrix of a graph
+natcon <- function(ig) {
+  adj <- get.adjacency(ig)
+  evals <- eigen(adj)$value
+  nc <- log(mean(exp(evals)))
+}
+
+# targeted attack ordered by betweenness
+nc.attackbetweenness <- function(ig) {
+  hubord <- order(rank(betweenness(ig)), decreasing=TRUE)
+  sapply(1:round(vcount(ig)*.8), function(i) {
+    ind <- hubord[1:i]
+    tmp <- delete_vertices(ig, V(ig)$name[ind])
+    natcon(tmp)
+  })
+}
+
+# Targeted attack ordered by node degree.
+nc.attackdegree <- function(ig) {
+  hubord <- order(rank(degree(ig)), decreasing=TRUE)
+  sapply(1:round(vcount(ig)*.8), function(i) {
+    ind <- hubord[1:i]
+    tmp <- delete_vertices(ig, V(ig)$name[ind])
+    natcon(tmp)
+  })
+}
+
+
+# Node removals
+attack<-function (adj.mat, node.sup)
+{
+  n.nodes <- dim(adj.mat)[1]
+  adj.mat[node.sup, ] <- rep(0, n.nodes)
+  adj.mat[, node.sup] <- rep(0, n.nodes)
+  nc<-ncc(adj.mat)
+  list(new.mat = adj.mat, nc=nc)
+}
+
+
+ctrl.nc.deg.rmt <- nc.attackdegree(ig.ctrl)
+ctrl.nc.bet.rmt <- nc.attackbetweenness(ig.ctrl)
+
+collapsed.nc.deg.rmt <- nc.attackdegree(ig.collapsed)
+collapsed.nc.bet.rmt <- nc.attackbetweenness(ig.collapsed)
+
+ctrl.nc.deg.rmt <- cbind(rm_pro = c(1:length(ctrl.nc.deg.rmt))/vcount(ig.ctrl), nat.connet = ctrl.nc.deg.rmt)
+ctrl.nc.bet.rmt <- cbind(rm_pro = c(1:length(ctrl.nc.bet.rmt))/vcount(ig.ctrl), nat.connet = ctrl.nc.bet.rmt)
+
+collapsed.nc.deg.rmt <- cbind(rm_pro = c(1:length(collapsed.nc.deg.rmt))/vcount(ig.collapsed), nat.connet = collapsed.nc.deg.rmt)
+collapsed.nc.bet.rmt <- cbind(rm_pro = c(1:length(collapsed.nc.bet.rmt))/vcount(ig.collapsed), nat.connet = collapsed.nc.bet.rmt)
+
+
+write.table(ctrl.nc.deg.rmt, file.path(save.dir, "./tables/ctrl-deg-att-rmt.txt"),
+            sep="\t", quote=F, row.names = T, col.names = T)
+write.table(ctrl.nc.bet.rmt, file.path(save.dir, "./tables/ctrl-bet-att-rmt.txt"),
+            sep="\t", quote=F, row.names = T, col.names = T)
+write.table(collapsed.nc.deg.rmt, file.path(save.dir, "./tables/collapsed-deg-att-rmt.txt"), 
+            sep="\t", quote=F, row.names = T, col.names = T)
+write.table(collapsed.nc.bet.rmt, file.path(save.dir, "./tables/collapsed-bet-att-rmt.txt"),
+            sep="\t", quote=F, row.names = T, col.names = T)
+```
+
+```{r, fig.align='center', fig.width=6, fig.height=3.5}
+robut.df.rmt <- data.frame(rbind(cbind(Group = rep('Control', sum(nrow(ctrl.nc.deg.rmt), nrow(ctrl.nc.bet.rmt))),
+                                       type = c(rep('Proportion of removed nodes', nrow(ctrl.nc.deg.rmt)), 
+                                                rep('Proportion of removed betweenness', nrow(ctrl.nc.bet.rmt))),
+                                       nat.connet = rbind(ctrl.nc.deg.rmt, ctrl.nc.bet.rmt)),
+                                 cbind(Group = rep('Collapsed', sum(nrow(collapsed.nc.deg.rmt), nrow(collapsed.nc.bet.rmt))),
+                                       type = c(rep('Proportion of removed nodes', nrow(collapsed.nc.deg.rmt)), 
+                                                rep('Proportion of removed betweenness', nrow(collapsed.nc.bet.rmt))),
+                                       nat.connet = rbind(collapsed.nc.deg.rmt, collapsed.nc.bet.rmt))))
+robut.df.rmt$Group <- factor(robut.df.rmt$Group, ordered = T, 
+                              levels = c('Control', 'Collapsed'))
+robut.df.rmt$type <- factor(robut.df.rmt$type, ordered = T, 
+                            levels = c('Proportion of removed nodes', 'Proportion of removed betweenness'))
+
+robut.df.rmt$rm_pro <- as.numeric(robut.df.rmt$rm_pro)
+robut.df.rmt$nat.connet <- as.numeric(robut.df.rmt$nat.connet)
+
+robutness_test_plot_rmt <- ggplot(robut.df.rmt, aes(x = rm_pro, y = nat.connet, colour = Group))+
+  geom_point() +
+  scale_color_manual(values= c('#1b9e77', '#d95f02')) +
+  labs(x = NULL, y = 'Natural connectivity') +
+  facet_wrap(~type, scales = 'free') +
+  theme_bw() +
+  theme(strip.text = element_text(size = 10),
+        axis.line = element_line(colour = "black"),
+        axis.title = element_text(size = 12, colour = 'black'),
+        axis.text = element_text(size = 10, colour = 'black'),
+        axis.text.x = element_text(colour='black', size = 10, 
+                                   angle = 45, hjust = 1),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 10),
+        legend.position = c(0.9, 0.8),
+        legend.background = element_blank(),
+        panel.grid = element_blank())
+robutness_test_plot_rmt
+```

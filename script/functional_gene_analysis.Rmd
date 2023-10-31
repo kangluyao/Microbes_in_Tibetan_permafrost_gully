@@ -30,11 +30,7 @@ save.dir <- file.path(getwd(),"result")
 
 Loading packages
 ```{r}
-library(tidyverse)
-library(ggrepel)
-library(EnhancedVolcano)
-library(edgeR)
-library(DESeq2)
+pacman::p_load(tidyverse, ggrepel, EnhancedVolcano, edgeR, DESeq2)
 ```
 
 Data input
@@ -42,7 +38,9 @@ Data input
 source("script/read_data_rdp.R")
 ```
 
-## 1. edgeR analysis. reference:https://www.reneshbedre.com/blog/edger-tutorial.html
+## Differential analysis of functional gene profiles
+### 1. edgeR analysis.
+Reference:https://www.reneshbedre.com/blog/edger-tutorial.html
 ```{r}
 #The field in the class definition file that defines the classes of the data.
 data_classes <- "Group"
@@ -88,61 +86,42 @@ summary(decideTests(object = et, lfc = 1))
 ```
 
 DGE Visualization
-```{r}
+```{r, fig.align='center', fig.width=5.5, fig.height=4}
 # Create a volcano plot
 ## set the plot theme
 main_theme = theme_linedraw() + 
-  theme(panel.grid=element_blank(), 
-        strip.text = element_text(colour = 'black', size = 12),
+  theme(panel.grid=element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 10),
         strip.background = element_rect(colour = 'grey', fill = 'grey'),
-        axis.title = element_text(color = 'black',size = 14),
-        axis.ticks.length = unit(0.4,"lines"), axis.ticks = element_line(color = 'black'),
+        axis.title = element_text(color = 'black',size = 12),
+        axis.ticks = element_line(color = "black", linewidth = 1),
         axis.line = element_line(colour = "black"), 
-        axis.text.y = element_text(colour = 'black', size = 12),
-        axis.text.x = element_text(colour = 'black', size = 12),
-        legend.position = c(0.15, 0.9),
-        legend.title = element_blank(),
-        legend.text = element_text(size = 12),
+        axis.text.y = element_text(colour = 'black', size = 10),
+        axis.text.x = element_text(colour = 'black', size = 10),
+        legend.title = element_text(size = 10),
+        legend.text = element_text(size = 8),
         legend.key = element_blank(),
-        legend.background = element_rect(colour = "white"))
-data <- top_degs %>% as.data.frame() %>% 
+        legend.background = element_blank())
+data_edger <- top_degs %>% as.data.frame() %>% 
   mutate(Expression = case_when(logFC >= log(2) & FDR <= 0.05 ~ "Up-regulated",
                            logFC <= -log(2) & FDR <= 0.05 ~ "Down-regulated",
                            TRUE ~ "Unchanged"))
-ggplot(data, aes(logFC, -log(FDR,10))) +
+volca_plot_edger <- ggplot(data_edger, aes(logFC, -log(FDR,10))) +
   geom_point(aes(color = Expression), size = 1) +
   xlab(expression("log"[2]*"FC")) + 
   ylab(expression("-log"[10]*"FDR")) +
-  scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
+  scale_color_manual(values = c("#79ceb8", "gray70", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   guides(colour = guide_legend(override.aes = list(size=1.5))) +
   main_theme +
   theme(legend.background = element_blank(),
-        legend.key = element_blank())
+        legend.key = element_blank(),
+        legend.position = c(0.15, 0.85))
+volca_plot_edger
 ```
 
-```{r}
-data <- top_degs %>% as.data.frame() %>%
-  mutate(
-    Significance = case_when(
-      abs(logFC) >= log(2) & FDR <= 0.05 & FDR > 0.01 ~ "FDR 0.05", 
-      abs(logFC) >= log(2) & FDR <= 0.01 & FDR > 0.001 ~ "FDR 0.01",
-      abs(logFC) >= log(2) & FDR <= 0.001 ~ "FDR 0.001", 
-      TRUE ~ "Unchanged"))
-
-ggplot(data, aes(logFC, -log(FDR,10))) +
-  geom_point(aes(color = Significance), size = 2/5) +
-  xlab(expression("log"[2]*"FC")) + 
-  ylab(expression("-log"[10]*"FDR")) +
-  scale_color_viridis_d() +
-  guides(colour = guide_legend(override.aes = list(size=1.5))) +
-  main_theme +
-  theme(legend.background = element_blank(),
-        legend.key = element_blank())
-```
-
-
-## 2. DESeq2 analysis
-```{r}
+### 2. DESeq2 analysis
+```{r, fig.align='center', fig.width=5.5, fig.height=4}
 group_df <- metadata
 rownames(group_df) <- metadata$Sample_name # make sure the colnames of count table match the rownames of group_df.
 group_df$Group <- factor(group_df$Group, levels = c("Control", "Collapsed"))
@@ -152,31 +131,52 @@ KEGG_deseq <- DESeq(KEGG_dds)
 KEGG_res <- results(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Control'))
 KEGG_res$padj[is.na(KEGG_res$padj)] = 1
 KEGG_significant = rownames(KEGG_res)[(KEGG_res$padj < 0.05) & (KEGG_res$log2FoldChange > 1)]
-length(KEGG_significant)
-write.csv(as.data.frame(KEGG_res), file = file.path(save.dir, "tables/kegg_Collapsed_vs_control_deseq.csv"))
+# write.csv(as.data.frame(KEGG_res), file = file.path(save.dir, "tables/kegg_Collapsed_vs_control_deseq.csv"))
 # Volcano plot
-data <- KEGG_res %>% as.data.frame() %>% 
+data_deseq2 <- KEGG_res %>% as.data.frame() %>% 
   mutate(
     Expression = case_when(log2FoldChange >= log(2) & padj <= 0.05 ~ "Up-regulated",
                            log2FoldChange <= -log(2) & padj <= 0.05 ~ "Down-regulated",
                            TRUE ~ "Unchanged")
   )
-ggplot(data, aes(log2FoldChange, -log(padj,10))) +
-  geom_point(aes(color = Expression), size = 2/5) +
+volca_plot_deseq2 <- ggplot(data_deseq2, aes(log2FoldChange, -log(padj,10))) +
+  geom_point(aes(color = Expression), size = 1) +
   xlab(expression("log"[2]*"FC")) + 
   ylab(expression("-log"[10]*"padj")) +
-  scale_color_manual(values = c("dodgerblue3", "gray50", "firebrick3")) +
-  guides(colour = guide_legend(override.aes = list(size=1.5))) 
-
-
-EnhancedVolcano(KEGG_res,
-                lab = rownames(KEGG_res),
-                pCutoff = 0.05,
-                FCcutoff = 1,
-                col = c("grey", "grey30", "grey30", "#23A671"),
-                x = 'log2FoldChange',
-                title = NULL,
-                subtitle = NULL,
-                caption = NULL,
-                y = 'padj')
+  scale_color_manual(values = c("#79ceb8", "gray70", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  guides(colour = guide_legend(override.aes = list(size = 1.5))) +
+  main_theme +
+  theme(legend.background = element_blank(),
+        legend.key = element_blank(),
+        legend.position = c(0.15, 0.85))
+volca_plot_deseq2
 ```
+
+## Extract the Up-regulated and Down-regulated genes within data_edger data
+```{r}
+up_KOs <- data_edger %>% filter(Expression %in% "Up-regulated") %>%
+  rownames(.)
+down_KOs <- data_edger %>% filter(Expression %in% "Down-regulated") %>%
+  rownames(.)
+
+ko_9_levels <- read.delim(file.path(wd_fun, "/ko_9_levels.txt"), header = T, sep = "\t")
+
+up_df <- data_edger %>% 
+  mutate(KO = rownames(.)) %>%
+  filter(Expression %in% "Up-regulated") %>%
+  inner_join(ko_9_levels, ky = "KO") %>%
+  select("KO", "Description", "L2", "L3", "PathwayID") %>%
+  left_join(cbind(KO = rownames(ko_tpm_table), ko_tpm_table), by = "KO")
+
+down_df <- data_edger %>% 
+  mutate(KO = rownames(.)) %>%
+  filter(Expression %in% "Down-regulated") %>%
+  inner_join(ko_9_levels, ky = "KO") %>%
+  select("KO", "Description", "L2", "L3", "PathwayID") %>%
+  left_join(cbind(KO = rownames(ko_tpm_table), ko_tpm_table), by = "KO")
+
+```
+
+```{r}
+
+
