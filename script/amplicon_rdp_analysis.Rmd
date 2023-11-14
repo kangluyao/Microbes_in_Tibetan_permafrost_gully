@@ -28,70 +28,26 @@ save.dir <- file.path(getwd(),"result")
 ```
 Loading packages
 ```{r}
-library(phyloseq)
-library(ape)
-library(vegan)
-library(Biostrings)
-library(microbiome)
-library(tidyverse)
+pacman::p_load(phyloseq, ape, vegan, Biostrings, microbiome, tidyverse)
 ```
 Data input
 ```{r}
 source("script/read_data_rdp.R")
 ```
 
-## Alpha diversity
+## Diversity analysis
 
-Determine the alpha diversity including **Observed**, **Chao1**, **Shannon** and **Simpson**.
+Determine the alpha diversity including **Observed**, **Chao1**, **Shannon**, **Simpson**, **Faith index**, and beta diversity.
 
 ```{r}
 alpha_div <- estimate_richness(phylo_rare, measures = c("Observed", "Chao1", 'Shannon', 'Simpson'))
 library(picante)
 pd <- pd(t(otu), tree, include.root = F) # estimate the phylogenetic diversity
-alpha_div <- cbind(metadata[, c('Gully_id', 'Group')], alpha_div, Faith = pd$PD,
-                   Evenness = alpha_div$Shannon/log(alpha_div$Observed)) %>%
+tax_dist <-vegdist(t(otu), "bray" )
+mod1<-betadisper(tax_dist,metadata$Group)
+div_table <- cbind(metadata[, c('Gully_id', 'Group')], alpha_div, Faith = pd$PD, Distance = mod1$distances, Evenness = alpha_div$Shannon/log(alpha_div$Observed)) %>%
   mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')))
-```
-
-Box plot for alpha index using ggplot2
-
-```{r, fig.align='center', fig.width=7.5, fig.height=6.2}
-library(ggpubr)
-library(ggplot2)
-main_theme = theme_linedraw() + 
-  theme(panel.grid=element_blank(),
-        panel.border = element_rect(size = 0.5),
-        strip.text = element_text(colour = 'black', size = 10),
-        strip.background = element_rect(colour = 'grey', fill = 'grey'),
-        axis.title = element_text(color = 'black',size = 12),
-        axis.ticks = element_line(color = "black", linewidth = 1),
-        axis.line = element_line(colour = "black"), 
-        axis.text.y = element_text(colour = 'black', size = 10),
-        axis.text.x = element_text(colour = 'black', size = 10, angle = 45, hjust = 1),
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        legend.key = element_blank(),
-        legend.background = element_blank())
-# box plot
-my_comparisons <- list(c('Control', 'Collapsed'))
-alpha_div_plot <- alpha_div %>% 
-  select(c("Gully_id", "Group", "Chao1", "Evenness", "Shannon", "Faith")) %>%
-  gather(diversity, values, -c("Gully_id", "Group")) %>%
-  ggplot(aes(x = Group, y = values)) + 
-  geom_boxplot(width = 0.5, aes(fill = Group), outlier.shape = NA) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
-  stat_compare_means(comparisons = my_comparisons, paired = F,
-                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
-                     size = 4.5, tip.length = 0.00, method = "wilcox.test") +
-  labs(x = 'Group', y = NULL, fill= 'Group') +
-  facet_grid(diversity ~ Gully_id, scales = "free", space = "free_x") +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  main_theme +
-  theme(panel.spacing = unit(0, "lines"))
-# ggsave(file.path(save.dir, "./figs/alpha/alpha_boxplot_evenness.pdf"), 
-#        p, width = 89, height = 89, units = "mm")
-alpha_div_plot
 ```
 
 Linear mixed models test the effect of collapsed and gully_id
@@ -99,48 +55,98 @@ Linear mixed models test the effect of collapsed and gully_id
 ```{r}
 library(lme4)
 library(car)
-fm1 <- lmer(Chao1 ~ Group + (1 | Gully_id), data = alpha_div)
+fm1 <- lmer(Chao1 ~ Group + (1 | Gully_id), data = div_table)
 summary(fm1)
 car::Anova(fm1, type = 2)
+```
 
-fm2 <- lmer(Evenness ~ Group + (1 | Gully_id), data = alpha_div)
+```{r}
+fm2 <- lmer(Evenness ~ Group + (1 | Gully_id), data = div_table)
 summary(fm2)
 car::Anova(fm2, type = 2)
+```
 
-fm3 <- lmer(Shannon ~ Group + (1 | Gully_id), data = alpha_div)
+```{r}
+fm3 <- lmer(Shannon ~ Group + (1 | Gully_id), data = div_table)
 summary(fm3)
 car::Anova(fm3, type = 2)
+```
 
-fm4 <- lmer(Faith ~ Group + (1 | Gully_id), data = alpha_div)
+```{r}
+fm4 <- lmer(Faith ~ Group + (1 | Gully_id), data = div_table)
 summary(fm4)
 car::Anova(fm4, type = 2)
 ```
-## Plot
-```{r, fig.align='center', fig.width=5, fig.height=6}
-library(gghalves)
-alpha_div %>% select(-c("Gully_id", "Observed", "se.chao1", "Simpson")) %>%
-  gather(diversity, value, -c("Group")) %>% 
-  # mutate(diversity = factor(diversity, levels(c("Chao1", "Evenness", "Shannon", "Faith")))) %>%
-  ggplot(aes(Group, value, fill = Group)) +
-  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
-  geom_boxplot(width = 0.4, size = 1, outlier.color = NA) +
-  geom_jitter(aes(fill = Group), shape = 21, size = 2.5, width = 0.2) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
-  stat_compare_means(comparisons = my_comparisons, paired = F,
-                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
-                     size = 4.5, tip.length = 0.00, method = "wilcox.test") +
-  labs(x = NULL, y = NULL) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  facet_wrap(~diversity, scales = "free_y", ncol = 2) +
-  theme_bw() +
+
+```{r}
+fm5 <- lmer(Distance ~ Group + (1 | Gully_id), data = div_table)
+summary(fm5)
+car::Anova(fm5, type = 2)
+```
+
+Box plot for alpha index using ggplot2
+
+```{r, fig.align='center', fig.width=7.5, fig.height=6.2}
+library(ggpubr)
+library(ggplot2)
+main_theme = theme_bw() + 
   theme(panel.grid = element_blank(),
         panel.border = element_rect(size = 0.5),
-        axis.text.x = element_text(color = "black", size = 10),
-        axis.text.y = element_text(color = "black", size = 10),
-        legend.position = "none",
-        axis.ticks = element_line(color = "black", linewidth = 1))
+        strip.text = element_text(colour = 'black', size = 6),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 6),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.position = "none")
+# box plot
+my_comparisons <- list(c('Control', 'Collapsed'))
+div_gully_plot <- div_table %>% 
+  select(c("Gully_id", "Group", "Chao1", "Evenness", "Shannon", "Faith", "Distance")) %>%
+  gather(diversity, values, -c("Gully_id", "Group")) %>%
+  mutate(diversity = factor(diversity, levels = c("Chao1", "Evenness", "Shannon", "Faith", "Distance"))) %>%
+  ggplot(aes(x = Group, y = values)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group), outlier.shape = NA) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = 'Group', y = NULL, fill= 'Group') +
+  facet_grid(diversity ~ Gully_id, scales = "free", space = "free_x") +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  main_theme +
+  theme(panel.spacing = unit(0, "lines"),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+# ggsave(file.path(save.dir, "./figs/alpha/alpha_boxplot_evenness.pdf"), 
+#        p, width = 89, height = 89, units = "mm")
+div_gully_plot
 ```
-## Beta diversity
+
+## Plot
+```{r, fig.align='center', fig.width=5, fig.height=2.5}
+library(gghalves)
+div_plot <- div_table %>% select(-c("Gully_id", "Observed", "se.chao1", "Simpson", "Faith", "Shannon")) %>%
+  gather(diversity, value, -c("Group")) %>% 
+  mutate(diversity = factor(diversity, levels = c("Chao1", "Evenness", "Distance"))) %>%
+  ggplot(aes(Group, value, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
+  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~diversity, scales = "free_y", ncol = 3) +
+  main_theme
+
+ggsave(file.path(save.dir, "./figs/diversity/diversity_plot.pdf"),
+       div_plot, width = 4.5, height = 2, units = "in")
+div_plot
+```
+
+## Beta diversity determined by bray-cuties distance
 ```{r, fig.align='center', fig.width=6, fig.height=3}
 library(vegan)
 # determine the dissimilarity matrix based on the bray-curties distance
@@ -148,7 +154,7 @@ tax_dist <-vegdist(t(otu), "bray" )
 # difference in taxonomic variance among Group
 my_comparisons <- list(c('Control', 'Collapsed'))
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
-sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x, metadata$Sample_name, value = T))) %>%
+beta_tax_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x,metadata$Sample_name, value = T))) %>%
   data.frame() %>%  gather("tem_group", "distance") %>% 
   cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
         Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
@@ -159,14 +165,16 @@ sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x, metadata$Sample_
   geom_boxplot(width = 0.5, aes(fill = Group)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   stat_compare_means(comparisons = my_comparisons, paired = F,
-                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
-                     size = 4.5, tip.length = 0.00, method = "wilcox.test") +
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
   labs(x = 'Group', y = 'Bray-Curties distance', fill = 'Group') +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
-  main_theme
+  main_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 # ggsave(file.path(save.dir, "./figs/beta/tax_variance.pdf"),
-#        beta_tax_plot, width = 89, height = 89, units = "mm")
+#        beta_tax_plot, width = 7.6, height = 2.5, units = "in")
+beta_tax_plot
 ```
 
 ```{r}
@@ -203,32 +211,31 @@ pcoa_tax_plot <- data.frame(Group = metadata$Group, scores(ord.tax)) %>%
 #        pcoa_tax_plot, width = 89, height = 59, units = "mm")
 pcoa_tax_plot
 ```
-
-### Difference in taxonomic variance among layers
-```{r, fig.align='center', fig.width=6, fig.height=3}
-my_comparisons <- list(c('Control', 'Collapsed'))
-vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
-beta_tax_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x, metadata$Sample_name, value = T))) %>%
-  data.frame() %>%  gather("tem_group", "distance") %>% 
-  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
-        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
-  select(., -c('tem_group')) %>% 
-  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
-  ggplot(aes(x = Group, y = distance)) + 
-  geom_boxplot(width = 0.5, aes(fill = Group)) +
+##average variation degree，AVD
+```{r}
+#计算各 OTU 的变异度
+ai <- abs(otu-apply(otu, 1, mean))/apply(otu, 1, sd)
+ 
+#由于此时计算的是单个样本的 AVD，即 k=1
+avd <- colSums(ai)/(1*nrow(otu))
+ 
+#读取分组，合并数据并简单可视化
+AVD_plot <- data.frame(Group = metadata$Group, AVD = avd) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  ggplot(aes(Group, AVD, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
+  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
   stat_compare_means(comparisons = my_comparisons, paired = F,
-                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
-                     size = 4.5, tip.length = 0.00, method = "wilcox.test") +
-  # scale_fill_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
-  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
-  labs(x = 'Group', y = 'Bray-Curties distance', fill='Group') +
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = NULL, y = "Average variation degree") +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   main_theme
-# ggsave(file.path(save.dir, "./figs/beta/tax_variance.pdf"),
-#        beta_tax_plot, width = 89, height = 89, units = "mm")
-beta_tax_plot
+# ggsave(file.path(save.dir, "./figs/alpha/AVD_plot.pdf"), 
+#        p, width = 89, height = 89, units = "mm")
+AVD_plot
 ```
 
 ## Composition
@@ -283,7 +290,8 @@ box_plot <- otu_final_tab %>%
   scale_y_continuous(limits=c(0, 50)) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   labs(x = 'Phylum', y = 'Relative abundance (%)', fill = 'Group') +
-  main_theme
+  main_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 # ggsave(file.path(save.dir, "./figs/composition/tax_composition_10.pdf"), box_plot, width = 189, height = 95, units = "mm")
 box_plot
 ```
@@ -345,14 +353,10 @@ avg_abun_in_control_plot <- avg_abun_in_control%>%
            fill= '#FFF6E1', colour = 'black', width = 0.7) +
   geom_errorbar(aes(ymin = mean, ymax = mean + se), width=.2,  position = position_dodge(0.7)) +
   labs(x = NULL, y = 'Mean relative abundance (%)') +
-  theme_bw() + coord_flip() + scale_y_reverse() +
-  theme(legend.position = NULL,
-        panel.grid = element_blank(), 
-        axis.ticks.y = element_blank(),
-        axis.line = element_line(colour = "black"), 
-        axis.text.y = element_blank(),
-        axis.text.x = element_text(colour = 'black', size = 12)
-  )
+  main_theme + coord_flip() + scale_y_reverse() +
+  theme(axis.ticks.y = element_blank(),
+        axis.text.y = element_blank()
+        )
 ```
 ### test the difference in abundance of main taxa using liner models
 ```{r}
@@ -403,7 +407,7 @@ eff_siz_tax_plot <- phylaS1 %>%
   mutate(Phylum = factor(Phylum, levels = avg_abun_in_control$Phylum)) %>%
   ggplot(aes(x = Phylum, y = GroupCollapsed.mean, color = Phylum)) +
   geom_hline(aes(yintercept =0), size=0.7,  colour="gray2")+
-  geom_point(size = 4) +
+  geom_point(size = 3) +
   geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
                     ymax = GroupCollapsed.mean + GroupCollapsed.se), 
                 width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
@@ -414,192 +418,82 @@ eff_siz_tax_plot <- phylaS1 %>%
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
   annotate("rect", xmin = 0, xmax = 24.5, ymin = -2, ymax = 2, alpha = 0.2,fill="#FAE3AD") +
-  theme(strip.background = element_rect(fill=c("#FFF6E1")), 
-        strip.text = element_text(size = 12,face = 'bold',colour = "#B8733A"),
-        axis.text = element_text(colour = 'black', size = 12),
-        panel.grid = element_blank(),
-        legend.position = 'none')
+  main_theme +
+  theme(strip.background = element_rect(fill=c("#FFF6E1")))
 ```
 
 Combine plots
 ```{r, fig.align='center', fig.width=6.5, fig.height=6.5}
-library(cowplot)
-# ggdraw() +
-#   draw_plot(eff_siz_tax_plot, x = 0, y = 0, width = 0.65, height = 1) +
-#   draw_plot(avg_abun_in_control_plot, x = 0.65, y = 0, width = 0.35, height = 1)
 library(aplot) # Decorate a 'ggplot' with Associated Information
-avg_abun_in_control_plot %>% insert_right(eff_siz_tax_plot, width = 2)
+diff_comp_plot <- avg_abun_in_control_plot %>% insert_right(eff_siz_tax_plot, width = 2)
+ggsave(file.path(save.dir, "./figs/composition/diff_comp_plot.pdf"),
+       diff_comp_plot, width = 4, height = 4.5, units = "in")
+diff_comp_plot
 ```
 
-##  Network analysis
+## determine the community-level rrn copies
 ```{r}
-# loading packages
-pacman::p_load(microeco, file2meco, igraph, WGCNA, rgexf)
-# construct the phyloseq projects for control and collapsed groups
-ctrl_phylo <- subset_samples(phylo, Group == "Control")
-ctrl_phylo <- prune_taxa(taxa_sums(ctrl_phylo) > 0, ctrl_phylo) 
-collap_phylo <- subset_samples(phylo, Group == "Collapsed")
-collap_phylo <- prune_taxa(taxa_sums(collap_phylo) > 0, collap_phylo)
+classified <- readLines("E:/thermokarst_gully/data/16S/rrnDB/classified.txt")
+rrn <- read.delim("E:/thermokarst_gully/data/16S/rrnDB/rrnDB-5.8_pantaxa_stats_RDP/rrnDB-5.8_pantaxa_stats_RDP.tsv", header=TRUE)
+rrn2 <- data.frame(rank = rrn$rank,name = rrn$name,mean = rrn$mean)
+# get taxonomy annotation of each OTUID from variable "classified"
+strwhich <- function(xstr) {  
+  str <- strsplit(xstr,"\t")[[1]]
+  return (c(str[1],str[which(str %in% c("genus","family","order","class","phylum","domain"))-1]))
+}
+a <- lapply(classified,strwhich)
 
-# transform the phyloseq objects to microeco objects
-meco_ctrl_obj <- phyloseq2meco(ctrl_phylo)
-meco_collap_obj <- phyloseq2meco(collap_phylo)
+# get rrn copies by mapping taxonomy information of each OTUID to rrn database
+maptax2rnn <- function(xstr){  
+  n <- tail(which(unlist(lapply(xstr,function(x) x%in%rrn2$name))),1)
+  return(c(xstr[1],rrn2$mean[which(rrn2$name == xstr[n])[1]]))
+}
 
-# determine the adjacency matrixes
-t1 <- trans_network$new(dataset = meco_ctrl_obj, cal_cor = "WGCNA", taxa_level = "OTU", filter_thres = 0.0001, cor_method = "spearman")
-t2 <- trans_network$new(dataset = meco_collap_obj, cal_cor = "WGCNA", taxa_level = "OTU", filter_thres = 0.0001, cor_method = "spearman")
+# transform the data type to matrix
+b <- lapply(a, maptax2rnn)       
+res <- data.frame(matrix(unlist(b),nrow=length(b),ncol=length(b[[1]]), byrow = TRUE))
+colnames(res)<-c("OTUID","rrn_copies")
+# write.table(res,"E:/thermokarst_gully/data/16S/rrnDB/rnn_predict.txt",
+#             sep="\t",row.names=FALSE,col.names=TRUE,quote=FALSE)
 
-# use arbitrary coefficient threshold to contruct network
-t1$cal_network(COR_p_thres = 0.01, COR_cut = 0.7)
-t2$cal_network(COR_p_thres = 0.01, COR_cut = 0.7)
+rrn_otu <- otu %>% data.frame() %>%
+  rownames_to_column(var = "OTUID") %>%
+  left_join(res, by = "OTUID") %>%
+  column_to_rownames(var = "OTUID")
 
-# invoke igraph cluster_fast_greedy function for this undirected network 
-t1$cal_module(method = "cluster_fast_greedy")
-t2$cal_module(method = "cluster_fast_greedy")
+sum_si <- rrn_otu %>%
+  select(starts_with("G")) %>%
+  colSums()
 
-# require rgexf package to be installed
-t1$save_network(filepath = file.path(save.dir, "./figs/ctrl_network.gexf"))
-t2$save_network(filepath = file.path(save.dir, "./figs/collapsed_network.gexf"))
-
-# calculate network attributes
-t1$cal_network_attr()
-t2$res_network_attr()
+sum_rrn <- rrn_otu %>% 
+  mutate(rrn_copies = as.numeric(rrn_otu$rrn_copies)) %>%
+  mutate(across(starts_with("G"), .fns = ~./rrn_copies)) %>%
+  select(starts_with("G")) %>%
+  colSums()
+commu_rrn <- sum_si/sum_rrn
 ```
 
-
-```{r, fig.align='center', fig.width=6.5, fig.height=4.5}
-# get node properties
-t1$get_node_table(node_roles = TRUE)
-t2$get_node_table(node_roles = TRUE)
-# return t1$res_node_table
-
-# get edge properties
-t1$get_edge_table()
-t2$get_edge_table()
-# return t1$res_edge_table 
-t1$get_adjacency_matrix()
-t2$get_adjacency_matrix()
-# return t1$res_adjacency_matrix
-
-# add_label = TRUE can be used to directly add text label for points
-t1$plot_taxa_roles(use_type = 1)
-t2$plot_taxa_roles(use_type = 1)
-```
-
-```{r, fig.align='center', fig.width=6.5, fig.height=5}
-# plot node roles with phylum information
-t1$plot_taxa_roles(use_type = 2)
-t2$plot_taxa_roles(use_type = 2)
-```
-### Network robustness test
-```{r}
-# Network attack analysis
-# Libraries
-pacman::p_load(SpiecEasi, reshape2, phyloseq, igraph)
-# get the igraph objects
-ig.ctrl <- t1$res_network
-ig.collapsed <- t2$res_network
-# calculating the natural connectivity from adjacency matrix
-ncc <- function(ig) {
-  evals <- eigen(ig)$value
-  nc <- log(mean(exp(evals)))
-}
-
-# calculating the natural connectivity from adjacency matrix of a graph
-natcon <- function(ig) {
-  adj <- get.adjacency(ig)
-  evals <- eigen(adj)$value
-  nc <- log(mean(exp(evals)))
-}
-
-# targeted attack ordered by betweenness
-nc.attackbetweenness <- function(ig) {
-  hubord <- order(rank(betweenness(ig)), decreasing=TRUE)
-  sapply(1:round(vcount(ig)*.8), function(i) {
-    ind <- hubord[1:i]
-    tmp <- delete_vertices(ig, V(ig)$name[ind])
-    natcon(tmp)
-  })
-}
-
-# Targeted attack ordered by node degree.
-nc.attackdegree <- function(ig) {
-  hubord <- order(rank(degree(ig)), decreasing=TRUE)
-  sapply(1:round(vcount(ig)*.8), function(i) {
-    ind <- hubord[1:i]
-    tmp <- delete_vertices(ig, V(ig)$name[ind])
-    natcon(tmp)
-  })
-}
-
-
-# Node removals
-attack<-function (adj.mat, node.sup)
-{
-  n.nodes <- dim(adj.mat)[1]
-  adj.mat[node.sup, ] <- rep(0, n.nodes)
-  adj.mat[, node.sup] <- rep(0, n.nodes)
-  nc<-ncc(adj.mat)
-  list(new.mat = adj.mat, nc=nc)
-}
-
-
-ctrl.nc.deg.rmt <- nc.attackdegree(ig.ctrl)
-ctrl.nc.bet.rmt <- nc.attackbetweenness(ig.ctrl)
-
-collapsed.nc.deg.rmt <- nc.attackdegree(ig.collapsed)
-collapsed.nc.bet.rmt <- nc.attackbetweenness(ig.collapsed)
-
-ctrl.nc.deg.rmt <- cbind(rm_pro = c(1:length(ctrl.nc.deg.rmt))/vcount(ig.ctrl), nat.connet = ctrl.nc.deg.rmt)
-ctrl.nc.bet.rmt <- cbind(rm_pro = c(1:length(ctrl.nc.bet.rmt))/vcount(ig.ctrl), nat.connet = ctrl.nc.bet.rmt)
-
-collapsed.nc.deg.rmt <- cbind(rm_pro = c(1:length(collapsed.nc.deg.rmt))/vcount(ig.collapsed), nat.connet = collapsed.nc.deg.rmt)
-collapsed.nc.bet.rmt <- cbind(rm_pro = c(1:length(collapsed.nc.bet.rmt))/vcount(ig.collapsed), nat.connet = collapsed.nc.bet.rmt)
-
-
-write.table(ctrl.nc.deg.rmt, file.path(save.dir, "./tables/ctrl-deg-att-rmt.txt"),
-            sep="\t", quote=F, row.names = T, col.names = T)
-write.table(ctrl.nc.bet.rmt, file.path(save.dir, "./tables/ctrl-bet-att-rmt.txt"),
-            sep="\t", quote=F, row.names = T, col.names = T)
-write.table(collapsed.nc.deg.rmt, file.path(save.dir, "./tables/collapsed-deg-att-rmt.txt"), 
-            sep="\t", quote=F, row.names = T, col.names = T)
-write.table(collapsed.nc.bet.rmt, file.path(save.dir, "./tables/collapsed-bet-att-rmt.txt"),
-            sep="\t", quote=F, row.names = T, col.names = T)
-```
-
-```{r, fig.align='center', fig.width=6, fig.height=3.5}
-robut.df.rmt <- data.frame(rbind(cbind(Group = rep('Control', sum(nrow(ctrl.nc.deg.rmt), nrow(ctrl.nc.bet.rmt))),
-                                       type = c(rep('Proportion of removed nodes', nrow(ctrl.nc.deg.rmt)), 
-                                                rep('Proportion of removed betweenness', nrow(ctrl.nc.bet.rmt))),
-                                       nat.connet = rbind(ctrl.nc.deg.rmt, ctrl.nc.bet.rmt)),
-                                 cbind(Group = rep('Collapsed', sum(nrow(collapsed.nc.deg.rmt), nrow(collapsed.nc.bet.rmt))),
-                                       type = c(rep('Proportion of removed nodes', nrow(collapsed.nc.deg.rmt)), 
-                                                rep('Proportion of removed betweenness', nrow(collapsed.nc.bet.rmt))),
-                                       nat.connet = rbind(collapsed.nc.deg.rmt, collapsed.nc.bet.rmt))))
-robut.df.rmt$Group <- factor(robut.df.rmt$Group, ordered = T, 
-                              levels = c('Control', 'Collapsed'))
-robut.df.rmt$type <- factor(robut.df.rmt$type, ordered = T, 
-                            levels = c('Proportion of removed nodes', 'Proportion of removed betweenness'))
-
-robut.df.rmt$rm_pro <- as.numeric(robut.df.rmt$rm_pro)
-robut.df.rmt$nat.connet <- as.numeric(robut.df.rmt$nat.connet)
-
-robutness_test_plot_rmt <- ggplot(robut.df.rmt, aes(x = rm_pro, y = nat.connet, colour = Group))+
-  geom_point() +
-  scale_color_manual(values= c('#1b9e77', '#d95f02')) +
-  labs(x = NULL, y = 'Natural connectivity') +
-  facet_wrap(~type, scales = 'free') +
+## Plot
+```{r, fig.align='center', fig.width=2.5, fig.height=3}
+library(gghalves)
+rrn_plot <- data.frame(commu_rrn, metadata[,c("Sample_id", "Gully_id", "Group")]) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  ggplot(aes(Group, commu_rrn, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.4, size = 1, outlier.color = NA) +
+  geom_jitter(aes(fill = Group), shape = 21, size = 2.5, width = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
+                     size = 4.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = NULL, y = "rrn Copy Numbers") +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   theme_bw() +
-  theme(strip.text = element_text(size = 10),
-        axis.line = element_line(colour = "black"),
-        axis.title = element_text(size = 12, colour = 'black'),
-        axis.text = element_text(size = 10, colour = 'black'),
-        axis.text.x = element_text(colour='black', size = 10, 
-                                   angle = 45, hjust = 1),
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 10),
-        legend.position = c(0.9, 0.8),
-        legend.background = element_blank(),
-        panel.grid = element_blank())
-robutness_test_plot_rmt
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        axis.text.x = element_text(color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        legend.position = "none",
+        axis.ticks = element_line(color = "black", linewidth = 1))
+rrn_plot
 ```

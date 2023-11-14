@@ -21,9 +21,6 @@ Set work directory
 ```{r}
 setwd('e:/thermokarst_gully/')
 wd_16s <- file.path(getwd(),"data/16S/rdp")
-# if (!dir.exists(wd_16s)) {
-#   dir.create(wd_16s)
-# }
 wd_fun <- file.path(getwd(),"data/metagenome")
 save.dir <- file.path(getwd(),"result")
 ```
@@ -82,27 +79,26 @@ top_degs <- topTags(object = et, n = "Inf")
 top_degs
 #Get a summary DGE table (returns significant genes with absolute log fold change at least 1 and adjusted p value < 0.05)
 summary(decideTests(object = et, lfc = 1))
-# write.csv(as.data.frame(top_degs), file = file.path(save.dir, "tables/kegg_Collapsed_vs_control_edge.csv"))
+if (!dir.exists(file.path(save.dir, "tables/kegg/"))) {
+  dir.create(file.path(save.dir, "tables/kegg/"))
+}
+write.csv(as.data.frame(top_degs), file = file.path(save.dir, "tables/kegg/kegg_Collapsed_vs_control_edge.csv"))
 ```
 
 DGE Visualization
 ```{r, fig.align='center', fig.width=5.5, fig.height=4}
 # Create a volcano plot
 ## set the plot theme
-main_theme = theme_linedraw() + 
-  theme(panel.grid=element_blank(),
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
         panel.border = element_rect(size = 0.5),
-        strip.text = element_text(colour = 'black', size = 10),
-        strip.background = element_rect(colour = 'grey', fill = 'grey'),
-        axis.title = element_text(color = 'black',size = 12),
-        axis.ticks = element_line(color = "black", linewidth = 1),
-        axis.line = element_line(colour = "black"), 
-        axis.text.y = element_text(colour = 'black', size = 10),
-        axis.text.x = element_text(colour = 'black', size = 10),
-        legend.title = element_text(size = 10),
-        legend.text = element_text(size = 8),
-        legend.key = element_blank(),
-        legend.background = element_blank())
+        strip.text = element_text(colour = 'black', size = 6),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 6),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6))
+
 data_edger <- top_degs %>% as.data.frame() %>% 
   mutate(Expression = case_when(logFC >= log(2) & FDR <= 0.05 ~ "Up-regulated",
                            logFC <= -log(2) & FDR <= 0.05 ~ "Down-regulated",
@@ -115,8 +111,17 @@ volca_plot_edger <- ggplot(data_edger, aes(logFC, -log(FDR,10))) +
   guides(colour = guide_legend(override.aes = list(size=1.5))) +
   main_theme +
   theme(legend.background = element_blank(),
+        legend.title = element_text(size = 6),
+        legend.text = element_text(size = 6),
         legend.key = element_blank(),
-        legend.position = c(0.15, 0.85))
+        legend.position = c(0.15, 0.85),
+        legend.key.size = unit(0.4, 'cm'))
+
+if (!dir.exists(file.path(save.dir, "figs/kegg/"))) {
+  dir.create(file.path(save.dir, "figs/kegg/"))
+}
+ggsave(file.path(save.dir, "./figs/kegg/volca_plot_edger.pdf"),
+       volca_plot_edger, width = 3.5, height = 2.5, units = "in")
 volca_plot_edger
 ```
 
@@ -131,7 +136,7 @@ KEGG_deseq <- DESeq(KEGG_dds)
 KEGG_res <- results(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Control'))
 KEGG_res$padj[is.na(KEGG_res$padj)] = 1
 KEGG_significant = rownames(KEGG_res)[(KEGG_res$padj < 0.05) & (KEGG_res$log2FoldChange > 1)]
-# write.csv(as.data.frame(KEGG_res), file = file.path(save.dir, "tables/kegg_Collapsed_vs_control_deseq.csv"))
+write.csv(as.data.frame(KEGG_res), file = file.path(save.dir, "tables/kegg/kegg_Collapsed_vs_control_deseq.csv"))
 # Volcano plot
 data_deseq2 <- KEGG_res %>% as.data.frame() %>% 
   mutate(
@@ -147,8 +152,12 @@ volca_plot_deseq2 <- ggplot(data_deseq2, aes(log2FoldChange, -log(padj,10))) +
   guides(colour = guide_legend(override.aes = list(size = 1.5))) +
   main_theme +
   theme(legend.background = element_blank(),
-        legend.key = element_blank(),
-        legend.position = c(0.15, 0.85))
+        legend.title = element_text(size = 6),
+        legend.text = element_text(size = 6),
+        legend.position = c(0.15, 0.85),
+        legend.key.size = unit(0.4, 'cm'))
+ggsave(file.path(save.dir, "./figs/kegg/volca_plot_deseq2.pdf"),
+       volca_plot_deseq2, width = 3.5, height = 2.5, units = "in")
 volca_plot_deseq2
 ```
 
@@ -176,7 +185,226 @@ down_df <- data_edger %>%
   left_join(cbind(KO = rownames(ko_tpm_table), ko_tpm_table), by = "KO")
 
 ```
+## 3. KEGG decoder
+Determine the completion of pathways based only on the KOs enriched in the collapsed samples.
+```{r}
+kegg_decoder_fun <- function(group, kegg_sig) {
+  samples <- grep(group, metadata$Sample_name, value = T)
+  kegg_decoder_df = data.frame(Sample = c(), KEGG = c())
+  for (kegg_id in kegg_sig) {
+    for (sample in samples) {
+      if (ko_count_table[rownames(ko_count_table) == kegg_id, sample] > 0) {
+        kegg_decoder_df = rbind(kegg_decoder_df, data.frame(Sample = sample, KEGG = kegg_id))
+      }
+    }
+  }
+  return(kegg_decoder_df)
+}
+kegg_decoder_collapsed <- kegg_decoder_fun('_T', up_df$KO)
+kegg_decoder_control <- kegg_decoder_fun('_C', down_df$KO)
+
+kegg_decoder_collapsed$Sample <- sapply(kegg_decoder_collapsed$Sample, FUN = function(x){sub('_', '', x)})
+kegg_decoder_control$Sample <- sapply(kegg_decoder_control$Sample, FUN = function(x){sub('_', '', x)})
+
+write.table(kegg_decoder_collapsed, file.path(save.dir, 'tables/kegg/kegg_decoder_collapsed_in.tsv'), sep='\t',  col.names=FALSE, row.names=FALSE , quote=FALSE)
+write.table(kegg_decoder_control, file.path(save.dir, 'tables/kegg/kegg_decoder_control_in.tsv'), sep='\t',  col.names=FALSE, row.names=FALSE , quote=FALSE)
+# in the Data folder using the CryoBiome-kegg-decoder env in linux with following script: KEGG-decoder -i kegg_decoder_collapsed_in.tsv -o KEGG_decoder_collapsed_output.tsv
+```
+
+Heatmap showing the completion of pathways across collapsed samples
+```{r}
+KEGG_decoder_collapsed_table <- read.table(file.path(save.dir, 'tables/kegg/KEGG_decoder_collapsed_output.tsv'), sep = "\t", header = TRUE)
+KEGG_decoder_control_table <- read.table(file.path(save.dir, 'tables/kegg/KEGG_decoder_control_output.tsv'), sep = "\t", header = TRUE)
+
+# renaming pathways for plotting
+rep_str = c("Wood.Ljungdahl" = "Wood-Ljungdahl",
+            "X4.Hydroxybutyrate.3.hydroxypropionate" = "4-Hydroxybutyrate/3-hydroxypropionate",
+            "nitrogen.fixation" = "nitrogen fixation", 
+            "dissimilatory.sulfite.....sulfide" = "dissimilatory sulfite <=> sulfide",
+            "thiosulfate.polysulfide.reductase" = "thiosulfate/polysulfide reductase", 
+            "sulfhydrogenase" = "sulfhydrogenase",
+            "DMSO.reductase" = "DMSO reductase",
+            "thiamin.biosynthesis" = "Thiamin biosynthesis",
+            "Methanogenesis.via.methanol" = "Methanogenesis via methanol",
+            "Methanogenesis.via.acetate" = "Methanogenesis via acetate",
+            "Photosystem.I" = "Photosystem I",
+            "Methanogenesis.via.methylamine" = "Methanogenesis via methylamine",
+            "Methanogenesis.via.dimethylamine" = "Methanogenesis via dimethylamine",
+            "Methanogenesis.via.CO2" = "Methanogenesis via CO2",
+            "Coenzyme.B.Coenzyme.M.regeneration" = "Coenzyme B/Coenzyme M regeneration",
+            "Coenzyme.M.reduction.to.methane" = "Coenzyme M reduction to methane",
+            "Mixed.acid..Formate" = "Mixed acid: Formate",
+            "Methanogenesis.via.dimethylsulfide..methanethiol..methylpropanoate" = "Methanogenesis via DMS, MeSH, MMPA", # Methanethiol (MeSH) and dimethylsulfide (DMS) and (MMPA) 3-methylpropionate
+            "C.P.lyase.cleavage.PhnJ" = "C-P lyase cleavage PhnJ",
+            "CP.lyase.complex" = "CP-lyase complex",
+            "CP.lyase.operon" = "CP-lyase operon",
+            "starch.glycogen.degradation" = "starch/glycogen degradation")
+# select the columns with the colsums larger than zero and arrange the data
+KEGG_decoder_control_table <- KEGG_decoder_control_table %>%
+  select_if(~ !is.numeric(.) || sum(.) != 0) %>%
+  rename(Sample = Function) %>%
+  mutate(Sample = str_replace(Sample, "C", "_C")) %>%
+  gather(-Sample, key = "pathway", value = "Completion") %>% 
+  as.data.frame() %>%
+  mutate(pathway = stringr::str_replace_all(pathway, rep_str))
+
+KEGG_decoder_collapsed_table <- KEGG_decoder_collapsed_table %>%
+  select_if(~ !is.numeric(.) || sum(.) != 0) %>%
+  rename(Sample = Function) %>%
+  mutate(Sample = str_replace(Sample, "T", "_T")) %>%
+  gather(-Sample, key = "pathway", value = "Completion") %>% 
+  as.data.frame() %>%
+  mutate(pathway = stringr::str_replace_all(pathway, rep_str))
+
+# row bind the control and collapsed kegg-decoder tables and reorder the levels of pathway.
+KEGG_decoder_table <- rbind(KEGG_decoder_control_table, KEGG_decoder_collapsed_table) %>%
+  mutate(Group = case_when(grepl("_C", Sample) ~ "Down-regulated", 
+                           grepl("_T", Sample) ~ "Up-regulated")) %>% # creat a new variables named Group
+  mutate(Group = factor(Group, levels = c("Down-regulated", "Up-regulated"))) %>%
+  mutate(pathway = factor(pathway, levels = rev(c(rev(unique((KEGG_decoder_control_table$pathway)[order(KEGG_decoder_control_table$Completion)])), unique((KEGG_decoder_collapsed_table$pathway)[order(KEGG_decoder_collapsed_table$Completion)])[-4]))))
+
+# heatmap
+kegg_heatmap <- ggplot(KEGG_decoder_table) + 
+  geom_tile(aes(x = as.factor(Sample), y = as.factor(pathway), fill = Completion)) +
+  xlab("") + ylab("") + 
+  guides(fill = guide_colourbar(barwidth = 0.5, barheight = 10)) +
+  scale_fill_gradientn(colours = c("white", "#e95f5c"), values = c(0, 1)) + 
+  facet_grid( ~ Group, scales = "free_x", space = "free_x") +
+  main_theme +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 4),
+        panel.spacing = unit(0, "lines"),
+        legend.title = element_text(size = 6),
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.1, 'cm')
+        )
+ggsave(file.path(save.dir, "/figs/kegg/kegg_heatmap.pdf"),
+       kegg_heatmap, width = 6.5, height = 3, units = "in")
+kegg_heatmap
+```
+
+## Select the genes involved in C, N, S, and Fe cyclings
+```{r}
+# loading packages
+pacman::p_load(phyloseq, picante, microbiome, readxl, tidyverse, ggpubr, ggplot2)
+```
+
+
+## Arrange the log fold change table
+```{r}
+sel_ko <- read_csv(file.path(wd_fun, 'CN_ko_input.csv'), col_names = T)
+
+C_N_ko_count_tab <- ko_count_table[rownames(ko_count_table) %in% sel_ko$KO, ]
+C_N_ko_count_tab <- cbind(KO = rownames(C_N_ko_count_tab), C_N_ko_count_tab)
+
+C_N_ko_tpm_tab <- ko_tpm_table[rownames(ko_tpm_table) %in% sel_ko$KO, ]
+C_N_ko_tpm_tab <- cbind(KO = rownames(C_N_ko_tpm_tab), C_N_ko_tpm_tab)
+
+logFC_table <- data_edger %>% 
+  mutate(KO = rownames(.)) %>%
+  inner_join(sel_ko, c("KO" = "KO")) %>% 
+  mutate(sig = cut(FDR, breaks=c(-Inf, 0.001, 0.01, 0.05, Inf), label=c("***", "**", "*", "")))
+```
+
 
 ```{r}
+C_names <- c("Alpha-amylase", "Glucoamylase", "Pullulanase", "Isopullulanase",
+             "Arabinofuranosidase", "Beta_mannanase", "Xylanase", "Xylose isomerase",
+             "Beta-glucosidase",  "Endoglucanase", "Exoglucanase",
+             "Acetylglucosaminidase", "Endochitinase", "Exochitinase",
+             "Pectinase", 
+             "Aryl-aldehyde oxidase", "Isocitrate lyase", "Limonene-1, 2-epoxide hydrolase", "Malate synthase", "Vanillate demethylase", 
+             "Glyoxal oxidase", "Phenol oxidase (tyrosinase)",
+             "Methyl coenzyme M reductase", "Particulate methane monooxygenase", "Soluable methane monooxygenase",
+             "Carbon monoxide dehydrogenase", "Tetrahydrofolate formylase", "ATP citrate lyase", 
+             "Propionyl-CoA carboxylase", "RuBisCo")
+N_names <- c("amoA",	"amoB",	"amoC",	"hao",	"nxrA",	"nxrB", "narG",	"narH",	"narI", "napA",	
+             "napB", "nirK", "nirS",	"norB",	"norC",	"nosZ", "nrfA",	"nrfH", "nirB",	"nirD",	
+             "nasA",	"nasB", "narB",	"NR", "NIT-6", "nirA",	"nifD", "nifK", "nifH", "nrtA",	"nrtB", "nrtC",	
+             "nrtD", "nmo", "gdh_K00261", "gdh_K00262", "gdh_K15371", "glsA", "ureA", "ureC", "glnA")
+S_names <- c("sat", "cysC", "cysD", "cysNC", "csyH", "cysJ", "cysN", "aprA", "aprB", "dsrA", "dsrB",
+             "asrA", "asrB", "asrC", "sir", "sor", "sreA", "sreB", "sreC", "hydA", "hydD", "hydB",
+             "hydG", "psrA", "psrB", "psrC", "sqr", "fccA", "fccB", "soxD", "soxX", "soxA", "soxB",
+             "soxC", "soxY", "soxZ", "ttrA", "ttrB", "ttrC", "phsA", "phsB", "phsC")
+Other_names <- c("Cyc1", "Cyc2", "MtrA", "MtrB", "MtrC", "arsC (grx)", "arsC (trx)", 
+                 "aioA", "arsM", "ygfM", "xdhD", "YgfK")
+```
 
+## Heatmap for carbon
+```{r, fig.align='center', fig.width=8, fig.height=4.7}
+p_C_enrich <- logFC_table %>% filter(pathway %in% C_names) %>%
+  mutate(pathway = factor(pathway, levels = C_names, ordered = T)) %>%
+  ggplot(aes(x = pathway, y = layer, fill = logFC)) +
+  geom_tile() + 
+  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C") +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
+  geom_text(aes(label = round(logFC, 2)), 
+            color = "black", size = 1.5) +
+  labs(y = 'Layers', x = 'Pathway', fill = "logFC") +
+  theme(axis.title = element_blank(),
+        axis.text = element_text(size = 6, colour = 'black'),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        # legend.key.height= unit(0.35, 'cm'),
+        # legend.key.width= unit(0.35, 'cm'),
+        legend.key.size = unit(0.35, 'cm'),
+        legend.title = element_text(size = 8), 
+        legend.text = element_text(size = 6))
+p_C_enrich
+```
+
+## Heatmap for nitrogen
+```{r, fig.align='center', fig.height=2.5, fig.width=8}
+p_N_enrich <- logFC_table %>% filter(Enzyme_protein_encoded %in% N_names) %>%
+  mutate(pathway = factor(Enzyme_protein_encoded, levels = rev(N_names), ordered = T)) %>%
+  ggplot(aes(x = pathway, y = logFC, color = Expression))+
+  geom_point(size = 2) + 
+  scale_color_manual(values = c("#2C7BB6", "grey20", "#D7191C")) +
+  labs(y = "logFC", x = 'Genes') +
+  theme(axis.title = element_blank(),
+        axis.text = element_text(size = 6, colour = 'black'),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key.size = unit(0.35, 'cm'),
+        legend.title = element_text(size = 8), 
+        legend.text = element_text(size = 6))
+p_N_enrich
+```
+
+## Heatmap for sulfur
+```{r, fig.align='center', fig.height=2.5, fig.width=8}
+p_S_enrich <- logFC_table %>% filter(Enzyme_protein_encoded %in% S_names) %>%
+  mutate(pathway = factor(Enzyme_protein_encoded, levels = rev(S_names), ordered = T)) %>%
+  ggplot(aes(x = pathway, y = logFC, color = Expression))+
+  geom_point(size = 2) + 
+  scale_color_manual(values = c("grey20", "#D7191C")) +
+  labs(y = "logFC", x = 'Genes') +
+  theme(axis.title = element_blank(),
+        axis.text = element_text(size = 6, colour = 'black'),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key.size = unit(0.35, 'cm'),
+        legend.title = element_text(size = 8), 
+        legend.text = element_text(size = 6))
+p_S_enrich
+```
+
+## Other biogeochemical processes
+```{r, fig.align='center', fig.height=2.5, fig.width=4}
+p_other_enrich <- logFC_table %>% filter(Enzyme_protein_encoded %in% Other_names) %>%
+  mutate(pathway = factor(Enzyme_protein_encoded, levels = rev(Other_names), ordered = T)) %>%
+  ggplot(aes(x = pathway, y = logFC, color = Expression))+
+  geom_point(size = 2) + 
+  scale_color_manual(values = c("grey20", "#D7191C")) +
+  labs(y = "logFC", x = 'Genes') +
+  theme(axis.title = element_blank(),
+        axis.text = element_text(size = 6, colour = 'black'),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.key.size = unit(0.35, 'cm'),
+        legend.title = element_text(size = 8), 
+        legend.text = element_text(size = 6))
+p_other_enrich
+```
+
+
+```{r}
+up_df %>% select(-c(1,2,3,5)) %>%
+  group_by(L3) %>%
+  summarise(across(everything(), ~ sum(.x, na.rm = TRUE)))
+```
 
