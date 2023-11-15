@@ -133,15 +133,16 @@ group_df$Group <- factor(group_df$Group, levels = c("Control", "Collapsed"))
 KEGG_dds <- DESeqDataSetFromMatrix(countData = round(ko_count_table + 1), 
                                    colData = group_df, design = ~ Group)
 KEGG_deseq <- DESeq(KEGG_dds)
-KEGG_res <- results(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Control'))
+KEGG_res <- results(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Control'),
+                    independentFiltering=TRUE, alpha=0.01, pAdjustMethod="BH", parallel=TRUE)
 KEGG_res$padj[is.na(KEGG_res$padj)] = 1
 KEGG_significant = rownames(KEGG_res)[(KEGG_res$padj < 0.05) & (KEGG_res$log2FoldChange > 1)]
 write.csv(as.data.frame(KEGG_res), file = file.path(save.dir, "tables/kegg/kegg_Collapsed_vs_control_deseq.csv"))
 # Volcano plot
 data_deseq2 <- KEGG_res %>% as.data.frame() %>% 
   mutate(
-    Expression = case_when(log2FoldChange >= log(2) & padj <= 0.05 ~ "Up-regulated",
-                           log2FoldChange <= -log(2) & padj <= 0.05 ~ "Down-regulated",
+    Expression = case_when(log2FoldChange >= 1 & padj <= 0.05 ~ "Up-regulated",
+                           log2FoldChange <= -1 & padj <= 0.05 ~ "Down-regulated",
                            TRUE ~ "Unchanged")
   )
 volca_plot_deseq2 <- ggplot(data_deseq2, aes(log2FoldChange, -log(padj,10))) +
