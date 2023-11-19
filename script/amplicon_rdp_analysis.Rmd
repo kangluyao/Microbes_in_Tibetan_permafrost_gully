@@ -20,9 +20,6 @@ Set work directory
 ```{r}
 setwd('e:/thermokarst_gully/')
 wd_16s <- file.path(getwd(),"data/16S/rdp")
-# if (!dir.exists(wd_16s)) {
-#   dir.create(wd_16s)
-# }
 wd_fun <- file.path(getwd(),"data/metagenome")
 save.dir <- file.path(getwd(),"result")
 ```

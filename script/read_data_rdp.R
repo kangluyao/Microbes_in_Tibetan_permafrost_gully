@@ -1,16 +1,25 @@
 # set work directory
 setwd('e:/thermokarst_gully')
 wd_16s <- file.path(getwd(),"data/16S/rdp")
-# if (!dir.exists(wd_16s)) {
-#   dir.create(wd_16s)
-# }
+if (!dir.exists(wd_16s)) {
+  dir.create(wd_16s)
+}
 wd_fun <- file.path(getwd(),"data/metagenome")
+if (!dir.exists(wd_fun)) {
+  dir.create(wd_fun)
+}
 save.dir <- file.path(getwd(),"result")
+if (!dir.exists(save.dir)) {
+  dir.create(save.dir)
+}
 # loading packages
 library(phyloseq)
 library(ape)
 library(Biostrings)
 # read data
+## flux data
+flux_tab <- read.delim("./data/flux_data.txt", header = T, sep = "\t")
+
 ## metadata
 metadata <- read.delim(file.path(wd_16s, "./metadata.txt"), header = T, sep = "\t")
 rownames(metadata) <- (metadata$Sample_id)

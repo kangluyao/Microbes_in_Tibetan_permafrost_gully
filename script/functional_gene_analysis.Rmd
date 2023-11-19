@@ -78,7 +78,7 @@ et <- exactTest(object = d)
 top_degs <- topTags(object = et, n = "Inf")
 top_degs
 #Get a summary DGE table (returns significant genes with absolute log fold change at least 1 and adjusted p value < 0.05)
-summary(decideTests(object = et, lfc = 1))
+summary(decideTests(object = et, lfc = log(2)))
 if (!dir.exists(file.path(save.dir, "tables/kegg/"))) {
   dir.create(file.path(save.dir, "tables/kegg/"))
 }
@@ -126,7 +126,7 @@ volca_plot_edger
 ```
 
 ### 2. DESeq2 analysis
-```{r, fig.align='center', fig.width=5.5, fig.height=4}
+```{r, fig.align='center', fig.width=5.5, fig.height=6}
 group_df <- metadata
 rownames(group_df) <- metadata$Sample_name # make sure the colnames of count table match the rownames of group_df.
 group_df$Group <- factor(group_df$Group, levels = c("Control", "Collapsed"))
@@ -135,30 +135,20 @@ KEGG_dds <- DESeqDataSetFromMatrix(countData = round(ko_count_table + 1),
 KEGG_deseq <- DESeq(KEGG_dds)
 KEGG_res <- results(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Control'),
                     independentFiltering=TRUE, alpha=0.01, pAdjustMethod="BH", parallel=TRUE)
+KEGG_res <- lfcShrink(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Control'), res = KEGG_res, type = 'normal')
 KEGG_res$padj[is.na(KEGG_res$padj)] = 1
 KEGG_significant = rownames(KEGG_res)[(KEGG_res$padj < 0.05) & (KEGG_res$log2FoldChange > 1)]
 write.csv(as.data.frame(KEGG_res), file = file.path(save.dir, "tables/kegg/kegg_Collapsed_vs_control_deseq.csv"))
 # Volcano plot
-data_deseq2 <- KEGG_res %>% as.data.frame() %>% 
-  mutate(
-    Expression = case_when(log2FoldChange >= 1 & padj <= 0.05 ~ "Up-regulated",
-                           log2FoldChange <= -1 & padj <= 0.05 ~ "Down-regulated",
-                           TRUE ~ "Unchanged")
-  )
-volca_plot_deseq2 <- ggplot(data_deseq2, aes(log2FoldChange, -log(padj,10))) +
-  geom_point(aes(color = Expression), size = 1) +
-  xlab(expression("log"[2]*"FC")) + 
-  ylab(expression("-log"[10]*"padj")) +
-  scale_color_manual(values = c("#79ceb8", "gray70", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  guides(colour = guide_legend(override.aes = list(size = 1.5))) +
-  main_theme +
-  theme(legend.background = element_blank(),
-        legend.title = element_text(size = 6),
-        legend.text = element_text(size = 6),
-        legend.position = c(0.15, 0.85),
-        legend.key.size = unit(0.4, 'cm'))
-ggsave(file.path(save.dir, "./figs/kegg/volca_plot_deseq2.pdf"),
-       volca_plot_deseq2, width = 3.5, height = 2.5, units = "in")
+volca_plot_deseq2 <- EnhancedVolcano(KEGG_res,
+    lab = rownames(KEGG_res),
+    title = NULL,
+    x = 'log2FoldChange',
+    y = 'pvalue',
+    #pCutoff = 10e-32,
+    FCcutoff = 0.585,
+    pointSize = 3.0,
+    labSize = 6.0)
 volca_plot_deseq2
 ```
 
@@ -212,7 +202,12 @@ write.table(kegg_decoder_control, file.path(save.dir, 'tables/kegg/kegg_decoder_
 # in the Data folder using the CryoBiome-kegg-decoder env in linux with following script: KEGG-decoder -i kegg_decoder_collapsed_in.tsv -o KEGG_decoder_collapsed_output.tsv
 ```
 
-Heatmap showing the completion of pathways across collapsed samples
+Run the KEGG-decoder.py to determine the completion of pathways
+```{python}
+./script/KEGG-decoder.py -i kegg_decoder_collapsed_in.tsv -o KEGG_decoder_collapsed_output.tsv
+```
+
+Heatmap showing the completion of pathways across collapsed samples using R
 ```{r}
 KEGG_decoder_collapsed_table <- read.table(file.path(save.dir, 'tables/kegg/KEGG_decoder_collapsed_output.tsv'), sep = "\t", header = TRUE)
 KEGG_decoder_control_table <- read.table(file.path(save.dir, 'tables/kegg/KEGG_decoder_control_output.tsv'), sep = "\t", header = TRUE)
