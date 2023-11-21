@@ -34,7 +34,7 @@ source("script/read_data_rdp.R")
 ```
 
 ```{r}
-
+flux_tab %>% group_by()
 ```
 
 
