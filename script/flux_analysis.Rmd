@@ -33,12 +33,57 @@ Data input
 source("script/read_data_rdp.R")
 ```
 
+Two way repeated measures analysis to test the difference in flux for the whole growing season. First is CO<sub>2</sub>:
+```{r}
+CO2_df <- flux_tab %>% filter(Flux_type == "CO2") %>%
+  select(c(Time, Gully_id, Rep, Control, Collapsed)) %>%
+  pivot_longer(cols = c("Control", "Collapsed"), names_to = "Group", values_to = "Flux_value")
+
+stress.aov <- with(CO2_df,
+                   aov(Flux_value ~ Group * Gully_id +
+                         Error(Time / (Group * Gully_id)))
+)
+summary(stress.aov)
+```
+CH<sub>4</sub>:
+```{r}
+CH4_df <- flux_tab %>% filter(Flux_type == "CH4") %>%
+  select(c(Time, Gully_id, Rep, Control, Collapsed)) %>%
+  pivot_longer(cols = c("Control", "Collapsed"), names_to = "Group", values_to = "Flux_value")
+
+stress.aov <- with(CH4_df,
+                   aov(Flux_value ~ Group * Gully_id +
+                         Error(Time / (Group * Gully_id)))
+)
+summary(stress.aov)
+```
+N<sub>2</sub>O:
+```{r}
+N2O_df <- flux_tab %>% filter(Flux_type == "N2O") %>%
+  select(c(Time, Gully_id, Rep, Control, Collapsed)) %>%
+  pivot_longer(cols = c("Control", "Collapsed"), names_to = "Group", values_to = "Flux_value")
+
+stress.aov <- with(N2O_df,
+                   aov(Flux_value ~ Group * Gully_id +
+                         Error(Time / (Group * Gully_id)))
+)
+summary(stress.aov)
+# using lme within nlme package
+library(nlme)
+lme_fitn2o.block <- lme(fixed = Flux_value ~ Group * Time ,  
+                        random = ~1|Rep/Gully_id, 
+                        method='REML',
+                        corr = corAR1(form= ~1|Rep/Gully_id),
+                        data = N2O_df)
+summary(lme_fitn2o.block)
+Anova(lme_fitn2o.block, type="III")
+```
+
 Determine the mean value of flux for the whole growing season.
 ```{r}
 flux_ave_df <- flux_tab %>% select(c("Flux_type", "Gully_id", "Rep", "Control", "Collapsed")) %>%
   group_by(Flux_type, Gully_id, Rep) %>%
   dplyr::summarise(across(, mean, na.rm = TRUE))
-  
 ```
 
 Test the difference in flux between control and collapsed using linear mixed model. First is CO<sub>2</sub>:
