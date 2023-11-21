@@ -129,16 +129,17 @@ flux_plot
 ```{r}
 # determine the effect size of the permafrost thawing on each phylum
 env_scale <- metadata %>% 
+  select(-c("Sample_id", "Sample_name")) %>%
   mutate(across(where(is.numeric), scale)) %>%
   mutate(Group = factor(Group, levels = c("Control", "Collapsed")))
 
 # codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
-phylaS1 <- sapply(3:ncol(phyla_tab_scale), function(j) {
-    message("Now j=", j, " in ", ncol(phyla_tab_scale), ". ", date())
-    if (length(unique(phyla_tab_scale[, j])) < 3) {
+env_S1 <- sapply(3:ncol(env_scale), function(j) {
+    message("Now j=", j, " in ", ncol(env_scale), ". ", date())
+    if (length(unique(env_scale[, j])) < 3) {
         result <- rep(NA, 10)
     } else {
-        fm1 <- lmer(phyla_tab_scale[, j] ~ Group + (1 | Gully_id), data = phyla_tab_scale)
+        fm1 <- lmer(env_scale[, j] ~ Group + (1 | Gully_id), data = env_scale)
 
         presult <- car::Anova(fm1, type = 2)
         coefs <- coef(summary(fm1))[, "Estimate"]  ##four coefs
@@ -157,12 +158,42 @@ phylaS1 <- sapply(3:ncol(phyla_tab_scale), function(j) {
     }
     result
 })
-colnames(phylaS1)<-colnames(phyla_tab_scale)[-c(1,2)]
-data.frame(phylaS1)
+colnames(env_S1)<-colnames(metadata)[-c(1:4)]
+data.frame(env_S1)
 ```
 
-Test the 
-```{r}
+Effect size plot
+```{r, fig.align='center', fig.width=3.5, fig.height=4.5}
+p.stars <- function(p.values) {
+  unclass(symnum(p.values, corr = FALSE, 
+                 na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
+                 symbols = c("***", "**", "*", ".", " ")))}
+eff_siz_env_plot <- env_S1 %>%
+  t() %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column(., "variables") %>%
+  mutate(sig = as.vector(unlist(lapply(Group.P, p.stars)))) %>%
+  mutate(variables = factor(variables, levels = colnames(metadata)[-c(1:4)])) %>%
+  ggplot(aes(x = variables, y = GroupCollapsed.mean, color = variables)) +
+  geom_hline(aes(yintercept =0), size=0.7,  colour="gray2")+
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
+                    ymax = GroupCollapsed.mean + GroupCollapsed.se), 
+                width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
+  geom_text(aes(label = sig, x = variables, y = (GroupCollapsed.mean/abs(GroupCollapsed.mean))*(abs(GroupCollapsed.mean) + GroupCollapsed.se)*1.2),
+            position = position_dodge(0.1), vjust = 0.55) +
+  labs(x = NULL, y = "Effect size")+
+  # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
+  scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
+  theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
+  annotate("rect", xmin = 0, xmax = 8.5, ymin = -2, ymax = 2, alpha = 0.2,fill="#FAE3AD") +
+  main_theme +
+  theme(strip.background = element_rect(fill=c("#FFF6E1")))
+eff_siz_env_plot
+```
+
+Combine plots
+```{r, fig.align='center', fig.width=6.5, fig.height=6.5}
 
 ```
 
