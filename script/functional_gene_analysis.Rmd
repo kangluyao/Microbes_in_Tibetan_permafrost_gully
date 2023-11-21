@@ -202,11 +202,6 @@ write.table(kegg_decoder_control, file.path(save.dir, 'tables/kegg/kegg_decoder_
 # in the Data folder using the CryoBiome-kegg-decoder env in linux with following script: KEGG-decoder -i kegg_decoder_collapsed_in.tsv -o KEGG_decoder_collapsed_output.tsv
 ```
 
-Run the KEGG-decoder.py to determine the completion of pathways
-```{python}
-./script/KEGG-decoder.py -i kegg_decoder_collapsed_in.tsv -o KEGG_decoder_collapsed_output.tsv
-```
-
 Heatmap showing the completion of pathways across collapsed samples using R
 ```{r}
 KEGG_decoder_collapsed_table <- read.table(file.path(save.dir, 'tables/kegg/KEGG_decoder_collapsed_output.tsv'), sep = "\t", header = TRUE)
