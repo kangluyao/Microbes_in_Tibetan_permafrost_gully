@@ -303,6 +303,7 @@ logFC_table <- data_edger %>%
 
 
 ```{r}
+C_genes <- c("")
 C_names <- c("Alpha-amylase", "Glucoamylase", "Pullulanase", "Isopullulanase",
              "Arabinofuranosidase", "Beta_mannanase", "Xylanase", "Xylose isomerase",
              "Beta-glucosidase",  "Endoglucanase", "Exoglucanase",
@@ -360,6 +361,8 @@ p_N_enrich <- logFC_table %>% filter(Enzyme_protein_encoded %in% N_names) %>%
         legend.key.size = unit(0.35, 'cm'),
         legend.title = element_text(size = 8), 
         legend.text = element_text(size = 6))
+ggsave(file.path(save.dir, "/figs/kegg/p_N_enrich.pdf"),
+       p_N_enrich, width = 7, height = 3, units = "in")
 p_N_enrich
 ```
 

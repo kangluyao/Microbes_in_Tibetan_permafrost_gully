@@ -1,5 +1,5 @@
 ---
-title: "Functional gene analysis"
+title: "Flux analysis"
 author: "Luyao Kang"
 date: "`r Sys.Date()`"
 output:
