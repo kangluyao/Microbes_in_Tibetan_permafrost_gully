@@ -124,3 +124,45 @@ ggsave(file.path(save.dir, "./figs/flux/flux_plot.pdf"),
        flux_plot, width = 4.5, height = 2, units = "in")
 flux_plot
 ```
+
+### test the difference in abundance of main taxa using liner models
+```{r}
+# determine the effect size of the permafrost thawing on each phylum
+env_scale <- metadata %>% 
+  mutate(across(where(is.numeric), scale)) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed")))
+
+# codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
+phylaS1 <- sapply(3:ncol(phyla_tab_scale), function(j) {
+    message("Now j=", j, " in ", ncol(phyla_tab_scale), ". ", date())
+    if (length(unique(phyla_tab_scale[, j])) < 3) {
+        result <- rep(NA, 10)
+    } else {
+        fm1 <- lmer(phyla_tab_scale[, j] ~ Group + (1 | Gully_id), data = phyla_tab_scale)
+
+        presult <- car::Anova(fm1, type = 2)
+        coefs <- coef(summary(fm1))[, "Estimate"]  ##four coefs
+        names(coefs) <- paste0(names(coefs), ".mean")
+
+        SEvalues <- coef(summary(fm1))[, "Std. Error"]  ##standard errors
+        names(SEvalues) <- paste0(names(SEvalues), ".se")
+
+        tvalues <- coef(summary(fm1))[, "t value"]  ##t values
+        names(tvalues) <- paste0(names(tvalues), ".t")
+
+        chisqP <- c(presult[, 1], presult[, 3])
+        names(chisqP) <- c(paste0(row.names(presult), ".chisq"), paste0(row.names(presult), ".P"))
+
+        result <- c(coefs, tvalues, SEvalues, chisqP)
+    }
+    result
+})
+colnames(phylaS1)<-colnames(phyla_tab_scale)[-c(1,2)]
+data.frame(phylaS1)
+```
+
+Test the 
+```{r}
+
+```
+
