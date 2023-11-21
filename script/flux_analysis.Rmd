@@ -33,17 +33,20 @@ Data input
 source("script/read_data_rdp.R")
 ```
 
+Determine the mean value of flux for the whole growing season.
 ```{r}
-flux_tab %>% group_by()
+flux_ave_df <- flux_tab %>% select(c("Flux_type", "Gully_id", "Rep", "Control", "Collapsed")) %>%
+  group_by(Flux_type, Gully_id, Rep) %>%
+  dplyr::summarise(across(, mean, na.rm = TRUE))
+  
 ```
-
 
 Test the difference in flux between control and collapsed using linear mixed model. First is CO<sub>2</sub>:
 ```{r}
 library(lme4)
 library(car)
-CO2_df <- flux_tab %>% filter(Flux_type == "CO2" & Time == "2023.8.18") %>%
-  gather(key = "Group", value = "Flux_value", -c("Flux_type", "Time", "Gully_id", "Rep"))
+CO2_df <- flux_ave_df %>% filter(Flux_type == "CO2") %>%
+  pivot_longer(cols = c("Control", "Collapsed"), names_to = "Group", values_to = "Flux_value")
 fm1 <- lmer(Flux_value ~ Group + (1 | Gully_id), data = CO2_df)
 summary(fm1)
 car::Anova(fm1, type = 2)
@@ -52,8 +55,8 @@ Then, test the difference in CH<sub>4</sub>.
 ```{r}
 library(lme4)
 library(car)
-CH4_df <- flux_tab %>% filter(Flux_type == "CH4" & Time == "2023.8.18") %>%
-  gather(key = "Group", value = "Flux_value", -c("Flux_type", "Time", "Gully_id", "Rep"))
+CH4_df <- flux_ave_df %>% filter(Flux_type == "CH4") %>%
+  pivot_longer(cols = c("Control", "Collapsed"), names_to = "Group", values_to = "Flux_value")
 fm2 <- lmer(Flux_value ~ Group + (1 | Gully_id), data = CH4_df)
 summary(fm2)
 car::Anova(fm2, type = 2)
@@ -62,8 +65,8 @@ Finally, test the difference in N<sub>2</sub>O.
 ```{r}
 library(lme4)
 library(car)
-N2O_df <- flux_tab %>% filter(Flux_type == "N2O" & Time == "2023.8.18") %>%
-  gather(key = "Group", value = "Flux_value", -c("Flux_type", "Time", "Gully_id", "Rep"))
+N2O_df <- flux_ave_df %>% filter(Flux_type == "N2O") %>%
+  pivot_longer(cols = c("Control", "Collapsed"), names_to = "Group", values_to = "Flux_value")
 fm3 <- lmer(Flux_value ~ Group + (1 | Gully_id), data = N2O_df)
 summary(fm3)
 car::Anova(fm3, type = 2)
@@ -97,10 +100,9 @@ facet_labeller <- function(variable,value){
 }
 
 # plot
-flux_plot <- flux_tab %>% 
-  filter(Time == "2023.8.18") %>%
+flux_plot <- flux_ave_df %>%
   select(c("Flux_type", "Gully_id", "Rep", "Control", "Collapsed")) %>%
-  gather(key = "Group", value = "Flux_value", -c("Flux_type", "Gully_id", "Rep")) %>% 
+  pivot_longer(cols = c("Control", "Collapsed"), names_to = "Group", values_to = "Flux_value") %>% 
   mutate(Flux_type = factor(Flux_type, levels = c("CO2", "CH4", "N2O"))) %>%
   mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
   ggplot(aes(Group, Flux_value, fill = Group)) +
