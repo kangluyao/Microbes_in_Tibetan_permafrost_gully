@@ -213,7 +213,7 @@ p.stars <- function(p.values) {
   unclass(symnum(p.values, corr = FALSE, 
                  na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
                  symbols = c("***", "**", "*", ".", " ")))}
-eff_siz_env_plot <- env_S1 %>%
+diff_in_env_plot <- env_S1 %>%
   t() %>%
   as.data.frame() %>%
   tibble::rownames_to_column(., "variables") %>%
@@ -231,10 +231,15 @@ eff_siz_env_plot <- env_S1 %>%
   # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
-  annotate("rect", xmin = 0, xmax = 8.5, ymin = -2, ymax = 2, alpha = 0.2,fill="#FAE3AD") +
+  annotate("rect", xmin = 0, xmax = 9.5, ymin = -2, ymax = 2, alpha = 0.2,fill="#FAE3AD") +
   main_theme +
   theme(strip.background = element_rect(fill=c("#FFF6E1")))
-eff_siz_env_plot
+if (!dir.exists(file.path(save.dir, "figs/env/"))) {
+  dir.create(file.path(save.dir, "figs/env/"))
+}
+ggsave(file.path(save.dir, "/figs/env/diff_in_env_plot.pdf"),
+       diff_in_env_plot, width = 3, height = 3.5, units = "in")
+diff_in_env_plot
 ```
 
 Combine plots
