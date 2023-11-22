@@ -73,7 +73,7 @@ d <- estimateCommonDisp(d)
 d <- estimateTagwiseDisp(d)
 
 # Testing for differential gene expression
-et <- exactTest(object = d)
+et <- exactTest(object = d, pair = c("Control","Collapsed"))
 # topTags() function is useful to extract the table with adjusted p values (FDR).
 top_degs <- topTags(object = et, n = "Inf")
 top_degs
@@ -164,14 +164,14 @@ ko_9_levels <- read.delim(file.path(wd_fun, "/ko_9_levels.txt"), header = T, sep
 up_df <- data_edger %>% 
   mutate(KO = rownames(.)) %>%
   filter(Expression %in% "Up-regulated") %>%
-  inner_join(ko_9_levels, ky = "KO") %>%
+  inner_join(ko_9_levels, by = "KO") %>%
   select("KO", "Description", "L2", "L3", "PathwayID") %>%
   left_join(cbind(KO = rownames(ko_tpm_table), ko_tpm_table), by = "KO")
 
 down_df <- data_edger %>% 
   mutate(KO = rownames(.)) %>%
   filter(Expression %in% "Down-regulated") %>%
-  inner_join(ko_9_levels, ky = "KO") %>%
+  inner_join(ko_9_levels, by = "KO") %>%
   select("KO", "Description", "L2", "L3", "PathwayID") %>%
   left_join(cbind(KO = rownames(ko_tpm_table), ko_tpm_table), by = "KO")
 
@@ -191,8 +191,8 @@ kegg_decoder_fun <- function(group, kegg_sig) {
   }
   return(kegg_decoder_df)
 }
-kegg_decoder_collapsed <- kegg_decoder_fun('_T', up_df$KO)
-kegg_decoder_control <- kegg_decoder_fun('_C', down_df$KO)
+kegg_decoder_collapsed <- kegg_decoder_fun('_T', up_KOs)
+kegg_decoder_control <- kegg_decoder_fun('_C', down_KOs)
 
 kegg_decoder_collapsed$Sample <- sapply(kegg_decoder_collapsed$Sample, FUN = function(x){sub('_', '', x)})
 kegg_decoder_control$Sample <- sapply(kegg_decoder_control$Sample, FUN = function(x){sub('_', '', x)})
@@ -203,37 +203,46 @@ write.table(kegg_decoder_control, file.path(save.dir, 'tables/kegg/kegg_decoder_
 ```
 
 Heatmap showing the completion of pathways across collapsed samples using R
-```{r}
+```{r, fig.align='center', fig.width=6.5, fig.height=4.5}
 KEGG_decoder_collapsed_table <- read.table(file.path(save.dir, 'tables/kegg/KEGG_decoder_collapsed_output.tsv'), sep = "\t", header = TRUE)
 KEGG_decoder_control_table <- read.table(file.path(save.dir, 'tables/kegg/KEGG_decoder_control_output.tsv'), sep = "\t", header = TRUE)
 
 # renaming pathways for plotting
-rep_str = c("Wood.Ljungdahl" = "Wood-Ljungdahl",
-            "X4.Hydroxybutyrate.3.hydroxypropionate" = "4-Hydroxybutyrate/3-hydroxypropionate",
-            "nitrogen.fixation" = "nitrogen fixation", 
-            "dissimilatory.sulfite.....sulfide" = "dissimilatory sulfite <=> sulfide",
-            "thiosulfate.polysulfide.reductase" = "thiosulfate/polysulfide reductase", 
-            "sulfhydrogenase" = "sulfhydrogenase",
-            "DMSO.reductase" = "DMSO reductase",
-            "thiamin.biosynthesis" = "Thiamin biosynthesis",
-            "Methanogenesis.via.methanol" = "Methanogenesis via methanol",
-            "Methanogenesis.via.acetate" = "Methanogenesis via acetate",
-            "Photosystem.I" = "Photosystem I",
-            "Methanogenesis.via.methylamine" = "Methanogenesis via methylamine",
+rep_str = c("Mixed.acid..Formate" = "Mixed acid: Formate",
             "Methanogenesis.via.dimethylamine" = "Methanogenesis via dimethylamine",
-            "Methanogenesis.via.CO2" = "Methanogenesis via CO2",
+            "Methanogenesis.via.methylamine" = "Methanogenesis via methylamine",
+            "NADP.reducing.hydrogenase" = "NADP-reducing hydrogenase",
+            "hydrogen.quinone.oxidoreductase" = "Hydrogen:quinone oxidoreductase",
+            "NiFe.hydrogenase" = "NiFe hydrogenase",
+            "dissimilatory.sulfite.....sulfide" = "Dissimilatory sulfite <=> sulfide",
+            "Methanogenesis.via.acetate" = "Methanogenesis via acetate",
+            "nitrogen.fixation" = "Nitrogen fixation",
             "Coenzyme.B.Coenzyme.M.regeneration" = "Coenzyme B/Coenzyme M regeneration",
+            "Methanogenesis.via.methanol" = "Methanogenesis via methanol",
             "Coenzyme.M.reduction.to.methane" = "Coenzyme M reduction to methane",
-            "Mixed.acid..Formate" = "Mixed acid: Formate",
+            "DMSO.reductase" = "DMSO reductase",
+            "thiosulfate.polysulfide.reductase" = "Thiosulfate/polysulfide reductase",
+            "Wood.Ljungdahl" = "Wood-Ljungdahl",
+            "anoxygenic.type.I.reaction.center" = "Anoxygenic photosynthesis type-I reaction centers",
+            "NAD.reducing.hydrogenase" = "NAD-reducing hydrogenase",
+            "Methanogenesis.via.CO2" = "Methanogenesis via CO2",
+            "X4.Hydroxybutyrate.3.hydroxypropionate" = "4-Hydroxybutyrate/3-hydroxypropionate",
+            "thiamin.biosynthesis" = "Thiamin biosynthesis",
+            "Competence.related.core.components" = "Competence-related core components",
+            "Photosystem.I" = "Photosystem I",
+            "sulfhydrogenase" = "Sulfhydrogenase",
+            "Type.IV.Secretion" = "Type IV Secretion" ,
+            "Type.III.Secretion" = "Type III Secretion", 
+            "transporter..vitamin.B12" = "Transporter: vitamin B12",
+            "CP.lyase.operon" = "CP-lyase operon", 
             "Methanogenesis.via.dimethylsulfide..methanethiol..methylpropanoate" = "Methanogenesis via DMS, MeSH, MMPA", # Methanethiol (MeSH) and dimethylsulfide (DMS) and (MMPA) 3-methylpropionate
-            "C.P.lyase.cleavage.PhnJ" = "C-P lyase cleavage PhnJ",
             "CP.lyase.complex" = "CP-lyase complex",
-            "CP.lyase.operon" = "CP-lyase operon",
-            "starch.glycogen.degradation" = "starch/glycogen degradation")
+            "C.P.lyase.cleavage.PhnJ" = "C-P lyase cleavage PhnJ",
+            "starch.glycogen.degradation" = "Starch/glycogen degradation")
 # select the columns with the colsums larger than zero and arrange the data
 KEGG_decoder_control_table <- KEGG_decoder_control_table %>%
   select_if(~ !is.numeric(.) || sum(.) != 0) %>%
-  rename(Sample = Function) %>%
+  dplyr::rename(Sample = Function) %>%
   mutate(Sample = str_replace(Sample, "C", "_C")) %>%
   gather(-Sample, key = "pathway", value = "Completion") %>% 
   as.data.frame() %>%
@@ -241,7 +250,7 @@ KEGG_decoder_control_table <- KEGG_decoder_control_table %>%
 
 KEGG_decoder_collapsed_table <- KEGG_decoder_collapsed_table %>%
   select_if(~ !is.numeric(.) || sum(.) != 0) %>%
-  rename(Sample = Function) %>%
+  dplyr::rename(Sample = Function) %>%
   mutate(Sample = str_replace(Sample, "T", "_T")) %>%
   gather(-Sample, key = "pathway", value = "Completion") %>% 
   as.data.frame() %>%
@@ -252,7 +261,7 @@ KEGG_decoder_table <- rbind(KEGG_decoder_control_table, KEGG_decoder_collapsed_t
   mutate(Group = case_when(grepl("_C", Sample) ~ "Down-regulated", 
                            grepl("_T", Sample) ~ "Up-regulated")) %>% # creat a new variables named Group
   mutate(Group = factor(Group, levels = c("Down-regulated", "Up-regulated"))) %>%
-  mutate(pathway = factor(pathway, levels = rev(c(rev(unique((KEGG_decoder_control_table$pathway)[order(KEGG_decoder_control_table$Completion)])), unique((KEGG_decoder_collapsed_table$pathway)[order(KEGG_decoder_collapsed_table$Completion)])[-4]))))
+  mutate(pathway = factor(pathway, levels = rev(c(rev(unique((KEGG_decoder_control_table$pathway)[order(KEGG_decoder_control_table$Completion)])), unique((KEGG_decoder_collapsed_table$pathway)[order(KEGG_decoder_collapsed_table$Completion)])[-c(3, 5)]))))
 
 # heatmap
 kegg_heatmap <- ggplot(KEGG_decoder_table) + 
@@ -269,7 +278,7 @@ kegg_heatmap <- ggplot(KEGG_decoder_table) +
         legend.key.size = unit(0.1, 'cm')
         )
 ggsave(file.path(save.dir, "/figs/kegg/kegg_heatmap.pdf"),
-       kegg_heatmap, width = 6.5, height = 3, units = "in")
+       kegg_heatmap, width = 7.5, height = 4.5, units = "in")
 kegg_heatmap
 ```
 
@@ -298,7 +307,6 @@ logFC_table <- data_edger %>%
 
 
 ```{r}
-C_genes <- c("")
 C_names <- c("Alpha-amylase", "Glucoamylase", "Pullulanase", "Isopullulanase",
              "Arabinofuranosidase", "Beta_mannanase", "Xylanase", "Xylose isomerase",
              "Beta-glucosidase",  "Endoglucanase", "Exoglucanase",
@@ -419,38 +427,8 @@ C_N_path1 <- C_N_ko_count_tab %>%
   group_by(Category, Subcategory, Enzyme_protein_encoded) %>%
   summarise(across(everything(), sum)) %>% data.frame() %>%
   mutate(Subcategory = factor(Subcategory, levels = unique(sel_ko$Subcategory), ordered = T))
-C_N_path1 %>% filter(Category == "Carbon") %>% select(c(2, 3))
 C_N_path2 <- C_N_path1 %>% select(c(3:63)) %>% 
   tibble::column_to_rownames('Enzyme_protein_encoded')
-# C_N_path2 <- C_N_ko_count_tab %>% 
-#   inner_join(sel_ko, c("KO" = "KO")) %>% 
-#   select(-c(Subcategory, KO)) %>%
-#   group_by(Enzyme_protein_encoded) %>%
-#   summarise(across(everything(), sum)) %>% data.frame() %>%
-#   pivot_longer(cols = -Enzyme_protein_encoded, names_to = 'sample_id', values_to = 'counts') %>%
-#   mutate(layer = gsub("_.+$", "", sample_id))
-
-# path_result <- C_N_path2 %>% select(-sample_id) %>% 
-#   group_by(Enzyme_protein_encoded, layer) %>%
-#   summarise_all(list(mean = mean, sd = sd, se = ~sd(./sqrt(.))))
-library(reshape2)
-# plot_dat <- log2(C_N_path2 + 1)
-plot_dat <- apply(C_N_path2, MARGIN = 2, FUN = scale)
-rownames(plot_dat) <- rownames(C_N_path2)
-plot_dat <- t(plot_dat)
-plot_dat <-  setNames(melt(plot_dat), c('samples', 'Enzyme_protein_encoded', 'values'))
-plot_dat$Enzyme_protein_encoded <- factor(plot_dat$Enzyme_protein_encoded, ordered = T,
-                                          levels = unique(sel_ko$Enzyme_protein_encoded))
-ggplot(plot_dat) +
-  geom_tile(aes(x = as.factor(samples), y = as.factor(Enzyme_protein_encoded), fill = values)) +
-  xlab('') + ylab('') + theme_linedraw() + 
-  guides(fill = guide_colourbar(barwidth = 0.5, barheight = 10)) +
-  scale_fill_gradientn(colours = c('white','#00A087FF'), values = c(0,1)) + 
-  #facet_grid(~Ecosystem, scales = 'free_x', space = 'free_x') +
-  theme(axis.title.x=element_blank(), panel.grid.minor = element_blank(), 
-        panel.grid.major = element_blank(), 
-        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 5), 
-        panel.spacing = unit(0, "lines"), strip.background = element_blank())
 ```
 ##############################################################################################################
 ## edgeR analysis
@@ -508,17 +486,17 @@ d <- estimateTagwiseDisp(d)
 classes <- factor(classDefinitions_RNASeq$Group)
 modelDesign <- model.matrix(~ 0 + classes)
 contrast_collap <- makeContrasts(
-  collavsrest = "Collapsed-Control", levels = modelDesign)
+  collavsrest = "classesCollapsed-classesControl", levels = modelDesign)
 fit_glm <- glmFit(d, modelDesign)
-survsrest <- glmLRT(fit_glm , contrast = contrast_collap)
+collavsrest <- glmLRT(fit_glm , contrast = contrast_collap)
 tt_collavsrest <- topTags(collavsrest, n = nrow(d))
 # Create g:Profiler input list
 # tt <- tt_exact_test
 #get the indices of scored dataset that have FDR < 0.05
 
-select_sur_genes = tt_survsrest$table %>%  filter(FDR < 0.05)
+select_collapsed_genes = tt_collavsrest$table %>%  filter(FDR < 0.05)
 #output how many genes there are in the set that have FDR < 0.05
-nrow(select_sur_genes)
+nrow(select_collapsed_genes)
 ```
 
 ## arrange the log fold change table
@@ -543,30 +521,32 @@ S_names <- c("sat", "cysC", "cysD", "cysNC", "csyH", "cysJ", "cysN", "aprA", "ap
              "soxC", "soxY", "soxZ", "ttrA", "ttrB", "ttrC", "phsA", "phsB", "phsC")
 Other_names <- c("Cyc1", "Cyc2", "MtrA", "MtrB", "MtrC", "arsC (grx)", "arsC (trx)", 
                  "aioA", "arsM", "ygfM", "xdhD", "YgfK")
-logFC_table <- rbind(data.frame(pathway = rownames(tt_survsrest$table), logFC = tt_survsrest$table$logFC, layer = rep('SUR', nrow(tt_survsrest$table))),
-                     data.frame(pathway = rownames(tt_subvsrest$table), logFC = tt_subvsrest$table$logFC, layer = rep('SUB', nrow(tt_subvsrest$table))),
-                     data.frame(pathway = rownames(tt_plvsrest$table), logFC = tt_plvsrest$table$logFC, layer = rep('PL', nrow(tt_plvsrest$table)))) %>%
-  mutate(layer = factor(layer, levels = rev(c('SUR', 'SUB', 'PL'))))
+logFC_table <- tt_collavsrest$table %>%
+  rownames_to_column(var = "pathway") %>%
+  mutate(Expression = case_when(logFC >= log(2) & FDR <= 0.05 ~ "Up-regulated",
+                           logFC <= -log(2) & FDR <= 0.05 ~ "Down-regulated",
+                           TRUE ~ "Unchanged")) %>%
+  mutate(sig = case_when(PValue <= 0.001 ~ "***",
+                         PValue > 0.001 & PValue <= 0.01 ~ "**",
+                         PValue > 0.01 & PValue <= 0.05 ~ "*"))
 ```
 
 ## Heatmap for carbon
 ```{r, fig.align='center', fig.width=8, fig.height=4.7}
 p_C_enrich <- logFC_table %>% filter(pathway %in% C_names) %>%
   mutate(pathway = factor(pathway, levels = C_names, ordered = T)) %>%
-  ggplot(aes(x = pathway, y = layer, fill = logFC)) +
-  geom_tile() + 
-  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C") +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
-  geom_text(aes(label = round(logFC, 2)), 
-            color = "black", size = 1.5) +
-  labs(y = 'Layers', x = 'Pathway', fill = "logFC") +
-  theme(axis.title = element_blank(),
+  ggplot(aes(x = pathway, y = logFC, color = Expression))+
+  geom_point(size = 2) + 
+  scale_color_manual(values = c("#2C7BB6", "grey20", "#D7191C")) +
+  labs(y = "logFC", x = 'Pathway') +
+  theme(axis.title.x = element_blank(),
         axis.text = element_text(size = 6, colour = 'black'),
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-        # legend.key.height= unit(0.35, 'cm'),
-        # legend.key.width= unit(0.35, 'cm'),
+        axis.text.x = element_text(angle = 45, hjust = 1),
         legend.key.size = unit(0.35, 'cm'),
         legend.title = element_text(size = 8), 
         legend.text = element_text(size = 6))
+ggsave(file.path(save.dir, "/figs/kegg/p_C_enrich.pdf"),
+       p_C_enrich, width = 6.5, height = 3, units = "in")
 p_C_enrich
 ```
 ## Heatmap for nitrogen
