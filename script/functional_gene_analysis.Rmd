@@ -601,97 +601,38 @@ ggsave(file.path(save.dir, "/figs/kegg/p_C_enrich.pdf"),
        p_C_enrich, width = 6.5, height = 3, units = "in")
 p_C_enrich
 ```
-## Heatmap for nitrogen
-```{r, fig.align='center', fig.height=8, fig.width=4}
-p_N_enrich <- logFC_table %>% filter(pathway %in% N_names) %>%
-  mutate(pathway = factor(pathway, levels = rev(N_names), ordered = T)) %>%
-  ggplot(aes(x = layer, y = pathway, fill = logFC))+
-  geom_tile() + 
-  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C") +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
-  geom_text(aes(label = round(logFC, 2)), 
-            color = "black", size = 1.5) +
-  labs(y = 'Layers', x = 'Pathway', fill = "logFC") +
-  theme(axis.title = element_blank(),
-        axis.text = element_text(size = 6, colour = 'black'),
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-        # legend.key.height= unit(0.35, 'cm'),
-        # legend.key.width= unit(0.35, 'cm'),
-        legend.key.size = unit(0.35, 'cm'),
-        legend.title = element_text(size = 8), 
-        legend.text = element_text(size = 6)) +
-  coord_flip()
-p_N_enrich
+## Difference analysis based on the CAZy results
+```{r, fig.align='center', fig.width=6.5, fig.height=4}
+# reading data
+pacman::p_load(ggplot2, ggpubr, gghalves)
+cazy_table <- read.delim(file.path(wd_fun, "./eggnog.CAZy.TPM.spf"), 
+                           header = T, sep = "\t")
+cazy_table <- cazy_table %>%
+  select(-1) %>%
+  separate(CAZy, 
+           into = c("category", "num"), 
+           sep = "(?<=[A-Za-z])(?=[0-9])"
+           ) %>%
+  select(-2) %>%
+  na.omit() %>%
+  group_by(category) %>%
+  summarise(across(, mean, na.rm = TRUE)) %>%
+  pivot_longer(cols = -category, names_to = "Sample", values_to = "Abundance") %>%
+  mutate(Group = case_when(grepl("_C", Sample) ~ "Control", 
+                           grepl("_T", Sample) ~ "Collapsed")) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed")))
+
+ggplot(cazy_table, aes(Group, Abundance, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
+  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~category, scales = "free_y") +
+  main_theme
 ```
-
-## Heatmap for sulfur
-```{r, fig.align='center', fig.height=8, fig.width=4}
-p_S_enrich <- logFC_table %>%
-  mutate(layer = factor(layer, levels = c('SUR', 'SUB', 'PL'))) %>% 
-  filter(pathway %in% S_names) %>%
-  mutate(pathway = factor(pathway, levels = rev(S_names), ordered = T)) %>%
-  ggplot(aes(x = pathway, y = layer, fill = logFC)) +
-  geom_tile() + 
-  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C", midpoint = 0) +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
-  geom_text(aes(label = round(logFC, 2)), 
-            color = "black", size = 1.5) +
-  labs(y = 'Layers', x = 'Pathway', fill = "logFC") +
-  theme(axis.title = element_blank(),
-        axis.text = element_text(size = 6, colour = 'black'),
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-        # legend.key.height= unit(0.35, 'cm'),
-        # legend.key.width= unit(0.35, 'cm'),
-        legend.key.size = unit(0.35, 'cm'),
-        legend.title = element_text(size = 8), 
-        legend.text = element_text(size = 6)) +
-  coord_flip()
-p_S_enrich
-```
-
-## Other biogeochemical processes
-```{r}
-p_other_enrich <- logFC_table %>%
-  mutate(layer = factor(layer, levels = c('SUR', 'SUB', 'PL'))) %>% 
-  filter(pathway %in% Other_names) %>%
-  mutate(pathway = factor(pathway, levels = rev(Other_names), ordered = T)) %>%
-  ggplot(aes(x = pathway, y = layer, fill = logFC)) +
-  geom_tile() + 
-  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C") +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
-  geom_text(aes(label = round(logFC, 2)), 
-            color = "black", size = 1.5) +
-  labs(y = 'Layers', x = 'Pathway', fill = "logFC") +
-  theme(axis.title = element_blank(),
-        axis.text = element_text(size = 6, colour = 'black'),
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-        # legend.key.height= unit(0.35, 'cm'),
-        # legend.key.width= unit(0.35, 'cm'),
-        legend.key.size = unit(0.35, 'cm'),
-        legend.title = element_text(size = 8), 
-        legend.text = element_text(size = 6)) +
-  coord_flip()
-p_other_enrich
-```
-
-
-
-
-# Draw barplot with grouping & stacking
-library(ggplot2)
-library(dplyr)
-d1 <- C_N_ko_tax_path_tab %>% select(c('Subcategory', 'Genu', 
-                                       grep('SUR', colnames(C_N_ko_tax_path_tab)),
-                                       grep('SUB', colnames(C_N_ko_tax_path_tab)),
-                                       grep('PL', colnames(C_N_ko_tax_path_tab)))) %>%
-  pivot_longer(cols = -c(Subcategory, Genu),
-               names_to = "sample", values_to = 'abundance') %>%
-  mutate(Layers = gsub("_.+$", "", sample)) %>%
-  filter(Subcategory == 'ANRA') %>% select('sample', 'Layers', 'Genu', 'abundance') %>%
-  group_by(Genu, sample, Layers) %>%
-  summarise(across(everything(), sum)) %>%
-  group_by(Layers) %>%
-  arrange(sample, desc(abundance)) %>%
-  ggplot(.,aes(x = sample, y = abundance, fill = Genu)) + 
-  geom_bar(stat = "identity",
-           position = "stack") +
-  facet_grid(~ Layers, scales="free_x") +
-  theme(legend.position = 'none')
 
