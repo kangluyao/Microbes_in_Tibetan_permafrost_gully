@@ -61,9 +61,18 @@ t2$cal_network(COR_p_thres = 0.01, COR_cut = 0.7)
 t1$cal_module(method = "cluster_fast_greedy")
 t2$cal_module(method = "cluster_fast_greedy")
 
-# require rgexf package to be installed
-t1$save_network(filepath = file.path(save.dir, "./figs/ctrl_network.gexf"))
-t2$save_network(filepath = file.path(save.dir, "./figs/collapsed_network.gexf"))
+# get the igraph objects
+ig.ctrl <- t1$res_network
+ig.collapsed <- t2$res_network
+
+# creat a directory for kegg-gene results
+if (!dir.exists(file.path(save.dir, "figs/network/"))) {
+  dir.create(file.path(save.dir, "figs/network/"))
+}
+
+# Creating gml files of network (to be visulized in Gephi or Cytoscape)
+write.graph(ig.ctrl, file.path(save.dir, "./figs/network/ctrl_network.graphml"), format = 'graphml')
+write.graph(ig.collapsed, file.path(save.dir, "./figs/network/collapsed_network.graphml"), format = 'graphml')
 
 # calculate network attributes
 t1$cal_network_attr()
