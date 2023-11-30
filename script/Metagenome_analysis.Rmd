@@ -44,7 +44,7 @@ metabolic_output_file <- file.path(wd_fun, "MAGs/METABOLIC_result.csv")
 # tree <- read.tree(tree.file)
 abundance_tab <- read_delim(abundance_tab.file, col_names = T)
 colnames(abundance_tab)[1] <- 'ID'
-tax_tab <- read_delim(tax.file, col_names = T)
+tax_bin <- read_delim(tax.file, col_names = T)
 bin_infor <- tax_tab %>%
   select(c("ID", "completeness", "contamination", "size")) %>%
   mutate(Layers = sapply(stringr::str_split(genome, "_",  n = 4), `[`, 2)) %>%
@@ -52,6 +52,264 @@ bin_infor <- tax_tab %>%
 metabolic_tab <- read.csv(metabolic_output_file) %>%
   select(c('Category', 'Function', grep('Hmm.presence', colnames(.))))
 ```
+
+## Metabolic functional MAGs
+
+```{r}
+C_N_metapathway <- c("Amino acid utilization", "Amylolytic enzymes", 
+                     "Cellulose degrading", "Endohemicellulases",
+                     "Hemicullulose debranching", "Chitin degrading", 
+                     "Phenol => Benzoyl-CoA", "acyl-CoA dehydrogenase",
+                     "Other oligosaccharide degrading",
+                     "Acetogenesis", "Lactate utilization", "Pyruvate oxidation",  
+                     "Pyruvate <=> acetyl-CoA + formate", "Alcohol utilization",
+                     "Acetate to acetyl-CoA", "Methane production",
+                     "Methane oxidation - Partculate methane monooxygenase",
+                     "Methane oxidation - Soluble methane monoxygenase", 
+                     "Ammonia oxidation", "Nitrate reduction", "Nitric oxide reduction",
+                     "Nitrite oxidation", "Nitrite reduction to ammonia", "Nitrite reduction",
+                     "Nitrous oxide reduction", "N2 fixation")
+other_metapathway <- c("Sulfate reduction", "Sulfide oxidation", "Sulfite reduction",
+                       "Sulfur oxidation", "Sulfur reduction", "Thiosulfate disproportionation", 
+                       "Thiosulfate oxidation", "Iron oxidation", "Iron reduction",
+                       "Arsenite oxidation", "Arsenate reduction", "Selenate reduction", 
+                       "FeFe hydrogenase", "Ni-Fe Hydrogenase")
+dat1 <- metabolic_tab %>% 
+  filter(Function %in% c(C_N_metapathway, other_metapathway)) %>% 
+  mutate(across(starts_with("s_"), ~ifelse(. == "Present", 1, 0))) %>%
+  group_by(Category, Function) %>% 
+  summarise(across(everything(), sum)) %>%
+  filter(rowSums(across(where(is.numeric)))!=0) %>% 
+  mutate(across(starts_with("s_"), ~ifelse(. >= 1, 1, 0))) %>%
+  pivot_longer(cols = -c(Category, Function), names_to = "ID", values_to = 'presence_or_absent') %>%
+  mutate(ID = gsub(".Function.presence", "", ID))
+# write the table for itol annotation
+# write.csv(dat3, "E:/permafrost/data/metagenome/metabolic/METABOLIC_70_layer/METABOLIC_70_all/itol_DIY_manual/annotation.csv")
+```
+
+## Determine the total number of MAGs for each metabolic pathway
+
+```{r, fig.width=10, fig.height=8}
+num.mags.df <- dat1 %>% select(c(1, 2, 4)) %>%
+  group_by(Category, Function) %>% 
+  summarise(across(everything(), sum)) %>%
+  filter(Function %in% c(C_N_metapathway, other_metapathway)) %>% 
+  mutate(Function = factor(Function, levels = c(C_N_metapathway, other_metapathway)))
+knitr::kable(arrange(num.mags.df, desc(presence_or_absent)))
+```
+
+
+```{r, fig.width=10, fig.height=8}
+my_colors <- c("#e4d00a", "#FB8072", "#FDB462", "#80B1D3", "#BEBADA", "#B3DE69", "#FCCDE5", "#A6CEE3",
+               "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#893f45", "#FF7F00", "#1F78B4",
+               "#6A3D9A", "#b31b1b", "#5d3954", "#008b8b", "#8b008b", "#e75480", "#872657", "#8fbc8f",
+               "#00bfff", "#d71868", "#ffff00", "#c08081", "#cc6666", "#e49b0f", "#c90016", "#355e3b",
+               "#29ab87", "#9457eb", "#f56991", "#32cd32", "#035096", "#bb3385", "#009E73", "#000000")
+               
+set.seed(1234)  # Set seed
+my_col <- sample(my_colors) # Sample vector            
+values = c("#6A3D9A", "#FCCDE5", "#1F78B4", "#A6CEE3", "#B3DE69", "#E69F00", "#56B4E9", "#009E73",
+           "#F0E442", "#0072B2", "#D55E00", "#FB9A99", "#E31A1C", "#FDBF6F", "#8DD3C7", "#FFFFB3", 
+           "#BEBADA", "#FB8072", "#B2DF8A", "#33A02C", "#FF7F00", "#000000")
+
+values = c("#FFFFB3", "#FB8072", "#FDB462", "#80B1D3", "#BEBADA", "#B3DE69", "#FCCDE5", "#A6CEE3",
+           "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00", "#1F78B4",
+           "#6A3D9A", "#FCCDE5", "#1F78B4", "#A6CEE3", "#B3DE69", "#E69F00", "#56B4E9", "#009E73")
+
+num.mags.plot <- num.mags.df %>%
+  ggplot(aes(x = Function, y = presence_or_absent, fill = Function)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = my_col) +
+  scale_y_continuous(limits = c(0, 220), expand = c(0, 0)) +
+  labs(x = NULL, y = 'Number of MAGs') +
+  theme_classic() +
+  theme(axis.text = element_text(colour = 'black'),
+        legend.position = "none") +
+  coord_flip()
+num.mags.plot
+# plot.name <- paste0(wd_fun, "/metabolic/results/number_of_MAGs_Plot.PDF")
+# print(num.mags.plot)
+# cairo_pdf(filename = plot.name, width = 10, height = 8, onefile = TRUE)
+# num.mags.plot
+# dev.off()
+```
+
+## Determine the metabolic potential of each taxa (phylum/class)
+```{r}
+tax_bin1 <- rbind(tax_bin %>% 
+  filter(Class %in% c("c__Alphaproteobacteria", "c__Betaproteobacteria",
+                      "c__Gammaproteobacteria", "c__Deltaproteobacteria")) %>%
+    select(ID, Phylum = Class), tax_bin %>% select(ID, Phylum) %>%
+  filter(!Phylum %in% c("p__Proteobacteria")))
+
+# count the number of bins of each taxa
+num.bins.df <- as.data.frame(table(tax_bin1$Phylum)) %>%
+  select(Phylum = Var1, Freq)
+
+# merge the tax table and the metabolic table
+dat2 <- dat1 %>%
+  mutate(ID = str_replace(ID, ".Hmm.presence", "")) %>%
+  inner_join(tax_bin1, by = "ID") %>%
+  as.data.frame() %>% # "Adding missing grouping variables" message 
+  select(Function, Phylum, presence_or_absent) %>%
+  group_by(Function, Phylum) %>%
+  dplyr::summarize(presence = sum(presence_or_absent)) %>%
+  left_join(num.bins.df, by = "Phylum") %>%
+  mutate(pro = presence/Freq) %>%
+  select(Function, Phylum, pro) %>%
+  pivot_wider(names_from = Phylum, values_from = pro) %>%
+  column_to_rownames(var = "Function")
+
+# heatmap plot
+pacman::p_load(pheatmap)
+pheatmap(dat2, 
+         cluster_rows = F,
+         cluster_cols = F,
+         gaps_row = 5,
+         gaps_col = 6,
+         border_color = 'Black',
+         cellwidth = 10, cellheight = 10,
+         fontsize_col = 8, fontsize_row = 8,
+         color = c("white", "#84C1FF","#005AB5"),
+         # breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
+         main = 'Heatmap')
+dat2 %>%
+  
+library(pheatmap)
+
+data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/carbon.txt",head = T,row.names=1,sep="\t")
+df <- t(data[,0:35])
+df
+pheatmap(df,
+         cluster_rows = F,
+         cluster_cols = F,
+         gaps_row = 5,
+         #     gaps_col = c(3,5,8,13,16,19,22),
+         show_rownames = TRUE,
+         border_color = 'Black',
+         cellwidth = 10,cellheight= 10,
+         fontsize_col=8,fontsize_row=8,
+         color = c("white", "#84C1FF","#005AB5"),
+         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
+         main = 'Heatmap')
+
+data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/nitrogen.txt",head = T,row.names=1,sep="\t")
+df <- t(data[,0:35])
+df
+pheatmap(df,
+         cluster_rows = F,
+         cluster_cols = F,
+         gaps_row = 5,
+         #      gaps_col = c(4,7,15),
+         show_rownames = TRUE,
+         border_color = 'Black',
+         cellwidth = 10,cellheight= 10,
+         fontsize_col=8,fontsize_row=8,
+         color = c("white","#CEFFCE", "#00DB00"),
+         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
+         main = 'Heatmap')
+
+
+data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/sulfur.txt",head = T,row.names=1,sep="\t")
+df <- t(data[,0:35])
+df
+pheatmap(df,
+         cluster_rows = F,
+         cluster_cols = F,
+         gaps_row = 5,
+         #     gaps_col = c(5,7),
+         show_rownames = TRUE,
+         border_color = 'Black',
+         cellwidth = 10,cellheight= 10,
+         fontsize_col=8,fontsize_row=8,
+         color = c("white", "#FFED97","#D9B300"),
+         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
+         main = 'Heatmap')
+
+
+data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/benzoate.txt",head = T,row.names=1,sep="\t")
+data
+df <- t(data[,0:35])
+df
+pheatmap(df,
+         cluster_rows = F,
+         cluster_cols = F,
+         gaps_row = 5,
+         #    gaps_col = c(3,5,11,13,15),
+         border_color = 'Black',
+         show_rownames = TRUE,
+         cellwidth = 10,cellheight= 10,
+         fontsize_col=8,fontsize_row=8,
+         color = c("white","#ffaad5", "#D9006C"),
+         breaks = c(0,0.2, 0.499, 1),  
+         main = 'Heatmap')
+
+
+data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/alkane.txt",head = T,row.names=1,sep="\t")
+df <- t(data[,0:35])
+df
+pheatmap(df,
+         cluster_rows = F,
+         cluster_cols = F,
+         gaps_row = 5,
+         #       gaps_col = c(3,5,8,11,14,17),
+         show_rownames = TRUE,
+         border_color = 'Black',
+         cellwidth = 10,cellheight= 10,
+         fontsize_col=8,fontsize_row=8,
+         color = c("white","#FF8F59", "#BB3D00"),
+         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
+         main = 'Heatmap')
+
+data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/arsenite.txt",head = T,row.names=1,sep="\t")
+df <- t(data[,0:35])
+df
+pheatmap(df,
+         cluster_rows = F,
+         cluster_cols = F,
+         gaps_row = 5,
+         #       gaps_col = c(3,5,8,11,14,17),
+         show_rownames = TRUE,
+         border_color = 'Black',
+         cellwidth = 10,cellheight= 10,
+         fontsize_col=8,fontsize_row=8,
+         color = c("white","#d3a4ff", "#6F00D2"),
+         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
+         main = 'Heatmap')
+
+data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/selenium.txt",head = T,row.names=1,sep="\t")
+df <- t(data[,0:35])
+df
+pheatmap(df,
+         cluster_rows = F,
+         cluster_cols = F,
+         gaps_row = 5,
+         #       gaps_col = c(3,5,8,11,14,17),
+         show_rownames = TRUE,
+         border_color = 'Black',
+         cellwidth = 10,cellheight= 10,
+         fontsize_col=8,fontsize_row=8,
+         color = c("white","#A3D1D1", "#3D7878"),
+         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
+         main = 'Heatmap')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## PCoA ordination analysis using the relative abundance of MAGs and Bray-Curtis dissimilarity index
 
@@ -167,85 +425,8 @@ dat2 <- abundance_tab %>%
 # write.csv(dat2, "E:/permafrost/data/metagenome/metabolic/METABOLIC_70_layer/METABOLIC_70_all/itol_DIY_manual/abundance_annotation.csv")
 ```
 
-## Metabolic functional MAGs
 
-```{r}
-C_N_metapathway <- c("Amino acid utilization", "Amylolytic enzymes", 
-                     "Cellulose degrading", "Endohemicellulases",
-                     "Hemicullulose debranching", "Chitin degrading", 
-                     "Phenol => Benzoyl-CoA", "acyl-CoA dehydrogenase",
-                     "Other oligosaccharide degrading",
-                     "Acetogenesis", "Lactate utilization", "Pyruvate oxidation",  
-                     "Pyruvate <=> acetyl-CoA + formate", "Alcohol utilization",
-                     "Acetate to acetyl-CoA", "Methane production",
-                     "Methane oxidation - Partculate methane monooxygenase",
-                     "Methane oxidation - Soluble methane monoxygenase", 
-                     "Ammonia oxidation", "Nitrate reduction", "Nitric oxide reduction",
-                     "Nitrite oxidation", "Nitrite reduction to ammonia", "Nitrite reduction",
-                     "Nitrous oxide reduction", "N2 fixation")
-other_metapathway <- c("Sulfate reduction", "Sulfide oxidation", "Sulfite reduction",
-                       "Sulfur oxidation", "Sulfur reduction", "Thiosulfate disproportionation", 
-                       "Thiosulfate oxidation", "Iron oxidation", "Iron reduction",
-                       "Arsenite oxidation", "Arsenate reduction", "Selenate reduction", 
-                       "FeFe hydrogenase", "Ni-Fe Hydrogenase")
-dat3 <- metabolic_tab %>% 
-  filter(Function %in% c(C_N_metapathway, other_metapathway)) %>% 
-  mutate(across(starts_with("s_"), ~ifelse(. == "Present", 1, 0))) %>%
-  group_by(Category, Function) %>% 
-  summarise(across(everything(), sum)) %>%
-  filter(rowSums(across(where(is.numeric)))!=0) %>% 
-  mutate(across(starts_with("s_"), ~ifelse(. >= 1, 1, 0))) %>%
-  pivot_longer(cols = -c(Category, Function), names_to = "ID", values_to = 'presence_or_absent') %>%
-  mutate(ID = gsub(".Function.presence", "", ID))
-# write the table for itol annotation
-# write.csv(dat3, "E:/permafrost/data/metagenome/metabolic/METABOLIC_70_layer/METABOLIC_70_all/itol_DIY_manual/annotation.csv")
-```
 
-## Determine the total number of MAGs for each metabolic pathway
-
-```{r, fig.width=10, fig.height=8}
-num.mags.df <- dat3 %>% select(c(1, 2, 4)) %>%
-  group_by(Category, Function) %>% 
-  summarise(across(everything(), sum)) %>%
-  filter(Function %in% c(C_N_metapathway, other_metapathway)) %>% 
-  mutate(Function = factor(Function, levels = c(C_N_metapathway, other_metapathway)))
-knitr::kable(arrange(num.mags.df, desc(presence_or_absent)))
-```
-
-```{r, fig.width=10, fig.height=8}
-my_colors <- c("#e4d00a", "#FB8072", "#FDB462", "#80B1D3", "#BEBADA", "#B3DE69", "#FCCDE5", "#A6CEE3",
-               "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#893f45", "#FF7F00", "#1F78B4",
-               "#6A3D9A", "#b31b1b", "#5d3954", "#008b8b", "#8b008b", "#e75480", "#872657", "#8fbc8f",
-               "#00bfff", "#d71868", "#ffff00", "#c08081", "#cc6666", "#e49b0f", "#c90016", "#355e3b",
-               "#29ab87", "#9457eb", "#f56991", "#32cd32", "#035096", "#bb3385", "#009E73", "#000000")
-               
-set.seed(1234)  # Set seed
-my_col <- sample(my_colors) # Sample vector            
-values = c("#6A3D9A", "#FCCDE5", "#1F78B4", "#A6CEE3", "#B3DE69", "#E69F00", "#56B4E9", "#009E73",
-           "#F0E442", "#0072B2", "#D55E00", "#FB9A99", "#E31A1C", "#FDBF6F", "#8DD3C7", "#FFFFB3", 
-           "#BEBADA", "#FB8072", "#B2DF8A", "#33A02C", "#FF7F00", "#000000")
-
-values = c("#FFFFB3", "#FB8072", "#FDB462", "#80B1D3", "#BEBADA", "#B3DE69", "#FCCDE5", "#A6CEE3",
-           "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00", "#1F78B4",
-           "#6A3D9A", "#FCCDE5", "#1F78B4", "#A6CEE3", "#B3DE69", "#E69F00", "#56B4E9", "#009E73")
-
-num.mags.plot <- num.mags.df %>%
-  ggplot(aes(x = Function, y = presence_or_absent, fill = Function)) +
-  geom_bar(stat = "identity") +
-  scale_fill_manual(values = my_col) +
-  scale_y_continuous(limits = c(0, 220), expand = c(0, 0)) +
-  labs(x = NULL, y = 'Number of MAGs') +
-  theme_classic() +
-  theme(axis.text = element_text(colour = 'black'),
-        legend.position = "none") +
-  coord_flip()
-num.mags.plot
-# plot.name <- paste0(wd_fun, "/metabolic/results/number_of_MAGs_Plot.PDF")
-# print(num.mags.plot)
-# cairo_pdf(filename = plot.name, width = 10, height = 8, onefile = TRUE)
-# num.mags.plot
-# dev.off()
-```
 
 ## Determine the ratio of presence of each metabolic pathway in each layers
 
