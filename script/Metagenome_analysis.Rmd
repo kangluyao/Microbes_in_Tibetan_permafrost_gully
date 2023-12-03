@@ -45,10 +45,6 @@ metabolic_output_file <- file.path(wd_fun, "MAGs/METABOLIC_result.csv")
 abundance_tab <- read_delim(abundance_tab.file, col_names = T)
 colnames(abundance_tab)[1] <- 'ID'
 tax_bin <- read_delim(tax.file, col_names = T)
-bin_infor <- tax_tab %>%
-  select(c("ID", "completeness", "contamination", "size")) %>%
-  mutate(Layers = sapply(stringr::str_split(genome, "_",  n = 4), `[`, 2)) %>%
-  mutate(Layers = factor(Layers, levels = c('SUR', 'SUB', 'PL')))
 metabolic_tab <- read.csv(metabolic_output_file) %>%
   select(c('Category', 'Function', grep('Hmm.presence', colnames(.))))
 ```
@@ -56,6 +52,8 @@ metabolic_tab <- read.csv(metabolic_output_file) %>%
 ## Metabolic functional MAGs
 
 ```{r}
+target_cat <- c("Thermophilic specific", "Amino acid utilization", "Ethanol fermentation", "Fatty acid degradation", "Aromatics degradation", "Complex carbon degradation", "Fermentation", "C1 metabolism", "Carbon fixation", "Methane metabolism", "Nitrogen cycling", "Sulfur cycling", "Hydrogenases", "As cycling", "Selenate reduction", "Iron cycling", "Manganese cycling")
+
 C_N_metapathway <- c("Amino acid utilization", "Amylolytic enzymes", 
                      "Cellulose degrading", "Endohemicellulases",
                      "Hemicullulose debranching", "Chitin degrading", 
@@ -75,14 +73,14 @@ other_metapathway <- c("Sulfate reduction", "Sulfide oxidation", "Sulfite reduct
                        "Arsenite oxidation", "Arsenate reduction", "Selenate reduction", 
                        "FeFe hydrogenase", "Ni-Fe Hydrogenase")
 dat1 <- metabolic_tab %>% 
-  filter(Function %in% c(C_N_metapathway, other_metapathway)) %>% 
+  filter(Category %in% target_cat) %>%
   mutate(across(starts_with("s_"), ~ifelse(. == "Present", 1, 0))) %>%
   group_by(Category, Function) %>% 
   summarise(across(everything(), sum)) %>%
   filter(rowSums(across(where(is.numeric)))!=0) %>% 
   mutate(across(starts_with("s_"), ~ifelse(. >= 1, 1, 0))) %>%
   pivot_longer(cols = -c(Category, Function), names_to = "ID", values_to = 'presence_or_absent') %>%
-  mutate(ID = gsub(".Function.presence", "", ID))
+  mutate(ID = gsub(".Hmm.presence", "", ID))
 # write the table for itol annotation
 # write.csv(dat3, "E:/permafrost/data/metagenome/metabolic/METABOLIC_70_layer/METABOLIC_70_all/itol_DIY_manual/annotation.csv")
 ```
@@ -93,13 +91,13 @@ dat1 <- metabolic_tab %>%
 num.mags.df <- dat1 %>% select(c(1, 2, 4)) %>%
   group_by(Category, Function) %>% 
   summarise(across(everything(), sum)) %>%
-  filter(Function %in% c(C_N_metapathway, other_metapathway)) %>% 
-  mutate(Function = factor(Function, levels = c(C_N_metapathway, other_metapathway)))
+  mutate(Category = factor(Category, levels = target_cat))
+  # filter(Function %in% c(C_N_metapathway, other_metapathway)) %>% 
+  # mutate(Function = factor(Function, levels = c(C_N_metapathway, other_metapathway)))
 knitr::kable(arrange(num.mags.df, desc(presence_or_absent)))
 ```
 
-
-```{r, fig.width=10, fig.height=8}
+```{r, fig.width=10, fig.height=12}
 my_colors <- c("#e4d00a", "#FB8072", "#FDB462", "#80B1D3", "#BEBADA", "#B3DE69", "#FCCDE5", "#A6CEE3",
                "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#893f45", "#FF7F00", "#1F78B4",
                "#6A3D9A", "#b31b1b", "#5d3954", "#008b8b", "#8b008b", "#e75480", "#872657", "#8fbc8f",
@@ -116,11 +114,12 @@ values = c("#FFFFB3", "#FB8072", "#FDB462", "#80B1D3", "#BEBADA", "#B3DE69", "#F
            "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#FDBF6F", "#FF7F00", "#1F78B4",
            "#6A3D9A", "#FCCDE5", "#1F78B4", "#A6CEE3", "#B3DE69", "#E69F00", "#56B4E9", "#009E73")
 
-num.mags.plot <- num.mags.df %>%
+num.mags.plot <- num.mags.df %>% 
+  mutate(Function = factor(Function, levels = num.mags.df$Function)) %>%
   ggplot(aes(x = Function, y = presence_or_absent, fill = Function)) +
   geom_bar(stat = "identity") +
-  scale_fill_manual(values = my_col) +
-  scale_y_continuous(limits = c(0, 220), expand = c(0, 0)) +
+  scale_fill_manual(values = rep(my_col, 10)) +
+  scale_y_continuous(limits = c(0, 350), expand = c(0, 0)) +
   labs(x = NULL, y = 'Number of MAGs') +
   theme_classic() +
   theme(axis.text = element_text(colour = 'black'),
@@ -135,7 +134,7 @@ num.mags.plot
 ```
 
 ## Determine the metabolic potential of each taxa (phylum/class)
-```{r}
+```{r, fig.align='center', fig.width=10, fig.height=11}
 tax_bin1 <- rbind(tax_bin %>% 
   filter(Class %in% c("c__Alphaproteobacteria", "c__Betaproteobacteria",
                       "c__Gammaproteobacteria", "c__Deltaproteobacteria")) %>%
@@ -160,138 +159,74 @@ dat2 <- dat1 %>%
   pivot_wider(names_from = Phylum, values_from = pro) %>%
   column_to_rownames(var = "Function")
 
-# heatmap plot
+# 1) reorder the matrix based in the annotation
+dat2_ordered <- dat2[num.mags.df$Function, ]
+
+# 2) annotatio
+sub_anno <- num.mags.df %>% select(Category, Function) %>% column_to_rownames(var = "Function") 
+
+# 3) plot heatmap with no clusters
 pacman::p_load(pheatmap)
-pheatmap(dat2, 
+pheatmap(dat2_ordered, 
          cluster_rows = F,
          cluster_cols = F,
-         gaps_row = 5,
-         gaps_col = 6,
+         gaps_row = c(8, 11, 16, 21, 24, 30, 32, 33, 38, 40, 43, 44, 47, 55, 56),
+         # gaps_col = 6,
+         annotation_row = sub_anno,
          border_color = 'Black',
          cellwidth = 10, cellheight = 10,
          fontsize_col = 8, fontsize_row = 8,
-         color = c("white", "#84C1FF","#005AB5"),
-         # breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
-         main = 'Heatmap')
-dat2 %>%
-  
-library(pheatmap)
-
-data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/carbon.txt",head = T,row.names=1,sep="\t")
-df <- t(data[,0:35])
-df
-pheatmap(df,
-         cluster_rows = F,
-         cluster_cols = F,
-         gaps_row = 5,
-         #     gaps_col = c(3,5,8,13,16,19,22),
-         show_rownames = TRUE,
-         border_color = 'Black',
-         cellwidth = 10,cellheight= 10,
-         fontsize_col=8,fontsize_row=8,
-         color = c("white", "#84C1FF","#005AB5"),
-         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
-         main = 'Heatmap')
-
-data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/nitrogen.txt",head = T,row.names=1,sep="\t")
-df <- t(data[,0:35])
-df
-pheatmap(df,
-         cluster_rows = F,
-         cluster_cols = F,
-         gaps_row = 5,
-         #      gaps_col = c(4,7,15),
-         show_rownames = TRUE,
-         border_color = 'Black',
-         cellwidth = 10,cellheight= 10,
-         fontsize_col=8,fontsize_row=8,
-         color = c("white","#CEFFCE", "#00DB00"),
-         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
-         main = 'Heatmap')
-
-
-data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/sulfur.txt",head = T,row.names=1,sep="\t")
-df <- t(data[,0:35])
-df
-pheatmap(df,
-         cluster_rows = F,
-         cluster_cols = F,
-         gaps_row = 5,
-         #     gaps_col = c(5,7),
-         show_rownames = TRUE,
-         border_color = 'Black',
-         cellwidth = 10,cellheight= 10,
-         fontsize_col=8,fontsize_row=8,
-         color = c("white", "#FFED97","#D9B300"),
-         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
-         main = 'Heatmap')
-
-
-data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/benzoate.txt",head = T,row.names=1,sep="\t")
-data
-df <- t(data[,0:35])
-df
-pheatmap(df,
-         cluster_rows = F,
-         cluster_cols = F,
-         gaps_row = 5,
-         #    gaps_col = c(3,5,11,13,15),
-         border_color = 'Black',
-         show_rownames = TRUE,
-         cellwidth = 10,cellheight= 10,
-         fontsize_col=8,fontsize_row=8,
-         color = c("white","#ffaad5", "#D9006C"),
-         breaks = c(0,0.2, 0.499, 1),  
-         main = 'Heatmap')
-
-
-data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/alkane.txt",head = T,row.names=1,sep="\t")
-df <- t(data[,0:35])
-df
-pheatmap(df,
-         cluster_rows = F,
-         cluster_cols = F,
-         gaps_row = 5,
-         #       gaps_col = c(3,5,8,11,14,17),
-         show_rownames = TRUE,
-         border_color = 'Black',
-         cellwidth = 10,cellheight= 10,
-         fontsize_col=8,fontsize_row=8,
-         color = c("white","#FF8F59", "#BB3D00"),
-         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
-         main = 'Heatmap')
-
-data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/arsenite.txt",head = T,row.names=1,sep="\t")
-df <- t(data[,0:35])
-df
-pheatmap(df,
-         cluster_rows = F,
-         cluster_cols = F,
-         gaps_row = 5,
-         #       gaps_col = c(3,5,8,11,14,17),
-         show_rownames = TRUE,
-         border_color = 'Black',
-         cellwidth = 10,cellheight= 10,
-         fontsize_col=8,fontsize_row=8,
-         color = c("white","#d3a4ff", "#6F00D2"),
-         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
-         main = 'Heatmap')
-
-data<- read.table("E:/我的坚果云/Project/Mariana586/3.Annotation/0.Kegg/Prepare/selenium.txt",head = T,row.names=1,sep="\t")
-df <- t(data[,0:35])
-df
-pheatmap(df,
-         cluster_rows = F,
-         cluster_cols = F,
-         gaps_row = 5,
-         #       gaps_col = c(3,5,8,11,14,17),
-         show_rownames = TRUE,
-         border_color = 'Black',
-         cellwidth = 10,cellheight= 10,
-         fontsize_col=8,fontsize_row=8,
          color = c("white","#A3D1D1", "#3D7878"),
-         breaks = c(0,0.2, 0.499, 1),  # distances 0 to 3 are red, 3 to 9 black
-         main = 'Heatmap')
+         breaks = c(0,0.2, 0.499, 1),
+         legend = F
+         # distances 0 to 0.2 are black, 0.2 to 0.5 are light blue, > 0.5 are black
+         )
+```
+```{r, fig.align='center', fig.width=10, fig.height=8}
+# input the data
+MW_score_input_table <- file.path(wd_fun, "MAGs/MW-score_result.txt")
+MW_score_table <- read.delim(MW_score_input_table, header = T, row.names = 1, sep = "\t")
+
+# load libraries
+pacman::p_load(ggplot2, ggplotify, pheatmap, patchwork, aplot)
+
+# plot
+mw_score_df <- data.frame(MW_score_table[, 1])
+p1 <- as.ggplot(pheatmap(mw_score_df, 
+         cluster_rows = F,
+         cluster_cols = F,
+         show_rownames = F,
+         number_color = "black",
+         gaps_row = c(19, 30, 35),
+         border_color = 'Black', # scale = "column",
+         cellwidth = 18, cellheight = 10,
+         fontsize_col = 8, fontsize_row = 8,
+               display_numbers =  round(mw_score_df, 1), 
+               fontsize_number = 6,
+               color = colorRampPalette(c("white", "#F8696B"), bias=0.5)(10),
+         legend = F, silent = T
+         ))
+
+
+cper_df <- data.frame(MW_score_table[, -1])
+p2 <- as.ggplot(pheatmap(cper_df, 
+               cluster_rows = F,
+               cluster_cols = F,
+               number_color = "black",
+               gaps_row = c(19, 30, 35),
+               border_color = 'Black', scale = "row",
+               cellwidth = 18, cellheight = 10,
+               fontsize_col = 8, fontsize_row = 8,
+         display_numbers = round(cper_df, 1), fontsize_number = 6,
+               color = colorRampPalette(c("#5A8AC6", "white", "#F8696B"), bias=0.9)(100),
+         legend = F, silent = T
+         ))
+
+# Decorate a 'ggplot' with Associated Information
+heatmap_MW_score <- p2 %>% insert_left(p1, width = 0.05)
+ggsave(file.path(save.dir, "./figs/MAGs/heatmap_MW_score.pdf"),
+       heatmap_MW_score, width = 10, height = 8, units = "in")
+heatmap_MW_score
 ```
 
 
