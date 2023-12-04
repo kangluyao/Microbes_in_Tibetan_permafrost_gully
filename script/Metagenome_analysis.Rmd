@@ -228,8 +228,263 @@ ggsave(file.path(save.dir, "./figs/MAGs/heatmap_MW_score.pdf"),
        heatmap_MW_score, width = 10, height = 8, units = "in")
 heatmap_MW_score
 ```
+## Metabolic difference among different layers
 
+Set work directory
 
+```{r}
+sankey.plots.folder <- file.path(save.dir, "MAGs/metabolic/sankey") # Name of new output folder
+if (!dir.exists(sankey.plots.folder)) {
+  dir.create(sankey.plots.folder)
+}
+```
+
+Input files
+
+```{r}
+ctrl_input_table <- file.path(wd_fun, "metabolic/control/METABOLIC_Figures_Input/Metabolic_Sankey_diagram_input.txt")
+collap_input_table <- file.path(wd_fun, "metabolic/collapsed/METABOLIC_Figures_Input/Metabolic_Sankey_diagram_input.txt")
+```
+
+Loading packages
+
+```{r}
+pacman::p_load(ggthemes, networkD3, data.table)
+```
+
+Generate a snakey plot with reactions as node, and edges are MAGs, and are colored by taxonomic group.
+
+```{r}
+# Load the energy flow diagram input ---------------------------
+table_ctrl <- read.table(ctrl_input_table, header = F, sep = "\t")
+colnames(table_ctrl) <- c("Taxa", "Reaction", "Freq")
+table_collap <- read.table(collap_input_table, header = F, sep = "\t")
+colnames(table_collap) <- c("Taxa", "Reaction", "Freq")
+```
+
+```{r}
+# Rename the categories ---------------------------
+table_ctrl$Category <- ifelse(grepl("C-S", table_ctrl$Reaction), "Carbon", 
+                               ifelse(grepl("N-S", table_ctrl$Reaction), "Nitrogen",
+                                      ifelse(grepl("S-S", table_ctrl$Reaction), "Sulfur",
+                                             ifelse(grepl("O-S", table_ctrl$Reaction), "Others",""))))
+table_ctrl$Category <- as.factor(table_ctrl$Category)
+
+table_collap$Category <- ifelse(grepl("C-S", table_collap$Reaction), "Carbon", 
+                               ifelse(grepl("N-S", table_collap$Reaction), "Nitrogen",
+                                      ifelse(grepl("S-S", table_collap$Reaction), "Sulfur",
+                                             ifelse(grepl("O-S", table_collap$Reaction), "Others",""))))
+table_collap$Category <- as.factor(table_collap$Category)
+```
+
+```{r}
+# reformate the data
+table_all <- rbind(cbind(Group = rep("Control", nrow(table_ctrl)), table_ctrl),
+                   cbind(Group = rep("Collapsed", nrow(table_collap)), table_collap)) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed")))
+
+taxa_names <- table_all %>% select(Taxa, Freq) %>%
+  group_by(Taxa) %>%
+  summarise(sum = sum(Freq)) %>%
+  arrange(desc(sum)) %>%
+  pull(Taxa)
+reaction_orders <- c(sort(grep('C-', unique(table_all$Reaction), value = T), decreasing = F),
+                     sort(grep('N-', unique(table_all$Reaction), value = T), decreasing = F),
+                     sort(grep('S-S', unique(table_all$Reaction), value = T), decreasing = F),
+                     sort(grep('O-', unique(table_all$Reaction), value = T), decreasing = F))
+
+table_all <- table_all %>%
+  mutate(Taxa = factor(Taxa, levels = taxa_names)) %>%
+  mutate(Category = factor(Category, levels = c('Carbon', 'Nitrogen', 
+                                                'Sulfur', 'Others'))) %>%
+  mutate(Reaction = factor(Reaction, levels = reaction_orders))
+
+sankey <- data.table::rbindlist(list(table_all[c("Group", "Taxa", "Freq")],
+                         table_all[c("Taxa", "Reaction", "Freq")]))
+names(sankey) <- c('source', 'target', 'value')
+knitr::kable(sankey[1:5, ])
+```
+
+```{r}
+# Make a connection data frame
+links <- sankey 
+# From these flows we need to create a node data frame: it lists every entities involved in the flow
+nodes <- data.frame(
+  name = c(as.character(links$source), as.character(links$target)) %>% 
+    unique()
+)
+nodes <- data.frame(
+  name = c("Control", "Collapsed", taxa_names,
+           sort(grep('C-', unique(table_all$Reaction), value = T), decreasing = F),
+           sort(grep('N-', unique(table_all$Reaction), value = T), decreasing = F),
+           sort(grep('S-S', unique(table_all$Reaction), value = T), decreasing = F),
+           sort(grep('O-', unique(table_all$Reaction), value = T), decreasing = F))
+)
+# With networkD3, connection must be provided using id, not using real name like in the links dataframe.. So we need to reformat it.
+links$IDsource <- match(links$source, nodes$name)-1 
+links$IDtarget <- match(links$target, nodes$name)-1
+```
+
+```{r}
+# Set color of connections
+# Add a 'group' column to each connection:
+ass_link_col_fun <- function(df) {
+  if (df["source"] == taxa_names[1] | df["target"] == taxa_names[1]) {
+    group = 'a'
+  } else if (df["source"] == taxa_names[2] | df["target"] == taxa_names[2]) {
+    group = 'b'
+  } else if (df["source"] == taxa_names[3] | df["target"] == taxa_names[3]) {
+    group = 'c'
+  } else if (df["source"] == taxa_names[4] | df["target"] == taxa_names[4]) {
+    group = 'd'
+  } else if (df["source"] == taxa_names[5] | df["target"] == taxa_names[5]) {
+    group = 'e'
+  } else if (df["source"] == taxa_names[6] | df["target"] == taxa_names[6]) {
+    group = 'f'
+  } else if (df["source"] == taxa_names[7] | df["target"] == taxa_names[7]) {
+    group = 'g'
+  } else if (df["source"] == taxa_names[8] | df["target"] == taxa_names[8]) {
+    group = 'h'
+  } else if (df["source"] == taxa_names[9] | df["target"] == taxa_names[9]) {
+    group = 'i'
+  } else if (df["source"] == taxa_names[10] | df["target"] == taxa_names[10]) {
+    group = 'j'
+  } else if (df["source"] == taxa_names[11] | df["target"] == taxa_names[11]) {
+    group = 'k'
+  } else if (df["source"] == taxa_names[12] | df["target"] == taxa_names[12]) {
+    group = 'l'
+  } else if (df["source"] == taxa_names[13] | df["target"] == taxa_names[13]) {
+    group = 'm'
+  } else if (df["source"] == taxa_names[14] | df["target"] == taxa_names[14]) {
+    group = 'n'
+  } else if (df["source"] == taxa_names[15] | df["target"] == taxa_names[15]) {
+    group = 'o'
+  } else if (df["source"] == taxa_names[16] | df["target"] == taxa_names[16]) {
+    group = 'p'
+  } else if (df["source"] == taxa_names[17] | df["target"] == taxa_names[17]) {
+    group = 'q'
+  } else if (df["source"] == taxa_names[18] | df["target"] == taxa_names[18]) {
+    group = 'r'
+  } else if (df["source"] == taxa_names[19] | df["target"] == taxa_names[19]) {
+    group = 's'
+  } else if (df["source"] == taxa_names[20] | df["target"] == taxa_names[20]) {
+    group = 't'
+  } else if (df["source"] == taxa_names[21] | df["target"] == taxa_names[21]) {
+    group = 'u'
+  } else if (df["source"] == taxa_names[21] | df["target"] == taxa_names[21]) {
+    group = 'u'
+  }
+  return(group)
+}
+links$group <- apply(links, 1, ass_link_col_fun)
+
+# Add a 'group' column to each node. Here I decide to put all of them in the same group to make them grey
+nodes$group <- as.factor(c("my_unique_group"))
+links[1:5, ]
+nodes[1:5, ]
+```
+
+```{r}
+# Give a color for each group
+my_color <- 'd3.scaleOrdinal() .domain(["a", "b", "c", "d", "e", "f", 
+"g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", 
+"Carbon", "Nitrogen", "Sulfur", "Others", "my_unique_group"]) .range(["#4970a0", "#f8696b", "#FCCDE5",
+"#6A3D9A", "#1F78B4", "#FDB462", "#80B1D3", "#BEBADA", "#c988d1", "#A6CEE3",
+"#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#FFFFB3", "#FDBF6F", "#E31A1C", "#d5416a", 
+"#FB8072", "#d87a71","#6a75d5", "#76c2d7", "#d87a71", "#FF7F00", "#836834", 
+"#c0c0c0"])'
+
+# Make the Network. I call my colour scale with the colourScale argument
+P <- sankeyNetwork(Links = links, Nodes = nodes, Source = "IDsource", Target = "IDtarget", 
+                   Value = "value", NodeID = "name", colourScale = my_color, 
+                   LinkGroup = "group", NodeGroup = "group", iterations = 0, 
+                   fontFamily = 'Arial', fontSize = 15, 
+                   nodeWidth = 20, nodePadding = 10, height = 700, width = 890,
+                   sinksRight = F)
+# save the widget
+# 推荐使用htmlwidgets
+# library(htmlwidgets)
+# saveWidget(p, file = paste0(sankey.plots.folder, "/sankey_plot.html"))
+# library(webshot)
+# install phantom:
+# webshot::install_phantomjs()
+# Make a webshot in pdf : high quality but can not choose printed zone
+# webshot(paste0(sankey.plots.folder, "/sankey_plot.html"), delay = 0.2)
+P
+```
+
+## Metabolic network plot with reactions
+
+Generate a network plot with reactions as node, and edges are MAGs, and are colored by taxonomic group. Read input files
+
+```{r}
+ctrl_net_input_table <- file.path(wd_fun, "metabolic/control/METABOLIC_Figures_Input/functional_network_input.txt")
+collap_net_input_table <- file.path(wd_fun, "metabolic/collapsed/METABOLIC_Figures_Input/functional_network_input.txt")
+network.plots.folder <- file.path(save.dir, "MAGs/metabolic/network")
+table_net_ctrl <- read.csv(ctrl_net_input_table, header = T, sep = "\t")
+table_net_collap <- read.csv(collap_net_input_table, header = T, sep = "\t")
+```
+
+```{r, fig.width=15, fig.height=7}
+#install.packages("ggraph")
+pacman::p_load(ggraph, igraph, tidyverse, tidygraph)
+
+my_graph_ctrl <- table_net_ctrl[, c(2,3,4,5)] %>% 
+  graph_from_data_frame()
+my_graph_collap <- table_net_collap[, c(2,3,4,5)] %>% 
+  graph_from_data_frame()
+
+edge_density(my_graph_ctrl, loops = TRUE)
+edge_density(my_graph_collap, loops = TRUE)
+
+deg_ctrl <- degree(my_graph_ctrl, mode = "all")
+deg_collap <- degree(my_graph_collap, mode = "all")
+
+# color
+ctrl_color <- c("#d64e9e", "#6cd54c", "#dd49d1", "#432d7c", "#c6d179", "#8f379a", "#c988d1")
+collap_color <- c("#d64e9e", "#6cd54c", "#dd49d1", "#a152dd", "#5139c2", "#ceaa3b", "#432d7c",
+               "#c6d179", "#8f379a", "#70d68c", "#d9432f", "#6ad5be", "#d5416a",
+               "#6a75d5", "#c988d1", "#598939")
+
+# this generates the whole community plot
+community.plot_ctrl <- table_net_ctrl[, c(2,3,4,5)] %>% 
+  graph_from_data_frame() %>% 
+  ggraph(layout = "linear", circular = TRUE) +
+  geom_edge_arc(alpha = .25, 
+                aes(width = Coverage.value.average., color=as.factor(Taxonomic.Group))) +
+  # scale_edge_colour_manual(values = ctrl_color) +
+  geom_node_point(aes(size = 0.02*deg_ctrl), color = "black", alpha = 0.75) +
+  geom_node_text(aes(label = name),  color = "black", repel = TRUE)+
+  #theme_graph()+
+  labs(title = 'Metabolic connections within dataset', 
+       subtitle = 'No scaling')
+community.plot_collap <- table_net_collap[, c(2,3,4,5)] %>% 
+  graph_from_data_frame() %>% 
+  ggraph(layout = "linear", circular = TRUE) +
+  geom_edge_arc(alpha = .25, 
+                aes(width = Coverage.value.average., color = as.factor(Taxonomic.Group))) +
+  # scale_edge_colour_manual(values = collap_color) +
+  geom_node_point(aes(size = 0.02*deg_collap), color = "black", alpha = 0.75) +
+  geom_node_text(aes(label = name),  color = "black", repel = TRUE)+
+  #theme_graph()+
+  labs(title = 'Metabolic connections within dataset', 
+       subtitle = 'No scaling')
+
+# save community.plot
+# plot.name <- paste0(network.plots.folder, "/SurCommunityPlot.PDF")
+# print(plot.name)
+# cairo_pdf(filename = plot.name, width = 8, height = 5.5, onefile = TRUE)
+# community.plot_sur
+# dev.off()
+# 
+# plot.name <- paste0(network.plots.folder, "/SubCommunityPlot.PDF")
+# print(plot.name)
+# cairo_pdf(filename = plot.name, width = 8, height = 5.5, onefile = TRUE)
+# community.plot_sub
+# dev.off()
+# 
+cowplot::plot_grid(community.plot_ctrl, community.plot_collap)
+```
 
 
 
@@ -405,297 +660,3 @@ p <- ggplot(bin_flux, aes(x = s_SUB_15_15, y = Cumulative_5)) +
 p
 ```
 
-## Metabolic difference among different layers
-
-Set work directory
-
-```{r}
-sankey.plots.folder <- file.path(wd_fun, "metabolic/results/sankey") # Name of new output folder
-if (!dir.exists(sankey.plots.folder)) {
-  dir.create(sankey.plots.folder)
-}
-```
-
-Input files
-
-```{r}
-sur_input_table <- file.path(wd_fun, "metabolic/METABOLIC_70_layer/METABOLIC_70_sur/METABOLIC_Figures_Input/Metabolic_Sankey_diagram_input.txt")
-sub_input_table <- file.path(wd_fun, "metabolic/METABOLIC_70_layer/METABOLIC_70_sub/METABOLIC_Figures_Input/Metabolic_Sankey_diagram_input.txt")
-pl_input_table <- file.path(wd_fun, "metabolic/METABOLIC_70_layer/METABOLIC_70_pl/METABOLIC_Figures_Input/Metabolic_Sankey_diagram_input.txt")
-```
-
-Loading packages
-
-```{r}
-pkgs <- c('ggthemes', 'networkD3', 'data.table')
-ipak(pkgs)
-```
-
-Generate a snakey plot with reactions as node, and edges are MAGs, and are colored by taxonomic group.
-
-```{r}
-# Load the energy flow diagram input ---------------------------
-table_sur <- read.table(sur_input_table, header = F, sep = "\t")
-colnames(table_sur) <- c("Taxa", "Reaction", "Freq")
-table_sub <- read.table(sub_input_table, header = F, sep = "\t")
-colnames(table_sub) <- c("Taxa", "Reaction", "Freq")
-table_pl <- read.table(pl_input_table, header = F, sep = "\t")
-colnames(table_pl) <- c("Taxa", "Reaction", "Freq")
-```
-
-```{r}
-# Rename the categories ---------------------------
-table_sur$Category <- ifelse(grepl("C-S", table_sur$Reaction), "Carbon", 
-                               ifelse(grepl("N-S", table_sur$Reaction), "Nitrogen",
-                                      ifelse(grepl("S-S", table_sur$Reaction), "Sulfur",
-                                             ifelse(grepl("O-S", table_sur$Reaction), "Others",""))))
-table_sur$Category <- as.factor(table_sur$Category)
-
-table_sub$Category <- ifelse(grepl("C-S", table_sub$Reaction), "Carbon", 
-                               ifelse(grepl("N-S", table_sub$Reaction), "Nitrogen",
-                                      ifelse(grepl("S-S", table_sub$Reaction), "Sulfur",
-                                             ifelse(grepl("O-S", table_sub$Reaction), "Others",""))))
-table_sub$Category <- as.factor(table_sub$Category)
-
-table_pl$Category <- ifelse(grepl("C-S", table_pl$Reaction), "Carbon", 
-                               ifelse(grepl("N-S", table_pl$Reaction), "Nitrogen",
-                                      ifelse(grepl("S-S", table_pl$Reaction), "Sulfur",
-                                             ifelse(grepl("O-S", table_pl$Reaction), "Others",""))))
-table_pl$Category <- as.factor(table_pl$Category)
-```
-
-```{r}
-# reformate the data
-table_all <- rbind(cbind(Layer = rep("SUR", nrow(table_sur)), table_sur),
-                   cbind(Layer = rep("SUB", nrow(table_sub)), table_sub),
-                   cbind(Layer = rep("PL", nrow(table_pl)), table_pl)) %>%
-  mutate(Layer = factor(Layer, levels = c("SUR", "SUB", "PL")))
-
-taxa_names <- table_all %>% select(Taxa, Freq) %>%
-  group_by(Taxa) %>%
-  summarise(sum = sum(Freq)) %>%
-  arrange(desc(sum)) %>%
-  pull(Taxa)
-reaction_orders <- c(sort(grep('C-', unique(table_all$Reaction), value = T), decreasing = F),
-                     sort(grep('N-', unique(table_all$Reaction), value = T), decreasing = F),
-                     sort(grep('S-S', unique(table_all$Reaction), value = T), decreasing = F),
-                     sort(grep('O-', unique(table_all$Reaction), value = T), decreasing = F))
-
-table_all <- table_all %>%
-  mutate(Taxa = factor(Taxa, levels = taxa_names)) %>%
-  mutate(Category = factor(Category, levels = c('Carbon', 'Nitrogen', 
-                                                'Sulfur', 'Others'))) %>%
-  mutate(Reaction = factor(Reaction, levels = reaction_orders))
-
-sankey <- data.table::rbindlist(list(table_all[c("Layer", "Taxa", "Freq")],
-                         table_all[c("Taxa", "Reaction", "Freq")]))
-names(sankey) <- c('source', 'target', 'value')
-knitr::kable(sankey[1:5, ])
-```
-
-```{r}
-# Make a connection data frame
-links <- sankey 
-# From these flows we need to create a node data frame: it lists every entities involved in the flow
-nodes <- data.frame(
-  name = c(as.character(links$source), as.character(links$target)) %>% 
-    unique()
-)
-nodes <- data.frame(
-  name = c("SUR", "SUB", "PL", taxa_names,
-           sort(grep('C-', unique(table_all$Reaction), value = T), decreasing = F),
-           sort(grep('N-', unique(table_all$Reaction), value = T), decreasing = F),
-           sort(grep('S-S', unique(table_all$Reaction), value = T), decreasing = F),
-           sort(grep('O-', unique(table_all$Reaction), value = T), decreasing = F))
-)
-# With networkD3, connection must be provided using id, not using real name like in the links dataframe.. So we need to reformat it.
-links$IDsource <- match(links$source, nodes$name)-1 
-links$IDtarget <- match(links$target, nodes$name)-1
-```
-
-```{r}
-# Set color of connections
-# Add a 'group' column to each connection:
-ass_link_col_fun <- function(df) {
-  if (df["source"] == taxa_names[1] | df["target"] == taxa_names[1]) {
-    group = 'a'
-  } else if (df["source"] == taxa_names[2] | df["target"] == taxa_names[2]) {
-    group = 'b'
-  } else if (df["source"] == taxa_names[3] | df["target"] == taxa_names[3]) {
-    group = 'c'
-  } else if (df["source"] == taxa_names[4] | df["target"] == taxa_names[4]) {
-    group = 'd'
-  } else if (df["source"] == taxa_names[5] | df["target"] == taxa_names[5]) {
-    group = 'e'
-  } else if (df["source"] == taxa_names[6] | df["target"] == taxa_names[6]) {
-    group = 'f'
-  } else if (df["source"] == taxa_names[7] | df["target"] == taxa_names[7]) {
-    group = 'g'
-  } else if (df["source"] == taxa_names[8] | df["target"] == taxa_names[8]) {
-    group = 'h'
-  } else if (df["source"] == taxa_names[9] | df["target"] == taxa_names[9]) {
-    group = 'i'
-  } else if (df["source"] == taxa_names[10] | df["target"] == taxa_names[10]) {
-    group = 'j'
-  } else if (df["source"] == taxa_names[11] | df["target"] == taxa_names[11]) {
-    group = 'k'
-  } else if (df["source"] == taxa_names[12] | df["target"] == taxa_names[12]) {
-    group = 'l'
-  } else if (df["source"] == taxa_names[13] | df["target"] == taxa_names[13]) {
-    group = 'm'
-  } else if (df["source"] == taxa_names[14] | df["target"] == taxa_names[14]) {
-    group = 'n'
-  } else if (df["source"] == taxa_names[15] | df["target"] == taxa_names[15]) {
-    group = 'o'
-  } else if (df["source"] == taxa_names[16] | df["target"] == taxa_names[16]) {
-    group = 'p'
-  } else if (df["source"] == taxa_names[17] | df["target"] == taxa_names[17]) {
-    group = 'q'
-  } else if (df["source"] == taxa_names[18] | df["target"] == taxa_names[18]) {
-    group = 'r'
-  } else if (df["source"] == taxa_names[19] | df["target"] == taxa_names[19]) {
-    group = 's'
-  } else if (df["source"] == taxa_names[20] | df["target"] == taxa_names[20]) {
-    group = 't'
-  } else if (df["source"] == taxa_names[21] | df["target"] == taxa_names[21]) {
-    group = 'u'
-  } else if (df["source"] == taxa_names[21] | df["target"] == taxa_names[21]) {
-    group = 'u'
-  }
-  return(group)
-}
-links$group <- apply(links, 1, ass_link_col_fun)
-
-# Add a 'group' column to each node. Here I decide to put all of them in the same group to make them grey
-nodes$group <- as.factor(c("my_unique_group"))
-links[1:5, ]
-nodes[1:5, ]
-```
-
-```{r}
-# Give a color for each group
-my_color <- 'd3.scaleOrdinal() .domain(["a", "b", "c", "d", "e", "f", 
-"g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", 
-"Carbon", "Nitrogen", "Sulfur", "Others", "my_unique_group"]) .range(["#4970a0", "#f8696b", "#FCCDE5",
-"#6A3D9A", "#1F78B4", "#FDB462", "#80B1D3", "#BEBADA", "#c988d1", "#A6CEE3",
-"#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#FFFFB3", "#FDBF6F", "#E31A1C", "#d5416a", 
-"#FB8072", "#d87a71","#6a75d5", "#76c2d7", "#d87a71", "#FF7F00", "#836834", 
-"#c0c0c0"])'
-
-# Make the Network. I call my colour scale with the colourScale argument
-P <- sankeyNetwork(Links = links, Nodes = nodes, Source = "IDsource", Target = "IDtarget", 
-                   Value = "value", NodeID = "name", colourScale = my_color, 
-                   LinkGroup = "group", NodeGroup = "group", iterations = 0, 
-                   fontFamily = 'Arial', fontSize = 15, 
-                   nodeWidth = 20, nodePadding = 10, height = 700, width = 1600,
-                   sinksRight = F)
-# save the widget
-# 推荐使用htmlwidgets
-# library(htmlwidgets)
-# saveWidget(p, file = paste0(sankey.plots.folder, "/sankey_plot.html"))
-# library(webshot)
-# install phantom:
-# webshot::install_phantomjs()
-# Make a webshot in pdf : high quality but can not choose printed zone
-# webshot(paste0(sankey.plots.folder, "/sankey_plot.html"), delay = 0.2)
-P
-```
-
-## Metabolic network plot with reactions
-
-Generate a network plot with reactions as node, and edges are MAGs, and are colored by taxonomic group. Read input files
-
-```{r}
-sur_net_input_table <- file.path(wd_fun, "metabolic/METABOLIC_70_layer/METABOLIC_70_sur/METABOLIC_Figures_Input/functional_network_input.txt")
-sub_net_input_table <- file.path(wd_fun, "metabolic/METABOLIC_70_layer/METABOLIC_70_sub/METABOLIC_Figures_Input/functional_network_input.txt")
-pl_net_input_table <- file.path(wd_fun, "metabolic/METABOLIC_70_layer/METABOLIC_70_pl/METABOLIC_Figures_Input/functional_network_input.txt")
-network.plots.folder <- file.path(wd_fun, "metabolic/results/network")
-table_sur <- read.csv(sur_net_input_table, header=T, sep="\t")
-table_sub <- read.csv(sub_net_input_table, header=T, sep="\t")
-table_pl <- read.csv(pl_net_input_table, header=T, sep="\t")
-```
-
-```{r, fig.width=15, fig.height=10}
-#install.packages("ggraph")
-library(ggraph)
-library(igraph)
-library(tidyverse)
-library(tidygraph)
-library(igraph)
-my_graph_sur <- table_sur[, c(2,3,4,5)] %>% 
-  graph_from_data_frame()
-my_graph_sub <- table_sub[, c(2,3,4,5)] %>% 
-  graph_from_data_frame()
-my_graph_pl <- table_pl[, c(2,3,4,5)] %>% 
-  graph_from_data_frame()
-edge_density(my_graph_sur, loops = TRUE)
-edge_density(my_graph_sub, loops = TRUE)
-edge_density(my_graph_pl, loops = TRUE)
-
-deg_sur <- degree(my_graph_sur, mode = "all")
-deg_sub <- degree(my_graph_sub, mode = "all")
-deg_pl <- degree(my_graph_pl, mode = "all")
-
-# color
-sur_color <- c("#d64e9e", "#6cd54c", "#dd49d1", "#432d7c", "#c6d179", "#8f379a", "#c988d1")
-sub_color <- c("#d64e9e", "#6cd54c", "#dd49d1", "#a152dd", "#5139c2", "#ceaa3b", "#432d7c",
-               "#c6d179", "#8f379a", "#70d68c", "#d9432f", "#6ad5be", "#d5416a",
-               "#6a75d5", "#c988d1", "#598939")
-pl_color <- c("#d64e9e", "#6cd54c", "#dd49d1", "#c8dd41", "#a152dd", "#4d4040",
-              "#ceaa3b", "#7a3260", "#432d7c", "#c6d179", "#8f379a", "#70d68c",
-              "#d9432f", "#6ad5be", "#76c2d7", "#d87a71", "#6a75d5", "#836834",
-              "#c988d1", "#598939")
-# this generates the whole community plot
-community.plot_sur <- table_sur[, c(2,3,4,5)] %>% 
-  graph_from_data_frame() %>% 
-  ggraph(layout = "linear", circular = TRUE) +
-  geom_edge_arc(alpha = .25, 
-                aes(width = Coverage.value.average., color=as.factor(Taxonomic.Group))) +
-  scale_edge_colour_manual(values = sur_color) +
-  geom_node_point(aes(size = 0.02*deg_sur), color = "black", alpha = 0.75) +
-  geom_node_text(aes(label = name),  color = "black", repel = TRUE)+
-  #theme_graph()+
-  labs(title = 'Metabolic connections within dataset', 
-       subtitle = 'No scaling')
-community.plot_sub <- table_sub[, c(2,3,4,5)] %>% 
-  graph_from_data_frame() %>% 
-  ggraph(layout = "linear", circular = TRUE) +
-  geom_edge_arc(alpha = .25, 
-                aes(width = Coverage.value.average., color = as.factor(Taxonomic.Group))) +
-  scale_edge_colour_manual(values = sub_color) +
-  geom_node_point(aes(size = 0.02*deg_sub), color = "black", alpha = 0.75) +
-  geom_node_text(aes(label = name),  color = "black", repel = TRUE)+
-  #theme_graph()+
-  labs(title = 'Metabolic connections within dataset', 
-       subtitle = 'No scaling')
-community.plot_pl <- table_pl[, c(2,3,4,5)] %>% 
-  graph_from_data_frame() %>% 
-  ggraph(layout = "linear", circular = TRUE) +
-  geom_edge_arc(alpha = .25, 
-                aes(width = Coverage.value.average., color = as.factor(Taxonomic.Group))) +
-  scale_edge_colour_manual(values = pl_color) +
-  geom_node_point(aes(size = 0.02*deg_pl), color = "black", alpha = 0.75) +
-  geom_node_text(aes(label = name),  color = "black", repel = TRUE)+
-  #theme_graph()+
-  labs(title = 'Metabolic connections within dataset', 
-       subtitle = 'No scaling')
-# save community.plot
-# plot.name <- paste0(network.plots.folder, "/SurCommunityPlot.PDF")
-# print(plot.name)
-# cairo_pdf(filename = plot.name, width = 8, height = 5.5, onefile = TRUE)
-# community.plot_sur
-# dev.off()
-# 
-# plot.name <- paste0(network.plots.folder, "/SubCommunityPlot.PDF")
-# print(plot.name)
-# cairo_pdf(filename = plot.name, width = 8, height = 5.5, onefile = TRUE)
-# community.plot_sub
-# dev.off()
-# 
-# plot.name <- paste0(network.plots.folder, "/PlCommunityPlot.PDF")
-# print(plot.name)
-# cairo_pdf(filename = plot.name, width = 8, height = 5.5, onefile = TRUE)
-# community.plot_pl
-# dev.off()
-cowplot::plot_grid(community.plot_sur, community.plot_sub, community.plot_pl)
-```
