@@ -134,12 +134,13 @@ num.mags.plot
 ```
 
 ## Determine the metabolic potential of each taxa (phylum/class)
-```{r, fig.align='center', fig.width=10, fig.height=11}
+```{r, fig.align='center', fig.width=8.9, fig.height=10}
 tax_bin1 <- rbind(tax_bin %>% 
   filter(Class %in% c("c__Alphaproteobacteria", "c__Betaproteobacteria",
                       "c__Gammaproteobacteria", "c__Deltaproteobacteria")) %>%
     select(ID, Phylum = Class), tax_bin %>% select(ID, Phylum) %>%
-  filter(!Phylum %in% c("p__Proteobacteria")))
+  filter(!Phylum %in% c("p__Proteobacteria"))) %>%
+  mutate(Phylum = sapply(strsplit(Phylum, "__"), "[", 2))
 
 # count the number of bins of each taxa
 num.bins.df <- as.data.frame(table(tax_bin1$Phylum)) %>%
@@ -150,23 +151,74 @@ dat2 <- dat1 %>%
   mutate(ID = str_replace(ID, ".Hmm.presence", "")) %>%
   inner_join(tax_bin1, by = "ID") %>%
   as.data.frame() %>% # "Adding missing grouping variables" message 
-  select(Function, Phylum, presence_or_absent) %>%
-  group_by(Function, Phylum) %>%
+  select(Category, Function, Phylum, presence_or_absent) %>%
+  group_by(Category, Function, Phylum) %>%
   dplyr::summarize(presence = sum(presence_or_absent)) %>%
   left_join(num.bins.df, by = "Phylum") %>%
   mutate(pro = presence/Freq) %>%
-  select(Function, Phylum, pro) %>%
+  ungroup()
+
+# plot heatmap with no clusters
+pacman::p_load(pheatmap)
+category <- unique(dat2$Category)
+
+my_col <- c("#E31A1C", "#893f45", "#1F78B4", "#6A3D9A", "#b31b1b", "#5d3954", "#008b8b", "#8b008b", "#e75480", "#872657", "#00bfff",  "#c08081", "#355e3b", "#29ab87", "#f56991", "#32cd32", "#035096", "#bb3385", "#009E73")
+
+plot_list = list()
+for (i in 1:13) {
+    p <- pheatmap(dat2 %>% filter(Category == category[i]) %>%
+           dplyr::select(Function, Phylum, pro) %>% 
+           pivot_wider(names_from = Phylum, values_from = pro) %>%
+           column_to_rownames(var = "Function"),
+         cluster_rows = F,
+         cluster_cols = F,
+         # show_rownames = FALSE,
+         show_colnames = FALSE,
+         border_color = 'Black',
+         cellwidth = 10, cellheight = 10,
+         fontsize_col = 8, fontsize_row = 8,
+         color = c(colorRampPalette(c("white", my_col[i]))(3)),
+         breaks = c(0, 0.2, 0.499, 1),
+         legend = F, silent = T
+         )
+    plot_list[[i]] = p
+}
+p14 <- pheatmap(dat2 %>% filter(Category == category[14]) %>%
+           dplyr::select(Function, Phylum, pro) %>% 
+           pivot_wider(names_from = Phylum, values_from = pro) %>%
+           column_to_rownames(var = "Function"),
+         cluster_rows = F,
+         cluster_cols = F,
+         border_color = 'Black',
+         cellwidth = 10, cellheight = 10,
+         fontsize_col = 8, fontsize_row = 8,
+         color = c(colorRampPalette(c("white", my_col[14]))(3)),
+         breaks = c(0, 0.2, 0.499, 1),
+         legend = F, silent = T
+         )
+heatmaps <- cowplot::plot_grid(plot_list[[1]][[4]], plot_list[[2]][[4]], plot_list[[3]][[4]], plot_list[[4]][[4]], 
+                               plot_list[[5]][[4]], plot_list[[6]][[4]], plot_list[[7]][[4]], plot_list[[8]][[4]],
+                               plot_list[[9]][[4]], plot_list[[10]][[4]], plot_list[[11]][[4]], plot_list[[12]][[4]],
+                               plot_list[[13]][[4]], p14[[4]], ncol = 1, align = "v",
+                               rel_heights = c(8, 3, 5, 3, 6, 2, 1, 5, 2, 3, 1, 3, 8, 13))
+
+ggsave(file.path(save.dir, "./figs/MAGs/heatmap_tax_fun_cor.pdf"),
+       heatmaps, width = 8.9, height = 10, units = "in")
+heatmaps
+```
+Alternatively, use the gaps_row to split the panels
+```{r, fig.align='center', fig.width=10, fig.height=10}
+dat3 <- dat2 %>% dplyr::select(Function, Phylum, pro) %>% 
   pivot_wider(names_from = Phylum, values_from = pro) %>%
   column_to_rownames(var = "Function")
 
 # 1) reorder the matrix based in the annotation
-dat2_ordered <- dat2[num.mags.df$Function, ]
+dat3_ordered <- dat3[num.mags.df$Function, ]
 
 # 2) annotatio
 sub_anno <- num.mags.df %>% select(Category, Function) %>% column_to_rownames(var = "Function") 
 
 # 3) plot heatmap with no clusters
-pacman::p_load(pheatmap)
 pheatmap(dat2_ordered, 
          cluster_rows = F,
          cluster_cols = F,
@@ -182,7 +234,9 @@ pheatmap(dat2_ordered,
          # distances 0 to 0.2 are black, 0.2 to 0.5 are light blue, > 0.5 are black
          )
 ```
-```{r, fig.align='center', fig.width=10, fig.height=8}
+
+
+```{r, fig.align='center', fig.width=9.2, fig.height=8}
 # input the data
 MW_score_input_table <- file.path(wd_fun, "MAGs/MW-score_result.txt")
 MW_score_table <- read.delim(MW_score_input_table, header = T, row.names = 1, sep = "\t")
@@ -223,9 +277,10 @@ p2 <- as.ggplot(pheatmap(cper_df,
          ))
 
 # Decorate a 'ggplot' with Associated Information
-heatmap_MW_score <- p2 %>% insert_left(p1, width = 0.05)
-ggsave(file.path(save.dir, "./figs/MAGs/heatmap_MW_score.pdf"),
-       heatmap_MW_score, width = 10, height = 8, units = "in")
+# heatmap_MW_score <- p2 %>% insert_left(p1, width = 0.05)
+heatmap_MW_score <- cowplot::plot_grid(p1, p2, ncol = 2, align = "h", rel_widths = c(0.05, 1))
+# ggsave(file.path(save.dir, "./figs/MAGs/heatmap_MW_score.pdf"),
+#        heatmap_MW_score, width = 9.2, height = 8, units = "in")
 heatmap_MW_score
 ```
 ## Metabolic difference among different layers
