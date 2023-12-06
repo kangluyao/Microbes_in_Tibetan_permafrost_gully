@@ -10,6 +10,7 @@ vignette: >
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
+
 ```{r setup, include = F}
 knitr::opts_chunk$set(
   collapse = T, echo = T, comment = "#>", message = F, warning = F,
@@ -50,6 +51,16 @@ PCoA plot
 ```{r}
 # taxa
 ord.fun <-  cmdscale(fun_dist,  k = 2, eig = T, add = T)
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 6),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 6),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.position = "none")
 pcoa_fun_plot <- data.frame(Group = metadata$Group, scores(ord.fun)) %>%
   mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
   ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
@@ -70,8 +81,8 @@ pcoa_fun_plot <- data.frame(Group = metadata$Group, scores(ord.fun)) %>%
 if (!dir.exists(file.path(save.dir, "figs/kegg/"))) {
   dir.create(file.path(save.dir, "figs/kegg/"))
 }
-ggsave(file.path(save.dir, "./figs/kegg/PCoA_fun_bray.pdf"),
-       pcoa_fun_plot, width = 3.5, height = 2.5, units = "in")
+# ggsave(file.path(save.dir, "./figs/kegg/PCoA_fun_bray.pdf"),
+#        pcoa_fun_plot, width = 3.5, height = 2.5, units = "in")
 pcoa_fun_plot
 ```
 
@@ -157,8 +168,8 @@ volca_plot_edger <- ggplot(data_edger, aes(logFC, -log(FDR,10))) +
         legend.position = c(0.80, 0.85),
         legend.key.size = unit(0.4, 'cm'))
 
-ggsave(file.path(save.dir, "./figs/kegg/volca_plot_edger.pdf"),
-       volca_plot_edger, width = 3.5, height = 2.5, units = "in")
+# ggsave(file.path(save.dir, "./figs/kegg/volca_plot_edger.pdf"),
+#        volca_plot_edger, width = 3.5, height = 2.5, units = "in")
 volca_plot_edger
 ```
 
@@ -234,8 +245,8 @@ kegg_decoder_control <- kegg_decoder_fun('_C', down_KOs)
 kegg_decoder_collapsed$Sample <- sapply(kegg_decoder_collapsed$Sample, FUN = function(x){sub('_', '', x)})
 kegg_decoder_control$Sample <- sapply(kegg_decoder_control$Sample, FUN = function(x){sub('_', '', x)})
 
-write.table(kegg_decoder_collapsed, file.path(save.dir, 'tables/kegg/kegg_decoder_collapsed_in.tsv'), sep='\t',  col.names=FALSE, row.names=FALSE , quote=FALSE)
-write.table(kegg_decoder_control, file.path(save.dir, 'tables/kegg/kegg_decoder_control_in.tsv'), sep='\t',  col.names=FALSE, row.names=FALSE , quote=FALSE)
+# write.table(kegg_decoder_collapsed, file.path(save.dir, 'tables/kegg/kegg_decoder_collapsed_in.tsv'), sep='\t',  col.names=FALSE, row.names=FALSE , quote=FALSE)
+# write.table(kegg_decoder_control, file.path(save.dir, 'tables/kegg/kegg_decoder_control_in.tsv'), sep='\t',  col.names=FALSE, row.names=FALSE , quote=FALSE)
 # in the Data folder using the CryoBiome-kegg-decoder env in linux with following script: KEGG-decoder -i kegg_decoder_collapsed_in.tsv -o KEGG_decoder_collapsed_output.tsv
 ```
 
@@ -318,21 +329,6 @@ ggsave(file.path(save.dir, "/figs/kegg/kegg_heatmap.pdf"),
        kegg_heatmap, width = 7.5, height = 5, units = "in")
 kegg_heatmap
 ```
-Combine the plot
-```{r, fig.align='center', fig.width=8.9, fig.height=5}
-library(cowplot)
-left_col <- plot_grid(pcoa_fun_plot, volca_plot_edger, labels = c('A', 'B'), label_size = 6, ncol = 1, align = "v")
-fig2 <- plot_grid(left_col, kegg_heatmap, labels = c('', 'C'), label_size = 6,rel_widths = c(1, 2.2), ncol = 2)
-# fig2 <- ggdraw() +
-#   draw_plot(pcoa_fun_plot, x = 0, y = 0.5, width = 0.3, height = 0.5) +
-#   draw_plot(volca_plot_edger, x = 0, y = 0, width = 0.3, height = 0.5) +
-#   draw_plot(kegg_heatmap, x = 0.3, y = 0, width = 0.7, height = 1) +
-#   draw_plot_label(label = c("A", "B", "C"), size = 6,
-#                   x = c(0, 0, 0.3), y = c(1, 0.5, 1))
-ggsave(file.path(save.dir, "/figs/Fig2.pdf"),
-       fig2, width = 8.9, height = 5, units = "in")
-fig2
-```
 
 ## Select the genes involved in C, N, S, and Fe cyclings
 ```{r}
@@ -381,28 +377,7 @@ Other_names <- c("Cyc1", "Cyc2", "MtrA", "MtrB", "MtrC", "arsC (grx)", "arsC (tr
                  "aioA", "arsM", "ygfM", "xdhD", "YgfK")
 ```
 
-## Heatmap for carbon
-```{r, fig.align='center', fig.width=8, fig.height=4.7}
-p_C_enrich <- logFC_table %>% filter(pathway %in% C_names) %>%
-  mutate(pathway = factor(pathway, levels = C_names, ordered = T)) %>%
-  ggplot(aes(x = pathway, y = layer, fill = logFC)) +
-  geom_tile() + 
-  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C") +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
-  geom_text(aes(label = round(logFC, 2)), 
-            color = "black", size = 1.5) +
-  labs(y = 'Layers', x = 'Pathway', fill = "logFC") +
-  theme(axis.title = element_blank(),
-        axis.text = element_text(size = 6, colour = 'black'),
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
-        # legend.key.height= unit(0.35, 'cm'),
-        # legend.key.width= unit(0.35, 'cm'),
-        legend.key.size = unit(0.35, 'cm'),
-        legend.title = element_text(size = 8), 
-        legend.text = element_text(size = 6))
-p_C_enrich
-```
-
-## Heatmap for nitrogen
+## Plot for nitrogen
 ```{r, fig.align='center', fig.height=2.5, fig.width=8}
 p_N_enrich <- logFC_table %>% filter(Enzyme_protein_encoded %in% N_names) %>%
   mutate(pathway = factor(Enzyme_protein_encoded, levels = rev(N_names), ordered = T)) %>%
@@ -420,6 +395,31 @@ ggsave(file.path(save.dir, "/figs/kegg/p_N_enrich.pdf"),
        p_N_enrich, width = 7, height = 3, units = "in")
 p_N_enrich
 ```
+```{r, fig.align='center', fig.width=8.9, fig.height=1.5}
+N_enrich_heatmap <- logFC_table %>% filter(Enzyme_protein_encoded %in% N_names) %>%
+  mutate(pathway = factor(Enzyme_protein_encoded, levels = rev(N_names), ordered = T)) %>% 
+  ggplot(aes(x = pathway, y = Category, fill = logFC)) +
+  geom_tile(height = 1, width = 1, size = 0.2, color = "black") + 
+  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C") +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
+  geom_text(aes(label = sig), 
+            color = "black", size = 1.5) +
+  scale_x_discrete(expand = c(0,0)) +
+  scale_y_discrete(expand = c(0,0)) +
+  labs(y = NULL, x = NULL, fill = expression(paste("log"[2], "FC"))) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_text(size = 6, colour = 'black'),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        # legend.key.height= unit(0.35, 'cm'),
+        # legend.key.width= unit(0.35, 'cm'),
+        legend.key.size = unit(0.35, 'cm'),
+        legend.title = element_text(size = 8), 
+        legend.text = element_text(size = 6)) +
+  coord_fixed(ratio=1)
+N_enrich_heatmap
+```
 
 ## Heatmap for sulfur
 ```{r, fig.align='center', fig.height=2.5, fig.width=8}
@@ -427,7 +427,7 @@ p_S_enrich <- logFC_table %>% filter(Enzyme_protein_encoded %in% S_names) %>%
   mutate(pathway = factor(Enzyme_protein_encoded, levels = rev(S_names), ordered = T)) %>%
   ggplot(aes(x = pathway, y = logFC, color = Expression))+
   geom_point(size = 2) + 
-  scale_color_manual(values = c("grey20", "#D7191C")) +
+  scale_color_manual(values = c("#2C7BB6", "grey20", "#D7191C")) +
   labs(y = "logFC", x = 'Genes') +
   theme(axis.title = element_blank(),
         axis.text = element_text(size = 6, colour = 'black'),
@@ -437,14 +437,38 @@ p_S_enrich <- logFC_table %>% filter(Enzyme_protein_encoded %in% S_names) %>%
         legend.text = element_text(size = 6))
 p_S_enrich
 ```
-
+```{r, fig.align='center', fig.width=8.9, fig.height=1.5}
+S_enrich_heatmap <- logFC_table %>% filter(Enzyme_protein_encoded %in% S_names) %>%
+  mutate(pathway = factor(Enzyme_protein_encoded, levels = rev(S_names), ordered = T)) %>% 
+  ggplot(aes(x = pathway, y = Category, fill = logFC)) +
+  geom_tile(height = 1, width = 1, size = 0.2, color = "black") + 
+  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C") +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
+  geom_text(aes(label = sig), 
+            color = "black", size = 1.5) +
+  scale_x_discrete(expand = c(0,0)) +
+  scale_y_discrete(expand = c(0,0)) +
+  labs(y = NULL, x = NULL, fill = expression(paste("log"[2], "FC"))) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_text(size = 6, colour = 'black'),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        # legend.key.height= unit(0.35, 'cm'),
+        # legend.key.width= unit(0.35, 'cm'),
+        legend.key.size = unit(0.35, 'cm'),
+        legend.title = element_text(size = 8), 
+        legend.text = element_text(size = 6)) +
+  coord_fixed(ratio=1)
+S_enrich_heatmap
+```
 ## Other biogeochemical processes
 ```{r, fig.align='center', fig.height=2.5, fig.width=4}
 p_other_enrich <- logFC_table %>% filter(Enzyme_protein_encoded %in% Other_names) %>%
   mutate(pathway = factor(Enzyme_protein_encoded, levels = rev(Other_names), ordered = T)) %>%
   ggplot(aes(x = pathway, y = logFC, color = Expression))+
   geom_point(size = 2) + 
-  scale_color_manual(values = c("grey20", "#D7191C")) +
+  scale_color_manual(values = c("#2C7BB6", "grey20", "#D7191C")) +
   labs(y = "logFC", x = 'Genes') +
   theme(axis.title = element_blank(),
         axis.text = element_text(size = 6, colour = 'black'),
@@ -453,6 +477,32 @@ p_other_enrich <- logFC_table %>% filter(Enzyme_protein_encoded %in% Other_names
         legend.title = element_text(size = 8), 
         legend.text = element_text(size = 6))
 p_other_enrich
+```
+```{r, fig.align='center', fig.width=8.9, fig.height=1.5}
+Other_enrich_heatmap <- logFC_table %>% filter(Enzyme_protein_encoded %in% Other_names) %>%
+  mutate(pathway = factor(Enzyme_protein_encoded, levels = rev(Other_names), ordered = T)) %>% 
+  mutate(Category = rep("Others", nrow(.))) %>%
+  ggplot(aes(x = pathway, y = Category, fill = logFC)) +
+  geom_tile(height = 1, width = 1, size = 0.2, color = "black") + 
+  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C") +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
+  geom_text(aes(label = sig), 
+            color = "black", size = 1.5) +
+  scale_x_discrete(expand = c(0,0)) +
+  scale_y_discrete(expand = c(0,0)) +
+  labs(y = NULL, x = NULL, fill = expression(paste("log"[2], "FC"))) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_text(size = 6, colour = 'black'),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        # legend.key.height= unit(0.35, 'cm'),
+        # legend.key.width= unit(0.35, 'cm'),
+        legend.key.size = unit(0.35, 'cm'),
+        legend.title = element_text(size = 8), 
+        legend.text = element_text(size = 6)) +
+  coord_fixed(ratio=1)
+Other_enrich_heatmap
 ```
 
 
@@ -482,7 +532,7 @@ C_N_path1 <- C_N_ko_count_tab %>%
 C_N_path2 <- C_N_path1 %>% select(c(3:63)) %>% 
   tibble::column_to_rownames('Enzyme_protein_encoded')
 ```
-##############################################################################################################
+###################################################
 ## edgeR analysis
 ```{r}
 # 1. alternately edgeR analysi.
@@ -563,17 +613,7 @@ C_names <- c("Alpha-amylase", "Glucoamylase", "Pullulanase", "Isopullulanase",
              "Methyl coenzyme M reductase", "Particulate methane monooxygenase", "Soluable methane monooxygenase",
              "Carbon monoxide dehydrogenase", "Tetrahydrofolate formylase", "ATP citrate lyase", 
              "Propionyl-CoA carboxylase", "RuBisCo")
-N_names <- c("amoA",	"amoB",	"amoC",	"hao",	"nxrA",	"nxrB", "narG",	"narH",	"narI", "napA",	
-             "napB", "nirK", "nirS",	"norB",	"norC",	"nosZ", "nrfA",	"nrfH", "nirB",	"nirD",	
-             "nasA",	"nasB", "narB",	"NR", "NIT-6", "nirA",	"nifD", "nifK", "nifH", "nrtA",	"nrtB", "nrtC",	
-             "nrtD", "nmo", "gdh_K00261", "gdh_K00262", "gdh_K15371", "glsA", "ureA", "ureC", "glnA")
-S_names <- c("sat", "cysC", "cysD", "cysNC", "csyH", "cysJ", "cysN", "aprA", "aprB", "dsrA", "dsrB",
-             "asrA", "asrB", "asrC", "sir", "sor", "sreA", "sreB", "sreC", "hydA", "hydD", "hydB",
-             "hydG", "psrA", "psrB", "psrC", "sqr", "fccA", "fccB", "soxD", "soxX", "soxA", "soxB",
-             "soxC", "soxY", "soxZ", "ttrA", "ttrB", "ttrC", "phsA", "phsB", "phsC")
-Other_names <- c("Cyc1", "Cyc2", "MtrA", "MtrB", "MtrC", "arsC (grx)", "arsC (trx)", 
-                 "aioA", "arsM", "ygfM", "xdhD", "YgfK")
-logFC_table <- tt_collavsrest$table %>%
+carbon_logFC_table <- tt_collavsrest$table %>%
   rownames_to_column(var = "pathway") %>%
   mutate(Expression = case_when(logFC >= log(2) & FDR <= 0.05 ~ "Up-regulated",
                            logFC <= -log(2) & FDR <= 0.05 ~ "Down-regulated",
@@ -585,7 +625,7 @@ logFC_table <- tt_collavsrest$table %>%
 
 ## Heatmap for carbon
 ```{r, fig.align='center', fig.width=8, fig.height=4.7}
-p_C_enrich <- logFC_table %>% filter(pathway %in% C_names) %>%
+p_C_enrich <- carbon_logFC_table %>% filter(pathway %in% C_names) %>%
   mutate(pathway = factor(pathway, levels = C_names, ordered = T)) %>%
   ggplot(aes(x = pathway, y = logFC, color = Expression))+
   geom_point(size = 2) + 
@@ -601,6 +641,49 @@ ggsave(file.path(save.dir, "/figs/kegg/p_C_enrich.pdf"),
        p_C_enrich, width = 6.5, height = 3, units = "in")
 p_C_enrich
 ```
+```{r, fig.align='center', fig.width=8.9, fig.height=2.5}
+C_enrich_heatmap <- carbon_logFC_table %>% filter(pathway %in% C_names) %>%
+  mutate(pathway = factor(pathway, levels = C_names, ordered = T)) %>% 
+  mutate(Category = rep("Carbon", nrow(.))) %>%
+  ggplot(aes(x = pathway, y = Category, fill = logFC)) +
+  geom_tile(height = 1, width = 1, size = 0.2, color = "black") + 
+  scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C") +  # low="#2C7BB6", mid="white", high="#D7191C" or low = "#009E73", mid = "white", high = "#E69F00"
+  geom_text(aes(label = sig), 
+            color = "black", size = 1.5) +
+  scale_x_discrete(expand = c(0,0)) +
+  scale_y_discrete(expand = c(0,0)) +
+  labs(y = NULL, x = NULL, fill = expression(paste("log"[2], "FC"))) +
+  theme_bw() +
+  theme(axis.title = element_blank(),
+        axis.text = element_text(size = 6, colour = 'black'),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        # legend.key.height= unit(0.35, 'cm'),
+        # legend.key.width= unit(0.35, 'cm'),
+        legend.key.size = unit(0.35, 'cm'),
+        legend.title = element_text(size = 8), 
+        legend.text = element_text(size = 6)) +
+  coord_fixed(ratio=1)
+
+C_enrich_heatmap
+```
+
+Combine the plot
+```{r, fig.align='center', fig.width=8.9, fig.height=10}
+library(cowplot)
+left_col <- plot_grid(pcoa_fun_plot, volca_plot_edger, labels = c('A', 'B'), label_size = 6, ncol = 1, align = "v")
+top_plot <- plot_grid(left_col, kegg_heatmap, labels = c('', 'C'), label_size = 6,rel_widths = c(1, 2.2), ncol = 2)
+funct_plot <- plot_grid(top_plot, C_enrich_heatmap, N_enrich_heatmap,
+                        S_enrich_heatmap, Other_enrich_heatmap,
+                        labels = c("", "D", "E", "F", "G"),
+                        label_size = 6, rel_heights = c(4, 1.45, 1, 1, 0.65), ncol = 1)
+ggsave(file.path(save.dir, "/figs/funct_plot.pdf"),
+       funct_plot, width = 8.9, height = 10, units = "in")
+funct_plot
+```
+
+
 ## Difference analysis based on the CAZy results
 ```{r, fig.align='center', fig.width=6.5, fig.height=4}
 # reading data

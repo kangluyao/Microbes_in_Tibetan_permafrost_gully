@@ -52,7 +52,7 @@ metabolic_tab <- read.csv(metabolic_output_file) %>%
 ## Metabolic functional MAGs
 
 ```{r}
-target_cat <- c("Thermophilic specific", "Amino acid utilization", "Ethanol fermentation", "Fatty acid degradation", "Aromatics degradation", "Complex carbon degradation", "Fermentation", "C1 metabolism", "Carbon fixation", "Methane metabolism", "Nitrogen cycling", "Sulfur cycling", "Hydrogenases", "As cycling", "Selenate reduction", "Iron cycling", "Manganese cycling")
+target_cat <- c("Thermophilic specific", "Ethanol fermentation", "Complex carbon degradation", "Fermentation", "C1 metabolism", "Carbon fixation", "Methane metabolism", "Amino acid utilization", "Fatty acid degradation", "Aromatics degradation",  "Nitrogen cycling", "Sulfur cycling", "Hydrogenases", "Iron cycling", "Manganese cycling")
 
 C_N_metapathway <- c("Amino acid utilization", "Amylolytic enzymes", 
                      "Cellulose degrading", "Endohemicellulases",
@@ -170,7 +170,7 @@ pacman::p_load(pheatmap)
 pheatmap(dat2_ordered, 
          cluster_rows = F,
          cluster_cols = F,
-         gaps_row = c(8, 11, 16, 21, 24, 30, 32, 33, 38, 40, 43, 44, 47, 55, 56),
+         gaps_row = c(8, 11, 16, 19, 25, 27, 28, 33, 35, 38, 39, 42, 50),
          # gaps_col = 6,
          annotation_row = sub_anno,
          border_color = 'Black',
