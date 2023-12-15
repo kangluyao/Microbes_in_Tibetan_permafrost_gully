@@ -76,7 +76,7 @@ lme_fitn2o.block <- lme(fixed = Flux_value ~ Group * Time ,
                         corr = corAR1(form= ~1|Rep/Gully_id),
                         data = N2O_df)
 summary(lme_fitn2o.block)
-Anova(lme_fitn2o.block, type="III")
+car::Anova(lme_fitn2o.block, type="III")
 ```
 
 Determine the mean value of flux for the whole growing season.
@@ -165,8 +165,8 @@ flux_plot <- flux_ave_df %>%
 if (!dir.exists(file.path(save.dir, "figs/flux/"))) {
   dir.create(file.path(save.dir, "figs/flux/"))
 }
-ggsave(file.path(save.dir, "./figs/flux/flux_plot.pdf"),
-       flux_plot, width = 4.5, height = 2, units = "in")
+# ggsave(file.path(save.dir, "./figs/flux/flux_plot.pdf"),
+#        flux_plot, width = 4.5, height = 2, units = "in")
 flux_plot
 ```
 
@@ -209,6 +209,10 @@ data.frame(env_S1)
 
 Effect size plot
 ```{r, fig.align='center', fig.width=3.5, fig.height=4.5}
+rep_str = c("Plant_richness" = "Plant Richness",
+            "Plant_shannon" = "Plant Shannon",
+            "Soil_moisture" = "Soil moisture",
+            "H2O2" = expression(paste("H"[2], "O"[2])))
 p.stars <- function(p.values) {
   unclass(symnum(p.values, corr = FALSE, 
                  na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
@@ -231,7 +235,7 @@ diff_in_env_plot <- env_S1 %>%
   # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
-  annotate("rect", xmin = 0, xmax = 9.5, ymin = -2, ymax = 2, alpha = 0.2,fill="#FAE3AD") +
+  annotate("rect", xmin = 0, xmax = 10.5, ymin = -2, ymax = 2, alpha = 0.2,fill="#FAE3AD") +
   main_theme +
   theme(strip.background = element_rect(fill=c("#FFF6E1")))
 if (!dir.exists(file.path(save.dir, "figs/env/"))) {
