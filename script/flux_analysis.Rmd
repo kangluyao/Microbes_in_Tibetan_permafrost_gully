@@ -176,7 +176,8 @@ flux_plot
 env_scale <- metadata %>% 
   select(-c("Sample_id", "Sample_name")) %>%
   mutate(across(where(is.numeric), scale)) %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed")))
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  select(where(~ !any(is.na(.))))
 
 # codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
 env_S1 <- sapply(3:ncol(env_scale), function(j) {
@@ -203,16 +204,16 @@ env_S1 <- sapply(3:ncol(env_scale), function(j) {
     }
     result
 })
-colnames(env_S1)<-colnames(metadata)[-c(1:4)]
+colnames(env_S1)<-colnames(env_scale)[-c(1:2)]
 data.frame(env_S1)
 ```
 
 Effect size plot
 ```{r, fig.align='center', fig.width=3.5, fig.height=4.5}
-rep_str = c("Plant_richness" = "Plant Richness",
-            "Plant_shannon" = "Plant Shannon",
-            "Soil_moisture" = "Soil moisture",
-            "H2O2" = expression(paste("H"[2], "O"[2])))
+# rep_str = c("Plant_richness" = "Plant Richness",
+#             "Plant_shannon" = "Plant Shannon",
+#             "Soil_moisture" = "Soil moisture",
+#             "H2O2" = expression(paste("H"[2], "O"[2])))
 p.stars <- function(p.values) {
   unclass(symnum(p.values, corr = FALSE, 
                  na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
@@ -235,9 +236,12 @@ diff_in_env_plot <- env_S1 %>%
   # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
-  annotate("rect", xmin = 0, xmax = 10.5, ymin = -2, ymax = 2, alpha = 0.2,fill="#FAE3AD") +
+  annotate("rect", xmin = 0, xmax = 2.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#ff6666") +
+  annotate("rect", xmin = 2.5, xmax = 3.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#f19837") +
+  annotate("rect", xmin = 3.5, xmax = 8.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#e56eee") +
+  annotate("rect", xmin = 8.5, xmax = 10.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#5fb236") +
   main_theme +
-  theme(strip.background = element_rect(fill=c("#FFF6E1")))
+  theme(strip.background = element_rect(fill = c("#FFF6E1")))
 if (!dir.exists(file.path(save.dir, "figs/env/"))) {
   dir.create(file.path(save.dir, "figs/env/"))
 }

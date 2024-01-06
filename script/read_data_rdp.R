@@ -46,9 +46,6 @@ sample_names(phylo) <- metadata$Sample_name
 sample_names(phylo_rare) <- metadata$Sample_name
 otu <- otu_table(phylo)
 
-# phylo_SUR <- subset_samples(phylo, layer == 'SUR') 
-# phylo_SUB <- subset_samples(phylo, layer == 'SUB') 
-# phylo_PL <- subset_samples(phylo, layer == 'PL') 
 # read functional table
 wd_fun <- file.path(getwd(),"data/metagenome")
 # if (!dir.exists(wd_fun)) {
