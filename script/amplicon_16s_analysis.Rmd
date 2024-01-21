@@ -41,9 +41,11 @@ library(picante)
 pd <- pd(t(otu), tree, include.root = F) # estimate the phylogenetic diversity
 tax_dist <-vegdist(t(otu), "bray" )
 mod1<-betadisper(tax_dist,metadata$Group)
-div_table_16s <- cbind(metadata[, c('Gully_id', 'Group')], alpha_div, Faith = pd$PD, Distance = mod1$distances, Evenness = alpha_div$Shannon/log(alpha_div$Observed)) %>%
+div_table_16s <- cbind(metadata[, c("Sample_name", 'Gully_id', 'Group')], alpha_div, Faith = pd$PD, Distance = mod1$distances, Evenness = alpha_div$Shannon/log(alpha_div$Observed)) %>%
   mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')))
+# write.table(div_table_16s, file.path(save.dir, 'tables/div_table_16s.csv'),
+#             sep=',',  col.names = T, row.names = T, quote = FALSE)
 ```
 
 Linear mixed models test the effect of collapsed and gully_id
@@ -125,7 +127,7 @@ div_16s_gully_plot
 ## Plot
 ```{r, fig.align='center', fig.width=5, fig.height=2.5}
 library(gghalves)
-div_16s_plot <- div_table_16s %>% select(-c("Gully_id", "Observed", "se.chao1", "Simpson", "Faith", "Shannon")) %>%
+div_16s_plot <- div_table_16s %>% select(-c("Sample_name", "Gully_id", "Observed", "se.chao1", "Simpson", "Faith", "Shannon")) %>%
   gather(diversity, value, -c("Group")) %>% 
   mutate(diversity = factor(diversity, levels = c("Chao1", "Evenness", "Distance"))) %>%
   ggplot(aes(Group, value, fill = Group)) +
@@ -244,7 +246,7 @@ AVD_16s_plot
 
 ## Composition
 ### Difference in the taxonomic composition between group control and Collapsed.
-```{r, fig.align='center', fig.width=8, fig.height=4}
+```{r}
 # extract the taxa at phylum level
 subphylo <- tax_glom(phylo, 'Phylum', NArm = F)
 subphylo.rel  = transform_sample_counts(subphylo, function(x) x / sum(x))
@@ -268,6 +270,20 @@ otu_final_tab <- rbind(data.frame(subtaxa_class_tab, ra.class.tab) %>%
   dplyr::rename(Phylum = Class), data.frame(subtaxa_tab, ra.tab) %>%
   filter(!Phylum %in% c("Proteobacteria", "Unassigned")))
 
+# extrac the phyla with the relative abundance higher than 1%
+otu_rel_abun_1perc_16s <- otu_final_tab %>%
+  filter(!Phylum %in% c("Unassigned")) %>% 
+  group_by(Phylum) %>% 
+  summarise(across(everything(), sum)) %>% 
+  mutate(MRA = rowMeans(select(., colnames(ra.tab)))) %>%
+  filter(MRA >= 0.01) %>%
+  arrange(desc(MRA)) %>%
+  select(., -c('MRA'))
+write.table(otu_rel_abun_1perc_16s, file.path(save.dir, 'tables/otu_rel_abun_1perc_16s.csv'),
+            sep=',',  col.names = T, row.names = F, quote = FALSE)
+```
+
+```{r, fig.align='center', fig.width=8, fig.height=4}
 # boxplot shows the community composition
 box_comp_16s_plot <- otu_final_tab %>%
   filter(!Phylum %in% c("Unassigned")) %>% 

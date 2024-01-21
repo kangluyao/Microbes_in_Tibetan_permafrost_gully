@@ -25,7 +25,7 @@ save.dir <- file.path(getwd(),"result")
 
 Loading packages
 ```{r}
-pacman::p_load(tidyverse)
+pacman::p_load(tidyverse, lme4)
 ```
 
 Data input
@@ -251,7 +251,27 @@ diff_in_env_plot
 ```
 
 Combine plots
-```{r, fig.align='center', fig.width=6.5, fig.height=6.5}
-
+```{r, fig.align='center', fig.width=8.9, fig.height=15}
+# box plot
+my_comparisons <- list(c('Control', 'Collapsed'))
+p4 <- metadata %>%
+  select(c("Gully_id", "Group", "BG",  "NAG", "LAP", "PPO", "H2O2", "WHC", "SOC", "NO3_N", "NH4_N", "AP", "AGB", "plant_pathogen_control")) %>%
+  pivot_longer(-c("Gully_id", "Group"), names_to = "functions", values_to = "values") %>%
+  mutate(functions = factor(functions, levels = c("BG",  "NAG", "LAP", "PPO", "H2O2", "WHC", "SOC", "NO3_N", "NH4_N", "AP", "AGB", "plant_pathogen_control"))) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  ggplot(aes(x = Group, y = values)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group), outlier.shape = NA) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = 'Group', y = NULL, fill= 'Group') +
+  facet_grid(functions ~ Gully_id, scales = "free", space = "free_x") +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  main_theme +
+  theme(panel.spacing = unit(0, "lines"),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+p4
 ```
 

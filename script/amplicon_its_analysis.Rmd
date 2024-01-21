@@ -39,9 +39,11 @@ library(picante)
 pd <- pd(t(otu), tree, include.root = F) # estimate the phylogenetic diversity
 tax_dist <-vegdist(t(otu), "bray" )
 mod1<-betadisper(tax_dist,metadata$Group)
-div_table_its <- cbind(metadata[, c('Gully_id', 'Group')], alpha_div, Faith = pd$PD, Distance = mod1$distances, Evenness = alpha_div$Shannon/log(alpha_div$Observed)) %>%
+div_table_its <- cbind(metadata[, c("Sample_name", 'Gully_id', 'Group')], alpha_div, Faith = pd$PD, Distance = mod1$distances, Evenness = alpha_div$Shannon/log(alpha_div$Observed)) %>%
   mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')))
+# write.table(div_table_its, file.path(save.dir, 'tables/div_table_its.csv'),
+#             sep=',',  col.names = T, row.names = T , quote=FALSE)
 ```
 
 Linear mixed models test the effect of collapsed and gully_id
@@ -123,7 +125,7 @@ div_its_gully_plot
 ## Plot
 ```{r, fig.align='center', fig.width=5, fig.height=2.5}
 library(gghalves)
-div_its_plot <- div_table_its %>% select(-c("Gully_id", "Observed", "se.chao1", "Simpson", "Faith", "Shannon")) %>%
+div_its_plot <- div_table_its %>% select(-c("Sample_name", "Gully_id", "Observed", "se.chao1", "Simpson", "Faith", "Shannon")) %>%
   gather(diversity, value, -c("Group")) %>% 
   mutate(diversity = factor(diversity, levels = c("Chao1", "Evenness", "Distance"))) %>%
   ggplot(aes(Group, value, fill = Group)) +
@@ -242,6 +244,31 @@ AVD_its_plot
 
 ## Composition
 ### Difference in the taxonomic composition between group control and Collapsed.
+```{r}
+# extract the taxa at phylum level
+subphylo <- tax_glom(phylo, 'Phylum', NArm = F)
+subphylo.rel  = transform_sample_counts(subphylo, function(x) x / sum(x))
+ntaxa(subphylo.rel)
+ra.tab <- otu_table(subphylo.rel)
+sum(ra.tab[, 1])
+subtaxa_tab <- tax_table(subphylo.rel)[, 2]
+
+#ecombine the taxa label and abundance table
+otu_final_tab <- data.frame(subtaxa_tab, ra.tab)
+
+# extrac the phyla with the relative abundance higher than 1%
+otu_rel_abun_1perc_its <- otu_final_tab %>%
+  filter(!Phylum %in% c("Unassigned")) %>% 
+  group_by(Phylum) %>% 
+  summarise(across(everything(), sum)) %>% 
+  mutate(MRA = rowMeans(select(., colnames(ra.tab)))) %>%
+  filter(MRA >= 0.01) %>%
+  arrange(desc(MRA)) %>%
+  select(., -c('MRA'))
+write.table(otu_rel_abun_1perc_its, file.path(save.dir, 'tables/otu_rel_abun_1perc_its.csv'),
+            sep=',',  col.names = T, row.names = F, quote = FALSE)
+```
+
 ```{r, fig.align='center', fig.width=8, fig.height=4}
 # extract the taxa at phylum level
 subphylo <- tax_glom(phylo, 'Phylum', NArm = F)
@@ -355,6 +382,7 @@ avg_abun_in_control_its_plot <- avg_abun_in_control%>%
         axis.text.y = element_blank()
         )
 ```
+
 ### test the difference in abundance of main taxa using liner models
 ```{r}
 # determine the effect size of the permafrost thawing on each phylum
@@ -387,7 +415,7 @@ phylaS1 <- sapply(3:ncol(phyla_tab_scale), function(j) {
     }
     result
 })
-colnames(phylaS1)<-colnames(phyla_tab_scale)[-c(1,2,18)]
+colnames(phylaS1) <- colnames(phyla_tab_scale)[-c(1, 2)]
 data.frame(phylaS1)
 ```
 ### effect size plot
