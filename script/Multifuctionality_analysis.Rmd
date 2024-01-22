@@ -44,7 +44,14 @@ library(vegan)
 ```
 
 ```{r}
-#gene diversity
+# read metadata
+source("script/read_data_rdp.R")
+# taxonomic diversity
+div_table_16s <- read.table(file = file.path(save.dir, 'tables/div_table_16s.csv'),
+             sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
+div_table_its <- read.table(file = file.path(save.dir, 'tables/div_table_its.csv'),
+             sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
+# gene diversity
 N_genes <- read.table(file = "E:/thermokarst_gully/data/metagenome/NCyc_output/all.result.TPM.txt", sep = "\t", header = TRUE, row.names = 1)
 colnames(N_genes) <- metadata$Sample_name
 P_genes <- read.table(file = "E:/thermokarst_gully/data/metagenome/PCyc_output/all.result.TPM.txt", sep = "\t", header = TRUE, row.names = 1)
@@ -54,16 +61,16 @@ colnames(S_genes) <- metadata$Sample_name
 
 
 R.N <- specnumber(t(N_genes))
-H.N <- diversity(N_genes, 'shannon')
+H.N <- diversity(t(N_genes), 'shannon')
 
 R.P <- specnumber(t(P_genes))
-H.P <- diversity(P_genes, 'shannon')
+H.P <- diversity(t(P_genes), 'shannon')
 
 R.S <- specnumber(t(S_genes))
 H.S <- diversity(S_genes, 'shannon')
 
 R.kegg <- specnumber(t(ko_tpm_table))
-H.kegg <- diversity(ko_tpm_table, 'shannon')
+H.kegg <- diversity(t(ko_tpm_table), 'shannon')
 
 multi_func_df <- data.frame(Ric_16s = div_table_16s$Observed, Shan_16s = div_table_16s$Shannon,
                             Ric_its = div_table_its$Observed, Shan_its = div_table_its$Shannon,
