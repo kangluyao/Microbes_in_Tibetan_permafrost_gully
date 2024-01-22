@@ -224,23 +224,28 @@ data.frame(env_S1)
 
 Effect size plot
 ```{r, fig.align='center', fig.width=3.5, fig.height=4.5}
-# rep_str = c("Plant_richness" = "Plant Richness",
-#             "Plant_shannon" = "Plant Shannon",
-#             "Soil_moisture" = "Soil moisture",
-#             "H2O2" = expression(paste("H"[2], "O"[2])))
+rep_str = c("Plant_richness" = "Plant Richness",
+            "Plant_shannon" = "Plant Shannon",
+            "Soil_moisture" = "Soil moisture",
+            "Soil_respiration" = "Soil respiration",
+            "H2O2" = expression(paste("H"[2], "O"[2])),
+            "NH4_N" = expression(paste("NH"[4]^"+", "-N")),
+            "NO3_N" = expression(paste("NO"[3]^"-", "-N")),
+            "plant_pathogen_control" = "Plant pathogen control"
+)
 p.stars <- function(p.values) {
   unclass(symnum(p.values, corr = FALSE, 
                  na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
                  symbols = c("***", "**", "*", ".", " ")))}
-diff_in_env_plot <- env_S1 %>%
+single_Fun_comparison <- env_S1 %>%
   t() %>%
   as.data.frame() %>%
   tibble::rownames_to_column(., "variables") %>%
   mutate(sig = as.vector(unlist(lapply(Group.P, p.stars)))) %>%
   mutate(variables = factor(variables, levels = colnames(metadata)[-c(1:4)])) %>%
   ggplot(aes(x = variables, y = GroupCollapsed.mean, color = variables)) +
-  geom_hline(aes(yintercept =0), size=0.7,  colour="gray2")+
-  geom_point(size = 3) +
+  geom_hline(aes(yintercept = 0), size = 0.7,  colour = "gray2")+
+  geom_point(size = 2) +
   geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
                     ymax = GroupCollapsed.mean + GroupCollapsed.se), 
                 width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
@@ -249,7 +254,7 @@ diff_in_env_plot <- env_S1 %>%
   labs(x = NULL, y = "Effect size")+
   # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
-  theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
+  theme_bw() + coord_flip() + scale_x_discrete(position = "top", labels = rep_str) +
   annotate("rect", xmin = 0, xmax = 5.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#ff6666") +
   annotate("rect", xmin = 5.5, xmax = 6.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#f19837") +
   annotate("rect", xmin = 6.5, xmax = 7.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#e56eee") +
@@ -260,15 +265,13 @@ diff_in_env_plot <- env_S1 %>%
   theme(legend.position = "none",
         strip.background = element_rect(fill = c("#FFF6E1")))
 
-if (!dir.exists(file.path(save.dir, "figs/env/"))) {
-  dir.create(file.path(save.dir, "figs/env/"))
-}
-ggsave(file.path(save.dir, "/figs/env/diff_in_env_plot.pdf"),
-       diff_in_env_plot, width = 3, height = 3.5, units = "in")
-diff_in_env_plot
+# if (!dir.exists(file.path(save.dir, "figs/env/"))) {
+#   dir.create(file.path(save.dir, "figs/env/"))
+# }
+ggsave(file.path(save.dir.multifunc, "./single_Fun_comparison.pdf"),
+       single_Fun_comparison, width = 2.7, height = 3.5, units = "in")
+single_Fun_comparison
 ```
-
-
 
 
 
