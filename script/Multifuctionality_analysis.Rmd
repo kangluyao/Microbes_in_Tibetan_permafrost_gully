@@ -255,7 +255,7 @@ single_Fun_comparison <- env_S1 %>%
   # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   theme_bw() + coord_flip() + scale_x_discrete(position = "top", labels = rep_str) +
-  annotate("rect", xmin = 0, xmax = 5.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#ff6666") +
+  annotate("rect", xmin = 0.4, xmax = 5.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#ff6666") +
   annotate("rect", xmin = 5.5, xmax = 6.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#f19837") +
   annotate("rect", xmin = 6.5, xmax = 7.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#e56eee") +
   annotate("rect", xmin = 7.5, xmax = 8.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#5fb236") +
@@ -269,10 +269,14 @@ single_Fun_comparison <- env_S1 %>%
 #   dir.create(file.path(save.dir, "figs/env/"))
 # }
 ggsave(file.path(save.dir.multifunc, "./single_Fun_comparison.pdf"),
-       single_Fun_comparison, width = 2.7, height = 3.5, units = "in")
+       single_Fun_comparison, width = 2.7, height = 5, units = "in")
 single_Fun_comparison
 ```
+## 
+Ordinary least squares linear regression between multidiversity (standardized between 0 and 1) of soil organisms and multifunctionality,
+```{r}
 
+```
 
 
 ```{r, fig.align='center', fig.width=4.5, fig.height=4}

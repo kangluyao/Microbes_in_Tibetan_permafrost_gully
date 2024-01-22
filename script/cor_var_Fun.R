@@ -1,3 +1,5 @@
+
+
 ## rename the colnames
 colnames(tp_alpha_div) <- c('group', "Chao1", 'Shannon', 'Simpson', 'Site', 'Sitegroup1', 'latitude', 'longitude')
 tp_alpha_div[1:5, 1:5]
