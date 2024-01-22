@@ -41,6 +41,7 @@ library(car)
 library(ggpubr)
 library(ggpmisc)
 library(vegan)
+library(lme4)
 ```
 
 ```{r}
@@ -67,15 +68,15 @@ R.P <- specnumber(t(P_genes))
 H.P <- diversity(t(P_genes), 'shannon')
 
 R.S <- specnumber(t(S_genes))
-H.S <- diversity(S_genes, 'shannon')
+H.S <- diversity(t(S_genes), 'shannon')
 
 R.kegg <- specnumber(t(ko_tpm_table))
 H.kegg <- diversity(t(ko_tpm_table), 'shannon')
 
 multi_func_df <- data.frame(Ric_16s = div_table_16s$Observed, Shan_16s = div_table_16s$Shannon,
                             Ric_its = div_table_its$Observed, Shan_its = div_table_its$Shannon,
-                            Ric_N = R.N, Shan_N = H.N$shannon, Ric_P = R.P, Shan_P = H.P$shannon, 
-                            Ric_S = R.S, Shan_S = H.S$shannon, Ric_kegg = R.kegg, Shan_kegg = H.kegg$shannon,
+                            Ric_N = R.N, Shan_N = H.N, Ric_P = R.P, Shan_P = H.P, 
+                            Ric_S = R.S, Shan_S = H.S, Ric_kegg = R.kegg, Shan_kegg = H.kegg,
                             metadata)
 # write.table(multi_func_df, file.path(save.dir, 'tables/multi_func_df.csv'),
 #             sep=',',  col.names = T, row.names = F , quote=FALSE)
