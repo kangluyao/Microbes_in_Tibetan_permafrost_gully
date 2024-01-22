@@ -44,6 +44,7 @@ library(vegan)
 library(lme4)
 ```
 
+Read data
 ```{r}
 # read metadata
 source("script/read_data_rdp.R")
@@ -82,7 +83,8 @@ multi_func_df <- data.frame(Ric_16s = div_table_16s$Observed, Shan_16s = div_tab
 #             sep=',',  col.names = T, row.names = F , quote=FALSE)
 ```
 
-
+## Determine the multifunctional index
+### Averaged multifunctional index
 ```{r}
 #Read in data
 allVars <- c("BG",  "NAG", "LAP", "PPO", "H2O2", "WHC", "SOC", "NO3_N", "NH4_N", "AGB", "plant_pathogen_control", "AP", "Soil_respiration")
@@ -95,8 +97,28 @@ multi_func_df <- multi_func_df[, c("Plant_shannon", "Plant_richness", "Ric_N", "
 multi_ave_func_df <- cbind(multi_func_df, getStdAndMeanFunctions(multi_func_df, allVars, standardizeZScore))
 ```
 
+### Multifunctionality using multithreshold Approach
+```{r}
+# Threshold Approach
+thermoThresh <- getFuncsMaxed(multi_func_df, allVars, threshmin = 0.05, threshmax = 0.99, 
+                              threshstep = 0.01, prepend = c("plot","Diversity"), maxN = 13)
 
-```{r, fig.align='center', fig.width=8.9, fig.height=6.2}
+# mfuncthermoLinear75 <- glm(funcMaxed ~ Ric_kegg, data = subset(thermoThresh, thermoThresh$thresholds == "0.75"), family = quasipoisson(link = "identity"), start = c(0.5,0.5))
+# 
+# Anova(mfuncthermoLinear75, test.statistic = "F")
+# 
+# summary(mfuncthermoLinear75)
+```
+
+Test the difference of multifunctionality between the contol and collapsed groups based on the average multifunctional index and multiple thresholds multifunctionality using wilcox test.
+```{r, fig.align='center', fig.width=4, fig.height=2.5}
+multifunctionality_tab <- thermoThresh %>%
+  select(Sample_name, Gully_id, Group, funcMaxed) %>%
+  group_by(Sample_name, Gully_id, Group) %>%
+  dplyr::summarise(across(, mean, na.rm = TRUE)) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  data.frame(., Meanfunction = multi_ave_func_df$meanFunction)
+# plot
 library(gghalves)
 main_theme = theme_bw() + 
   theme(panel.grid = element_blank(),
@@ -111,12 +133,11 @@ main_theme = theme_bw() +
         legend.text = element_text(colour = 'black', size = 6),
         legend.key.size = unit(0.5, 'cm'))
 my_comparisons <- list(c('Control', 'Collapsed'))
-p1 <- multi_ave_func_df %>%
-  select(c("Plant_richness", "Ric_N", "Ric_P", "Ric_S", "Ric_16s", "Ric_its", "Ric_kegg", "Group", "meanFunction")) %>%
-  pivot_longer(-c(Group), names_to = "diversity", values_to = "value") %>%
+p1 <- multifunctionality_tab %>%
+  select(c("Group", "Meanfunction", "funcMaxed")) %>%
+  pivot_longer(-c(Group), names_to = "Functionality", values_to = "value") %>%
   mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
-  mutate(diversity = factor(diversity, levels = c("meanFunction", "Plant_richness", "Ric_kegg", "Ric_16s", 
-                                                  "Ric_its", "Ric_N", "Ric_P", "Ric_S"))) %>%
+  mutate(Functionality = factor(Functionality, levels = c("Meanfunction", "funcMaxed"))) %>%
   ggplot(aes(Group, value, fill = Group)) +
   geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
   geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
@@ -127,61 +148,23 @@ p1 <- multi_ave_func_df %>%
                      size = 3.5, tip.length = 0.00, method = "wilcox.test") +
   labs(x = NULL, y = NULL) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  facet_wrap(~diversity, scales = "free_y", ncol = 4) +
+  facet_wrap(~Functionality, scales = "free_y", ncol = 4) +
   main_theme + theme(legend.position = "none")
 
 save.dir.multifunc <- file.path(save.dir,"figs/multifunction")
 if (!dir.exists(save.dir.multifunc)) {
   dir.create(save.dir.multifunc)
 }
-ggsave(file.path(save.dir.multifunc, "./diversity_comparison.pdf"),
-       p1, width = 8.9, height = 6.2, units = "in")
+ggsave(file.path(save.dir.multifunc, "./multifunctionality_comparison.pdf"),
+       p1, width = 3.5, height = 2.5, units = "in")
 p1
 ```
-
-```{r}
-# Threshold Approach
-thermoThresh <- getFuncsMaxed(multi_func_df, allVars, threshmin = 0.05, threshmax = 0.99, 
-                              threshstep = 0.01, prepend = c("plot","Diversity"), maxN = 13)
-
-# mfuncthermoLinear75 <- glm(funcMaxed ~ Ric_kegg, data = subset(thermoThresh, thermoThresh$thresholds == "0.75"), family = quasipoisson(link = "identity"), start = c(0.5,0.5))
-# 
-# Anova(mfuncthermoLinear75, test.statistic = "F")
-# 
-# summary(mfuncthermoLinear75)
-
-gcPlot <- subset(thermoThresh, thermoThresh$thresholds %in% qw(0.25, 0.5, 0.75, 0.90)) #note, using qw as %in% is a string comparison operator
-
-gcPlot$percent<-paste(100*gcPlot$thresholds, "%", sep = "")
-```
-
-Test the difference of multifunctionality at multiple thresholds using wilcox test.
-```{r, fig.align='center', fig.width=3.5, fig.height=3.2}
-p2 <- thermoThresh %>%
-  select(Sample_name, Gully_id, Group, funcMaxed) %>%
-  group_by(Sample_name, Gully_id, Group) %>%
-  dplyr::summarise(across(, mean, na.rm = TRUE)) %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
-  ggplot(aes(Group, funcMaxed, fill = Group)) +
-  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
-  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
-  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
-  stat_compare_means(comparisons = my_comparisons, paired = F,
-                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
-                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
-  labs(x = NULL, y = expression("Number of Functions" >= Threshold)) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  main_theme + theme(legend.position = "none")
-
-ggsave(file.path(save.dir.multifunc, "./Multithrehold_MultiFun_comparison.pdf"),
-       p2, width = 3.5, height = 3.2, units = "in")
-p2
-```
-
 Test the difference of multifunctionality at 25%, 50%, 75%, and 90% thresholds using wilcox test.
 ```{r, fig.align='center', fig.width=8.9, fig.height=3.2}
-p3 <- gcPlot %>%
+gcPlot <- subset(thermoThresh, thermoThresh$thresholds %in% qw(0.25, 0.5, 0.75, 0.90)) #note, using qw as %in% is a string comparison operator
+gcPlot$percent<-paste(100*gcPlot$thresholds, "%", sep = "")
+
+p2 <- gcPlot %>%
   mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
   ggplot(aes(Group, funcMaxed, fill = Group)) +
   geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
@@ -197,58 +180,11 @@ p3 <- gcPlot %>%
   main_theme + theme(legend.position = "none")
 
 ggsave(file.path(save.dir.multifunc, "./Multithrehold_25_50_75_90_MultiFun_comparison.pdf"),
-       p3, width = 8.9, height = 3.2, units = "in")
-p3
-```
-```{r, fig.align='center', fig.width=4.5, fig.height=4}
-ggplot(data = gcPlot, aes(x = Ric_kegg, y = funcMaxed)) +
-  geom_point(shape = 19, size = 1, colour ='tomato3', alpha = 0.8) +
-  ylab(expression("Number of Functions" >= Threshold)) +
-  xlab("Gene numbers") +
-  stat_smooth(method = "glm", 
-              method.args = list(family = gaussian(link = "identity")), 
-              lwd = 0.8, fill = NA, colour = 'black', na.rm = F) +
-  facet_wrap(~percent, scales = "free_y", ncol = 2)+
-  main_theme + theme(legend.position = "none")
+       p2, width = 8.9, height = 3.2, units = "in")
+p2
 ```
 
-```{r, fig.align='center', fig.width=4, fig.height=2.5}
-thermoThresh$percent <- 100 * thermoThresh$thresholds
-ggplot(data = thermoThresh, aes(x = Ric_kegg, y = funcMaxed, group = percent)) +
-  ylab(expression("Number of Functions" >= Threshold)) +
-  xlab("Gene numbers") +
-  stat_smooth(method = "glm", 
-              method.args = list(family = gaussian(link = "identity")), 
-              lwd = 0.8, fill = NA, aes(color = percent), na.rm = T) +
-  theme_bw(base_size = 14) +
-  scale_color_gradient(name = "Percent of \nMaximum", low = "#79ceb8", high = "#e95f5c") +
-  main_theme
-```
-
-
-```{r}
-# Multiple Threshold Approach
-thermoLinearSlopes<-getCoefTab(funcMaxed ~ Ric_kegg,
-                                data = thermoThresh, 
-                                coefVar = "Ric_kegg",
-                                family = gaussian(link = "identity"))
-# Plot the values of the diversity slope at
-# different levels of the threshold
-thermoSlopes <- ggplot(thermoLinearSlopes, aes(x=thresholds*100,
-                                                y = estimate,
-                                                ymax = estimate + 1.96 * std.error,
-                                                ymin = estimate - 1.96 * std.error)) +
-  geom_ribbon(fill = "grey50") +
-  geom_point() +
-  ylab("Change in Number of Functions \nper Addition of 1 Species\n") +
-  xlab("\nThreshold (%)") +
-  geom_abline(intercept = 0, slope = 0, lwd = 1, linetype = 2) +
-  theme_bw(base_size = 14) +
-  main_theme
-thermoSlopes
-```
-
-### test the difference in abundance of main taxa using liner models
+### Test the difference in single function between control and collapsed groups using liner models
 ```{r}
 # determine the effect size of the permafrost thawing on each phylum
 env_scale <- metadata %>% 
@@ -331,6 +267,62 @@ ggsave(file.path(save.dir, "/figs/env/diff_in_env_plot.pdf"),
        diff_in_env_plot, width = 3, height = 3.5, units = "in")
 diff_in_env_plot
 ```
+
+
+
+
+
+```{r, fig.align='center', fig.width=4.5, fig.height=4}
+ggplot(data = gcPlot, aes(x = Ric_kegg, y = funcMaxed)) +
+  geom_point(shape = 19, size = 1, colour ='tomato3', alpha = 0.8) +
+  ylab(expression("Number of Functions" >= Threshold)) +
+  xlab("Gene numbers") +
+  stat_smooth(method = "glm", 
+              method.args = list(family = gaussian(link = "identity")), 
+              lwd = 0.8, fill = NA, colour = 'black', na.rm = F) +
+  facet_wrap(~percent, scales = "free_y", ncol = 2)+
+  main_theme + theme(legend.position = "none")
+```
+
+```{r, fig.align='center', fig.width=4, fig.height=2.5}
+thermoThresh$percent <- 100 * thermoThresh$thresholds
+ggplot(data = thermoThresh, aes(x = Ric_kegg, y = funcMaxed, group = percent)) +
+  ylab(expression("Number of Functions" >= Threshold)) +
+  xlab("Gene numbers") +
+  stat_smooth(method = "glm", 
+              method.args = list(family = gaussian(link = "identity")), 
+              lwd = 0.8, fill = NA, aes(color = percent), na.rm = T) +
+  theme_bw(base_size = 14) +
+  scale_color_gradient(name = "Percent of \nMaximum", low = "#79ceb8", high = "#e95f5c") +
+  main_theme
+```
+
+
+```{r}
+# Multiple Threshold Approach
+thermoLinearSlopes<-getCoefTab(funcMaxed ~ Ric_kegg,
+                                data = thermoThresh, 
+                                coefVar = "Ric_kegg",
+                                family = gaussian(link = "identity"))
+# Plot the values of the diversity slope at
+# different levels of the threshold
+thermoSlopes <- ggplot(thermoLinearSlopes, aes(x=thresholds*100,
+                                                y = estimate,
+                                                ymax = estimate + 1.96 * std.error,
+                                                ymin = estimate - 1.96 * std.error)) +
+  geom_ribbon(fill = "grey50") +
+  geom_point() +
+  ylab("Change in Number of Functions \nper Addition of 1 Species\n") +
+  xlab("\nThreshold (%)") +
+  geom_abline(intercept = 0, slope = 0, lwd = 1, linetype = 2) +
+  theme_bw(base_size = 14) +
+  main_theme
+thermoSlopes
+```
+
+
+
+
 
 ```{r, fig.align='center', fig.width=10, fig.height=6}
 #plot it
