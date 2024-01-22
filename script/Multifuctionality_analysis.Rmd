@@ -93,7 +93,6 @@ multi_func_df <- multi_func_df[, c("Plant_shannon", "Plant_richness", "Ric_N", "
 
 #add on the new functions along with the averaged multifunctional index
 multi_ave_func_df <- cbind(multi_func_df, getStdAndMeanFunctions(multi_func_df, allVars, standardizeZScore))
-#germany<-cbind(germany, getStdAndMeanFunctions(germany, vars, standardizeZScore))
 ```
 
 
