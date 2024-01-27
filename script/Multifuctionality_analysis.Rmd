@@ -818,27 +818,3 @@ p4
 ```{r, fig.align='center', fig.width=8.9, fig.height=8.9}
 cowplot::plot_grid(p1, p2, p3, p4, ncol = 2)
 ```
-
-#reshape for plotting everything with ggplot2
-germanyMeanForPlotting <- germany %>%
-  select(Diversity, biomassY3.std:meanFunction) %>%
-  pivot_longer(cols = c(biomassY3.std:meanFunction),
-               names_to = "variable") %>%
-  mutate(variable = fct_inorder(variable))
-#nice names for plotting
-levels(germanyMeanForPlotting$variable) <- c('Aboveground Biomass', 'Root Biomass', 'Cotton Decomposition', 'Soil Nitrogen', 'Plant Nitrogen', 'Mean Multifuncion Index')
-
-#plot it
-ggplot(aes(x=Diversity, y=value),data=germanyMeanForPlotting)+geom_point(size=3)+
-  facet_grid(~variable) +
-  theme_bw(base_size=15)+
-  stat_smooth(method="lm", colour="black", size=2) + 
-  xlab("\nSpecies Richness") +
-  ylab("Standardized Value of Function\n")
-
-
-#statistical fit
-aveFit<-lm(meanFunction ~ Diversity, data=germany)
-Anova(aveFit)
-
-summary(aveFit)
