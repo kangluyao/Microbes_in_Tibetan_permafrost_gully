@@ -1,5 +1,5 @@
 ---
-title: "Amplicon_its_analysis"
+title: "Amplicon_16s_analysis"
 author: "Luyao Kang"
 date: "`r Sys.Date()`"
 output:
@@ -19,6 +19,8 @@ knitr::opts_chunk$set(
 Set work directory
 ```{r}
 setwd('e:/thermokarst_gully/')
+# wd_18s <- file.path(getwd(),"data/18S/")
+# wd_fun <- file.path(getwd(),"data/metagenome")
 ```
 Loading packages
 ```{r}
@@ -26,7 +28,7 @@ pacman::p_load(phyloseq, ape, vegan, Biostrings, microbiome, tidyverse)
 ```
 Data input
 ```{r}
-source("script/read_data_its.R")
+source("script/read_data_18s.R")
 ```
 
 ## Diversity analysis
@@ -39,11 +41,11 @@ library(picante)
 pd <- pd(t(otu), tree, include.root = F) # estimate the phylogenetic diversity
 tax_dist <-vegdist(t(otu), "bray" )
 mod1<-betadisper(tax_dist,metadata$Group)
-div_table_its <- cbind(metadata[, c("Sample_name", 'Gully_id', 'Group')], alpha_div, Faith = pd$PD, Distance = mod1$distances, Evenness = alpha_div$Shannon/log(alpha_div$Observed)) %>%
+div_table_18s <- cbind(metadata[, c("Sample_name", 'Gully_id', 'Group')], alpha_div, Faith = pd$PD, Distance = mod1$distances, Evenness = alpha_div$Shannon/log(alpha_div$Observed)) %>%
   mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')))
-# write.table(div_table_its, file.path(save.dir, 'tables/div_table_its.csv'),
-#             sep=',',  col.names = T, row.names = T , quote=FALSE)
+# write.table(div_table_16s, file.path(save.dir, 'tables/div_table_16s.csv'),
+#             sep=',',  col.names = T, row.names = T, quote = FALSE)
 ```
 
 Linear mixed models test the effect of collapsed and gully_id
@@ -51,31 +53,31 @@ Linear mixed models test the effect of collapsed and gully_id
 ```{r}
 library(lme4)
 library(car)
-fm1 <- lmer(Chao1 ~ Group + (1 | Gully_id), data = div_table_its)
+fm1 <- lmer(Chao1 ~ Group + (1 | Gully_id), data = div_table_16s)
 summary(fm1)
 car::Anova(fm1, type = 2)
 ```
 
 ```{r}
-fm2 <- lmer(Evenness ~ Group + (1 | Gully_id), data = div_table_its)
+fm2 <- lmer(Evenness ~ Group + (1 | Gully_id), data = div_table_16s)
 summary(fm2)
 car::Anova(fm2, type = 2)
 ```
 
 ```{r}
-fm3 <- lmer(Shannon ~ Group + (1 | Gully_id), data = div_table_its)
+fm3 <- lmer(Shannon ~ Group + (1 | Gully_id), data = div_table_16s)
 summary(fm3)
 car::Anova(fm3, type = 2)
 ```
 
 ```{r}
-fm4 <- lmer(Faith ~ Group + (1 | Gully_id), data = div_table_its)
+fm4 <- lmer(Faith ~ Group + (1 | Gully_id), data = div_table_16s)
 summary(fm4)
 car::Anova(fm4, type = 2)
 ```
 
 ```{r}
-fm5 <- lmer(Distance ~ Group + (1 | Gully_id), data = div_table_its)
+fm5 <- lmer(Distance ~ Group + (1 | Gully_id), data = div_table_16s)
 summary(fm5)
 car::Anova(fm5, type = 2)
 ```
@@ -97,7 +99,7 @@ main_theme = theme_bw() +
         legend.position = "none")
 # box plot
 my_comparisons <- list(c('Control', 'Collapsed'))
-div_its_gully_plot <- div_table_its %>% 
+div_16s_gully_plot <- div_table_16s %>% 
   select(c("Gully_id", "Group", "Chao1", "Evenness", "Shannon", "Faith", "Distance")) %>%
   gather(diversity, values, -c("Gully_id", "Group")) %>%
   mutate(diversity = factor(diversity, levels = c("Chao1", "Evenness", "Shannon", "Faith", "Distance"))) %>%
@@ -117,15 +119,15 @@ save.dir.div <- file.path(save.dir,"figs/diversity")
 if (!dir.exists(save.dir.div)) {
   dir.create(save.dir.div)
 }
-ggsave(file.path(save.dir.div, "./alpha_boxplot_its.pdf"),
-       div_its_gully_plot, width = 7.5, height = 6.2, units = "in")
-div_its_gully_plot
+ggsave(file.path(save.dir.div, "./alpha_boxplot_16s.pdf"),
+       div_16s_gully_plot, width = 7.5, height = 6.2, units = "in")
+div_16s_gully_plot
 ```
 
 ## Plot
 ```{r, fig.align='center', fig.width=5, fig.height=2.5}
 library(gghalves)
-div_its_plot <- div_table_its %>% select(-c("Sample_name", "Gully_id", "Observed", "se.chao1", "Simpson", "Faith", "Shannon")) %>%
+div_16s_plot <- div_table_16s %>% select(-c("Sample_name", "Gully_id", "Observed", "se.chao1", "Simpson", "Faith", "Shannon")) %>%
   gather(diversity, value, -c("Group")) %>% 
   mutate(diversity = factor(diversity, levels = c("Chao1", "Evenness", "Distance"))) %>%
   ggplot(aes(Group, value, fill = Group)) +
@@ -141,9 +143,9 @@ div_its_plot <- div_table_its %>% select(-c("Sample_name", "Gully_id", "Observed
   facet_wrap(~diversity, scales = "free_y", ncol = 3) +
   main_theme
 
-ggsave(file.path(save.dir.div, "./diversity_its_plot.pdf"),
-       div_its_plot, width = 4.5, height = 2, units = "in")
-div_its_plot
+ggsave(file.path(save.dir.div, "./diversity_16s_plot.pdf"),
+       div_16s_plot, width = 4.5, height = 2, units = "in")
+div_16s_plot
 ```
 
 ## Beta diversity determined by bray-cuties distance
@@ -154,7 +156,7 @@ tax_dist <-vegdist(t(otu), "bray" )
 # difference in taxonomic variance among Group
 my_comparisons <- list(c('Control', 'Collapsed'))
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
-beta_tax_its_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x,metadata$Sample_name, value = T))) %>%
+beta_tax_16s_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x,metadata$Sample_name, value = T))) %>%
   data.frame() %>%  gather("tem_group", "distance") %>% 
   cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
         Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
@@ -172,9 +174,9 @@ beta_tax_its_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, gre
   facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
   main_theme +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave(file.path(save.dir.div, "./beta_variance_its.pdf"),
-       beta_tax_its_plot, width = 7.6, height = 2.5, units = "in")
-beta_tax_its_plot
+ggsave(file.path(save.dir.div, "./beta_variance_16s.pdf"),
+       beta_tax_16s_plot, width = 7.6, height = 2.5, units = "in")
+beta_tax_16s_plot
 ```
 
 ```{r}
@@ -189,7 +191,7 @@ anosim(tax_dist, metadata$Group, perm = 999)
 ```{r, fig.align='center', fig.width=4, fig.height=4}
 # taxa
 ord.tax <-  cmdscale(tax_dist,  k = 2, eig = T, add = T)
-pcoa_tax_its_plot <- data.frame(Group = metadata$Group, scores(ord.tax)) %>%
+pcoa_tax_16s_plot <- data.frame(Group = metadata$Group, scores(ord.tax)) %>%
   mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
   ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
   geom_point(size = 1, alpha = 0.8) + 
@@ -211,9 +213,9 @@ save.dir.pcoa <- file.path(save.dir,"figs/pcoa")
 if (!dir.exists(save.dir.pcoa)) {
   dir.create(save.dir.pcoa)
 }
-# ggsave(file.path(save.dir.pcoa, "./PCoA_tax_its_bray.pdf"),
-#        pcoa_tax_its_plot, width = 89, height = 59, units = "mm")
-pcoa_tax_its_plot
+ggsave(file.path(save.dir.pcoa, "./PCoA_tax_16s_bray.pdf"),
+       pcoa_tax_16s_plot, width = 89, height = 59, units = "mm")
+pcoa_tax_16s_plot
 ```
 ##average variation degree，AVD
 ```{r}
@@ -224,7 +226,7 @@ ai <- abs(otu-apply(otu, 1, mean))/apply(otu, 1, sd)
 avd <- colSums(ai)/(1*nrow(otu))
  
 #读取分组，合并数据并简单可视化
-AVD_its_plot <- data.frame(Group = metadata$Group, AVD = avd) %>%
+AVD_16s_plot <- data.frame(Group = metadata$Group, AVD = avd) %>%
   mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
   ggplot(aes(Group, AVD, fill = Group)) +
   geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
@@ -238,8 +240,8 @@ AVD_its_plot <- data.frame(Group = metadata$Group, AVD = avd) %>%
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   main_theme
 # ggsave(file.path(save.dir, "./figs/alpha/AVD_plot.pdf"), 
-#        AVD_its_plot, width = 89, height = 89, units = "mm")
-AVD_its_plot
+#        AVD_16s_plot, width = 89, height = 89, units = "mm")
+AVD_16s_plot
 ```
 
 ## Composition
@@ -253,11 +255,23 @@ ra.tab <- otu_table(subphylo.rel)
 sum(ra.tab[, 1])
 subtaxa_tab <- tax_table(subphylo.rel)[, 2]
 
-#ecombine the taxa label and abundance table
-otu_final_tab <- data.frame(subtaxa_tab, ra.tab)
+# extract the taxa at class level
+subphylo_class <- tax_glom(phylo, 'Class', NArm = F)
+subphylo.class.rel  = transform_sample_counts(subphylo_class, function(x) x / sum(x))
+ntaxa(subphylo.class.rel)
+ra.class.tab <- otu_table(subphylo.class.rel)
+sum(ra.class.tab[, 1])
+subtaxa_class_tab <- tax_table(subphylo.class.rel)[, 3]
+
+#ecombine the class within proteobacteria and other phyla into one abundance table
+otu_final_tab <- rbind(data.frame(subtaxa_class_tab, ra.class.tab) %>%
+  filter(Class %in% c("Alphaproteobacteria", "Betaproteobacteria",
+                      "Gammaproteobacteria", "Deltaproteobacteria")) %>%
+  dplyr::rename(Phylum = Class), data.frame(subtaxa_tab, ra.tab) %>%
+  filter(!Phylum %in% c("Proteobacteria", "Unassigned")))
 
 # extrac the phyla with the relative abundance higher than 1%
-otu_rel_abun_1perc_its <- otu_final_tab %>%
+otu_rel_abun_1perc_16s <- otu_final_tab %>%
   filter(!Phylum %in% c("Unassigned")) %>% 
   group_by(Phylum) %>% 
   summarise(across(everything(), sum)) %>% 
@@ -265,24 +279,13 @@ otu_rel_abun_1perc_its <- otu_final_tab %>%
   filter(MRA >= 0.01) %>%
   arrange(desc(MRA)) %>%
   select(., -c('MRA'))
-write.table(otu_rel_abun_1perc_its, file.path(save.dir, 'tables/otu_rel_abun_1perc_its.csv'),
+write.table(otu_rel_abun_1perc_16s, file.path(save.dir, 'tables/otu_rel_abun_1perc_16s.csv'),
             sep=',',  col.names = T, row.names = F, quote = FALSE)
 ```
 
 ```{r, fig.align='center', fig.width=8, fig.height=4}
-# extract the taxa at phylum level
-subphylo <- tax_glom(phylo, 'Phylum', NArm = F)
-subphylo.rel  = transform_sample_counts(subphylo, function(x) x / sum(x))
-ntaxa(subphylo.rel)
-ra.tab <- otu_table(subphylo.rel)
-sum(ra.tab[, 1])
-subtaxa_tab <- tax_table(subphylo.rel)[, 2]
-
-#ecombine the class within proteobacteria and other phyla into one abundance table
-otu_final_tab <- data.frame(subtaxa_tab, ra.tab)
-
 # boxplot shows the community composition
-box_comp_its_plot <- otu_final_tab %>%
+box_comp_16s_plot <- otu_final_tab %>%
   filter(!Phylum %in% c("Unassigned")) %>% 
   group_by(Phylum) %>% 
   summarise(across(everything(), sum)) %>% 
@@ -303,8 +306,8 @@ box_comp_its_plot <- otu_final_tab %>%
   geom_boxplot(outlier.shape = NA, width = 0.5, aes(fill = Group)) +
   stat_compare_means(aes(group = Group),  paired = F, 
                      p.adjust.method = "BH", label = "p.signif",
-                     label.y.npc = 0.98) +
-  scale_y_continuous(limits=c(0, 100)) +
+                     label.y.npc = 0.9) +
+  scale_y_continuous(limits=c(0, 50)) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   labs(x = 'Phylum', y = 'Relative abundance (%)', fill = 'Group') +
   main_theme +
@@ -313,14 +316,14 @@ save.dir.comp <- file.path(save.dir,"figs/composition")
 if (!dir.exists(save.dir.comp)) {
   dir.create(save.dir.comp)
 }
-ggsave(file.path(save.dir.comp, "./tax_its_composition_10.pdf"), 
-       box_comp_its_plot, width = 189, height = 95, units = "mm")
-box_comp_its_plot
+ggsave(file.path(save.dir.comp, "./tax_16s_composition_10.pdf"), 
+       box_comp_16s_plot, width = 189, height = 95, units = "mm")
+box_comp_16s_plot
 ```
 
 ### Microbial composition in each group and treatments
 ```{r, fig.align='center', fig.width=8, fig.height=4}
-bar_comp_its_plot <- otu_final_tab %>% 
+bar_comp_16s_plot <- otu_final_tab %>% 
   mutate(MRA = rowMeans(select(., colnames(ra.tab)))) %>%
   arrange(desc(MRA)) %>% dplyr::top_n(11, MRA) %>%
   select(., -c('MRA')) %>% 
@@ -341,9 +344,9 @@ bar_comp_its_plot <- otu_final_tab %>%
   guides(fill = guide_legend(keywidth = 0.5, keyheight = 0.5)) +
   facet_grid(~ Gully_id, scales = "free_x", space = "free_x") + 
   main_theme
-ggsave(file.path(save.dir.comp, "./tax_composition_its_bar.pdf"), 
-       bar_comp_its_plot, width = 189, height = 95, units = "mm")
-bar_comp_its_plot
+ggsave(file.path(save.dir.comp, "./tax_composition_16s_bar.pdf"), 
+       bar_comp_16s_plot, width = 189, height = 95, units = "mm")
+bar_comp_16s_plot
 ```
 
 ### determine the average relative abundance of each phylum within each group
@@ -362,7 +365,6 @@ avg_abun_in_control <- phyla_tab %>% select(-c("Gully_id")) %>%
     summarise(across(where(is.numeric), list(mean = ~mean(., na.rm = T), 
                                   sd = ~sd(., na.rm = T), 
                                   n = ~n()))) %>% 
-  select(-c("Fungi_phy_Incertae_sedis_mean", "Fungi_phy_Incertae_sedis_sd", "Fungi_phy_Incertae_sedis_n")) %>%
     pivot_longer(cols = -c(Group), 
                  names_to = c('Phylum', '.value'), 
                  names_sep = '_') %>% 
@@ -371,7 +373,7 @@ avg_abun_in_control <- phyla_tab %>% select(-c("Gully_id")) %>%
   arrange(mean) %>%
   mutate(Phylum = factor(Phylum, levels = Phylum))
 
-avg_abun_in_control_its_plot <- avg_abun_in_control%>%
+avg_abun_in_control_16s_plot <- avg_abun_in_control%>%
   ggplot(aes(x = Phylum, y = mean)) +
   geom_bar(position = 'dodge', stat = 'identity', 
            fill= '#FFF6E1', colour = 'black', width = 0.7) +
@@ -382,7 +384,6 @@ avg_abun_in_control_its_plot <- avg_abun_in_control%>%
         axis.text.y = element_blank()
         )
 ```
-
 ### test the difference in abundance of main taxa using liner models
 ```{r}
 # determine the effect size of the permafrost thawing on each phylum
@@ -415,7 +416,8 @@ phylaS1 <- sapply(3:ncol(phyla_tab_scale), function(j) {
     }
     result
 })
-colnames(phylaS1) <- colnames(phyla_tab_scale)[-c(1, 2)]
+colnames(phylaS1)<-colnames(phyla_tab_scale)[-c(
+  1,2)]
 data.frame(phylaS1)
 ```
 ### effect size plot
@@ -424,7 +426,7 @@ p.stars <- function(p.values) {
   unclass(symnum(p.values, corr = FALSE, 
                  na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
                  symbols = c("***", "**", "*", ".", " ")))}
-eff_siz_tax_its_plot <- phylaS1 %>%
+eff_siz_tax_16s_plot <- phylaS1 %>%
   t() %>%
   as.data.frame() %>%
   tibble::rownames_to_column(., "Phylum") %>%
@@ -450,36 +452,75 @@ eff_siz_tax_its_plot <- phylaS1 %>%
 Combine plots
 ```{r, fig.align='center', fig.width=6.5, fig.height=6.5}
 library(aplot) # Decorate a 'ggplot' with Associated Information
-diff_comp_its_plot <- avg_abun_in_control_its_plot %>% insert_right(eff_siz_tax_its_plot, width = 2)
-ggsave(file.path(save.dir.comp, "./diff_comp_its_plot.pdf"),
-       diff_comp_plot, width = 4, height = 4.5, units = "in")
-diff_comp_its_plot
+diff_comp_16s_plot <- avg_abun_in_control_16s_plot %>% insert_right(eff_siz_tax_16s_plot, width = 2)
+ggsave(file.path(save.dir.comp, "./diff_comp_16s_plot.pdf"),
+       diff_comp_16s_plot, width = 4, height = 4.5, units = "in")
+diff_comp_16s_plot
 ```
 
-Determine the percentage of plant Pathogen fungi
+## determine the community-level rrn copies
 ```{r}
-library(microeco)
-library(file2meco)
-meco_fungi <- file2meco::phyloseq2meco(phylo)
-meco_fungi$tidy_dataset()
-# create trans_func object
-t1 <- trans_func$new(meco_fungi)
-# identify species traits, automatically select database for prokaryotes or fungi
-# fungi_database = "FungalTraits" for the FungalTraits database
-t1$cal_spe_func(fungi_database = "FUNGuild")
-t1$res_spe_func_raw_funguild
+classified <- readLines("E:/thermokarst_gully/data/16S/rrnDB/classified.txt")
+rrn <- read.delim("E:/thermokarst_gully/data/16S/rrnDB/rrnDB-5.8_pantaxa_stats_RDP/rrnDB-5.8_pantaxa_stats_RDP.tsv", header=TRUE)
+rrn2 <- data.frame(rank = rrn$rank,name = rrn$name,mean = rrn$mean)
+# get taxonomy annotation of each OTUID from variable "classified"
+strwhich <- function(xstr) {  
+  str <- strsplit(xstr,"\t")[[1]]
+  return (c(str[1],str[which(str %in% c("genus","family","order","class","phylum","domain"))-1]))
+}
+a <- lapply(classified,strwhich)
 
-write.csv(t1$res_spe_func_raw_funguild, "E:/thermokarst_gully/data/funguild_output.csv")
+# get rrn copies by mapping taxonomy information of each OTUID to rrn database
+maptax2rnn <- function(xstr){  
+  n <- tail(which(unlist(lapply(xstr,function(x) x%in%rrn2$name))),1)
+  return(c(xstr[1],rrn2$mean[which(rrn2$name == xstr[n])[1]]))
+}
 
-# calculate abundance-unweighted functional redundancy of each trait for each network module
-t1$cal_spe_func_perc(abundance_weighted = FALSE)
-t1$res_spe_func_perc
+# transform the data type to matrix
+b <- lapply(a, maptax2rnn)       
+res <- data.frame(matrix(unlist(b),nrow=length(b),ncol=length(b[[1]]), byrow = TRUE))
+colnames(res)<-c("OTUID","rrn_copies")
+# write.table(res,"E:/thermokarst_gully/data/16S/rrnDB/rnn_predict.txt",
+#             sep="\t",row.names=FALSE,col.names=TRUE,quote=FALSE)
 
+rrn_otu <- otu %>% data.frame() %>%
+  rownames_to_column(var = "OTUID") %>%
+  left_join(res, by = "OTUID") %>%
+  column_to_rownames(var = "OTUID")
 
-Pathogen_list <- t1$res_spe_func_raw_funguild %>%
-  dplyr::filter(grepl("^Plant Pathogen", guild) & confidenceRanking %in% c("Highly Probable", "Probable")) %>%
-  rownames()
+sum_si <- rrn_otu %>%
+  select(starts_with("G")) %>%
+  colSums()
 
-data.frame((colSums(otu[rownames(otu) %in% Pathogen_list, ])/colSums(otu))*100*(-1)) %>% 
-  write.csv("E:/thermokarst_gully/data/funguild_output_1.csv")
+sum_rrn <- rrn_otu %>% 
+  mutate(rrn_copies = as.numeric(rrn_otu$rrn_copies)) %>%
+  mutate(across(starts_with("G"), .fns = ~./rrn_copies)) %>%
+  select(starts_with("G")) %>%
+  colSums()
+commu_rrn <- sum_si/sum_rrn
+```
+
+## Plot
+```{r, fig.align='center', fig.width=2.5, fig.height=3}
+library(gghalves)
+rrn_plot <- data.frame(commu_rrn, metadata[,c("Sample_id", "Gully_id", "Group")]) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  ggplot(aes(Group, commu_rrn, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.4, size = 1, outlier.color = NA) +
+  geom_jitter(aes(fill = Group), shape = 21, size = 2.5, width = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
+                     size = 4.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = NULL, y = "rrn Copy Numbers") +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        axis.text.x = element_text(color = "black", size = 10),
+        axis.text.y = element_text(color = "black", size = 10),
+        legend.position = "none",
+        axis.ticks = element_line(color = "black", linewidth = 1))
+rrn_plot
 ```
