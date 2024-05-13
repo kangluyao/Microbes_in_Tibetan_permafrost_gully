@@ -52,10 +52,16 @@ col_div_names <- c("Sample_name", 'Gully_id', 'Group', "Ric_16s", "Ric_its", "Ri
 div_table <- cbind(metadata[, c("Sample_name", 'Gully_id', 'Group')], alpha_div_16s$Observed, alpha_div_its$Observed,
                    alpha_div_protist$Observed, alpha_div_animal$Observed, pd_16s$PD, pd_its$PD, pd_pro$PD, pd_anim$PD) %>%
   rename_with(~ col_div_names) %>%
+  mutate(ric_16s_st = (Ric_16s-min(Ric_16s))/(max(Ric_16s)-min(Ric_16s))) %>%
+  mutate(ric_its_st = (Ric_its-min(Ric_its))/(max(Ric_its)-min(Ric_its))) %>%
+  mutate(ric_pro_st = (Ric_pro-min(Ric_pro))/(max(Ric_pro)-min(Ric_pro))) %>%
+  mutate(ric_anim_st = (Ric_anim-min(Ric_anim))/(max(Ric_anim)-min(Ric_anim))) %>%
+  mutate(Soil_multidiv = (ric_16s_st+ric_its_st+ric_pro_st+ric_anim_st)/4) %>%
+  select(c("Sample_name", 'Gully_id', 'Group'), col_div_names, "Soil_multidiv") %>%
   mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')))
-write.table(div_table, file.path(save.dir, 'tables/div_table_all.csv'),
-            sep=',',  col.names = T, row.names = F, quote = FALSE)
+# write.table(div_table, file.path(save.dir, 'tables/div_table_all.csv'),
+#             sep=',',  col.names = T, row.names = F, quote = FALSE)
 ```
 
 Linear mixed models test the effect of collapsed and gully_id

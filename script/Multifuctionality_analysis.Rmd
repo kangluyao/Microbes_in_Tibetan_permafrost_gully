@@ -81,9 +81,12 @@ multi_func_df <- data.frame(div_table, Ric_N = R.N, Ric_P = R.P, Ric_S = R.S, Ri
 ### Averaged multifunctional index
 ```{r}
 #Read in data
+div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_div_table_all.csv",
+             sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
+
 allVars <- c("BG",  "NAG", "LAP", "PPO", "H2O2", "WHC", "SOC", "NO3_N", "NH4_N", "AGB", "plant_pathogen_control", "AP", "Soil_respiration")
 
-multi_func_df <- multi_func_df[, c("Plant_richness", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Sample_name", "Gully_id", "Group", allVars)]
+multi_func_df <- multi_func_df[, c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Sample_name", "Gully_id", "Group", allVars)]
 
 # varIdx<-which(names(all_biodepth) %in% allVars)
 
@@ -105,7 +108,7 @@ thermoThresh <- getFuncsMaxed(multi_func_df, allVars, threshmin = 0.05, threshma
 ```
 
 Test the difference of multifunctionality between the contol and collapsed groups based on the average multifunctional index and multiple thresholds multifunctionality using wilcox test.
-```{r, fig.align='center', fig.width=4, fig.height=2.5}
+```{r, fig.align='center', fig.width=3.5, fig.height=2.5}
 multifunctionality_tab <- thermoThresh %>%
   select(Sample_name, Gully_id, Group, funcMaxed) %>%
   group_by(Sample_name, Gully_id, Group) %>%
@@ -273,6 +276,33 @@ Ordinary least squares linear regression between multidiversity (standardized be
 ```
 
 
+```{r, fig.align='center', fig.width=12, fig.height=4.5}
+#plot it
+p4 <- multi_ave_func_df %>%
+  select(c("Plant_richness", "Soil_multidiv",  "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", 
+           "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Group", "meanFunction")) %>%
+  pivot_longer(-c(Group, meanFunction), names_to = "diversity", values_to = "value") %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(diversity = factor(diversity, levels = c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg"))) %>%
+  ggplot(aes(x = value, y = meanFunction)) +
+  geom_point(size=2, alpha=0.8, aes(colour = "#5cc3e8")) +
+  geom_smooth(method="lm", size=1, se=T, colour='black') +
+  # scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  # scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  stat_poly_line(colour='black') +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), 
+                                 after_stat(p.value.label), sep = "*\", \"*")),
+               size = 2.4) +
+  xlab("\nDiversity") + 
+  ylab("Average Value of Standardized Functions\n") +
+  facet_wrap(~diversity, scales = "free_x", ncol = 5) +
+  main_theme + theme(legend.position = "none")
+# ggsave(file.path(save.dir.multifunc, "./cor_diversity_multifunc.pdf"),
+#        p4, width = 10, height = 6, units = "in")
+p4
+```
+
 ```{r, fig.align='center', fig.width=4.5, fig.height=4}
 ggplot(data = gcPlot, aes(x = Ric_kegg, y = funcMaxed)) +
   geom_point(shape = 19, size = 1, colour ='tomato3', alpha = 0.8) +
@@ -320,49 +350,14 @@ thermoSlopes <- ggplot(thermoLinearSlopes, aes(x=thresholds*100,
   main_theme
 thermoSlopes
 ```
-
-
-
-
-
-```{r, fig.align='center', fig.width=7, fig.height=7.5}
-#plot it
-p4 <- multi_ave_func_df %>%
-  select(c("Plant_richness", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", 
-           "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Group", "meanFunction")) %>%
-  pivot_longer(-c(Group, meanFunction), names_to = "diversity", values_to = "value") %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
-  mutate(diversity = factor(diversity, levels = c("Plant_richness", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", 
-           "Ric_N", "Ric_P", "Ric_S", "Ric_kegg"))) %>%
-  ggplot(aes(x = value, y = meanFunction)) +
-  geom_point(size=2, alpha=0.8, aes(colour = "#5cc3e8")) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  # scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  # scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), 
-                                 after_stat(p.value.label), sep = "*\", \"*")),
-               size = 2.4) +
-  xlab("\nDiversity") + 
-  ylab("Average Value of Standardized Functions\n") +
-  facet_wrap(~diversity, scales = "free_x", ncol = 3) +
-  main_theme + theme(legend.position = "none")
-# ggsave(file.path(save.dir.multifunc, "./cor_diversity_multifunc.pdf"),
-#        p4, width = 10, height = 6, units = "in")
-p4
-```
-
-
-```{r, fig.align='center', fig.width=7, fig.height=7.5}
+```{r, fig.align='center', fig.width=12, fig.height=5.5}
 #plot it
 p5 <- multi_ave_func_df %>%
-  select(c("Plant_richness", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", 
+  select(c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", 
            "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Group", "meanFunction")) %>%
   pivot_longer(-c(Group, meanFunction), names_to = "diversity", values_to = "value") %>%
   mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
-  mutate(diversity = factor(diversity, levels = c("Plant_richness", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", 
-           "Ric_N", "Ric_P", "Ric_S", "Ric_kegg"))) %>%
+  mutate(diversity = factor(diversity, levels = c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg"))) %>%
   ggplot(aes(x = value, y = meanFunction, fill = Group)) +
   geom_point(size=2, alpha=0.8, aes(colour = Group)) +
   geom_smooth(method="lm", size=1, se=T, colour='black') +
@@ -376,441 +371,10 @@ p5 <- multi_ave_func_df %>%
                size = 2.4) +
   xlab("\nDiversity") + 
   ylab("Average Value of Standardized Functions\n") +
-  facet_wrap(~diversity, scales = "free_x", ncol = 3) +
+  facet_wrap(~diversity, scales = "free_x", ncol = 5) +
   main_theme
-ggsave(file.path(save.dir.multifunc, "./cor_group_diversity_multifunc.pdf"),
-       p5, width = 10, height = 6, units = "in")
+# ggsave(file.path(save.dir.multifunc, "./cor_group_diversity_multifunc.pdf"),
+#        p5, width = 10, height = 6, units = "in")
 p5
 ```
 
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-ggplot(aes(x = Shan_16s, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) +
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nBacterial Shannon") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-ggplot(aes(x = Ric_its, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nFungal Richness") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-ggplot(aes(x = Shan_its, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nFungal Shannon") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r}
-kegg_richness_group_plot <- multi_func_df  %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
-  ggplot(aes(Group, Ric_kegg, fill = Group)) +
-  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
-  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
-  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
-  stat_compare_means(comparisons = my_comparisons, paired = F,
-                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
-                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
-  labs(x = NULL, y = "\nKEGG gene Richness") +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  main_theme
-# ggsave(file.path(save.dir, "./figs/alpha/AVD_plot.pdf"), 
-#        AVD_16s_plot, width = 89, height = 89, units = "mm")
-kegg_richness_group_plot
-```
-
-```{r}
-kegg_shannon_group_plot <- multi_func_df  %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
-  ggplot(aes(Group, Shannon_kegg, fill = Group)) +
-  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
-  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
-  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
-  stat_compare_means(comparisons = my_comparisons, paired = F,
-                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
-                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
-  labs(x = NULL, y = "\nKEGG gene Shannon") +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  main_theme
-# ggsave(file.path(save.dir, "./figs/alpha/AVD_plot.pdf"), 
-#        AVD_16s_plot, width = 89, height = 89, units = "mm")
-kegg_shannon_group_plot
-```
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-#plot it
-ggplot(aes(x = Ric_kegg, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nKEGG gene Richness") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-#plot it
-ggplot(aes(x = Shannon_kegg, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nKEGG gene Shannon") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-library(ggpmisc)
-multi_func_df <- multi_func_df %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed")))
-
-ggplot(aes(x = Ric_kegg, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nKEGG gene Richness") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-ggplot(aes(x = Shannon_kegg, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nKEGG gene Shannon") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-```
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-#plot it
-ggplot(aes(x = Ric_N, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nNitrogen Richness") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-ggplot(aes(x = Ric_N, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nNitrogen Richness") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-```
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-#plot it
-ggplot(aes(x = Shan_N, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nNitrogen Shannon") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-ggplot(aes(x = Shan_N, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nNitrogen Shannon") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-```
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-#plot it
-ggplot(aes(x = Ric_P, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nP Richness") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-ggplot(aes(x = Ric_P, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nP Richness") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-```
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-#plot it
-ggplot(aes(x = Shan_P, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nP Shannon") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-ggplot(aes(x = Shan_P, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nP Shannon") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-```
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-#plot it
-ggplot(aes(x = Ric_S, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nS Richness") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-ggplot(aes(x = Ric_S, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nSurful Richness") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-```
-
-```{r, fig.align='center', fig.width=5.5, fig.height=5}
-#plot it
-ggplot(aes(x = Shan_S, y = meanFunction), data = multi_func_df) + 
-  geom_point(size = 3) + theme_bw(base_size = 15) +
-  stat_smooth(method = "lm", colour = "black", size = 2) + 
-  stat_cor(method = "pearson",label.x.npc = 0.65,label.y.npc = 0.95) +
-  xlab("\nS Shannon") + 
-  ylab("Average Value of Standardized Functions\n")
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-ggplot(aes(x = Shan_S, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nSurful Shannon") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-```
-
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-# devtools::install_github("aphalo/ggpmisc")
-# devtools::install_github("aphalo/ggpp")
-library(ggpmisc)
-multi_func_df <- multi_func_df %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed")))
-
-p1 <-ggplot(aes(x = Ric_16s, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nBacterial Richness") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-p1
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-library(ggpmisc)
-p2 <- ggplot(aes(x = Shan_16s, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nBacterial Shannon") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-p2
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-library(ggpmisc)
-p3 <- ggplot(aes(x = Ric_its, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nFungal Richness") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-p3
-```
-
-```{r, fig.align='center', fig.width=7.5, fig.height=5}
-library(ggpmisc)
-p4 <- ggplot(aes(x = Shan_its, y = meanFunction, fill = Group), data = multi_func_df) +
-  geom_point(size=3.5, alpha=0.8, aes(colour = Group)) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group)) +
-  xlab("\nFungal Shannon") + 
-  ylab("Average Value of Standardized Functions\n") +
-  theme_bw() +
-  theme(panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=10),
-        axis.ticks.length = unit(0.2,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_blank(), 
-        axis.text.y = element_text(colour='black',size=10),
-        axis.text.x = element_text(colour='black', size = 10),
-        strip.text = element_text(size = 10),
-        legend.position = c(0.85, 0.85))
-p4
-```
-
-```{r, fig.align='center', fig.width=8.9, fig.height=8.9}
-cowplot::plot_grid(p1, p2, p3, p4, ncol = 2)
-```
