@@ -340,7 +340,7 @@ otu_rel_abun_1perc_anim <- otu_final_tab_anim %>%
   group_by(Class) %>% 
   summarise(across(everything(), sum)) %>% 
   mutate(MRA = rowMeans(select(., colnames(ra.tab_anim)))) %>%
-  filter(MRA >= 0.005) %>%
+  filter(MRA >= 0.01) %>%
   arrange(desc(MRA)) %>%
   select(., -c('MRA'))
 write.table(otu_rel_abun_1perc_anim, file.path(save.dir, 'tables/otu_rel_abun_1perc_animal.csv'),

@@ -86,12 +86,12 @@ div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_div_
 
 allVars <- c("BG",  "NAG", "LAP", "PPO", "H2O2", "WHC", "SOC", "NO3_N", "NH4_N", "AGB", "plant_pathogen_control", "AP", "Soil_respiration")
 
-multi_func_df <- multi_func_df[, c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Sample_name", "Gully_id", "Group", allVars)]
+multi_func_df <- multi_func_df[, c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria",	"Ascomycota",	"Basidiomycota",	"Mortierellomycota",	"Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Sample_name", "Gully_id", "Group", allVars)]
 
 # varIdx<-which(names(all_biodepth) %in% allVars)
 
 #add on the new functions along with the averaged multifunctional index
-multi_ave_func_df <- cbind(multi_func_df, getStdAndMeanFunctions(multi_func_df, allVars, standardizeZScore))
+multi_ave_func_df <- cbind(div_table, getStdAndMeanFunctions(multi_func_df, allVars, standardizeZScore))
 ```
 
 ### Multifunctionality using multithreshold Approach
@@ -276,32 +276,7 @@ Ordinary least squares linear regression between multidiversity (standardized be
 ```
 
 
-```{r, fig.align='center', fig.width=12, fig.height=4.5}
-#plot it
-p4 <- multi_ave_func_df %>%
-  select(c("Plant_richness", "Soil_multidiv",  "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", 
-           "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Group", "meanFunction")) %>%
-  pivot_longer(-c(Group, meanFunction), names_to = "diversity", values_to = "value") %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
-  mutate(diversity = factor(diversity, levels = c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg"))) %>%
-  ggplot(aes(x = value, y = meanFunction)) +
-  geom_point(size=2, alpha=0.8, aes(colour = "#5cc3e8")) +
-  geom_smooth(method="lm", size=1, se=T, colour='black') +
-  # scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  # scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  stat_poly_line(colour='black') +
-  stat_poly_eq(aes(label = paste(after_stat(eq.label),
-                                 after_stat(rr.label), 
-                                 after_stat(p.value.label), sep = "*\", \"*")),
-               size = 2.4) +
-  xlab("\nDiversity") + 
-  ylab("Average Value of Standardized Functions\n") +
-  facet_wrap(~diversity, scales = "free_x", ncol = 5) +
-  main_theme + theme(legend.position = "none")
-# ggsave(file.path(save.dir.multifunc, "./cor_diversity_multifunc.pdf"),
-#        p4, width = 10, height = 6, units = "in")
-p4
-```
+
 
 ```{r, fig.align='center', fig.width=4.5, fig.height=4}
 ggplot(data = gcPlot, aes(x = Ric_kegg, y = funcMaxed)) +
@@ -350,6 +325,36 @@ thermoSlopes <- ggplot(thermoLinearSlopes, aes(x=thresholds*100,
   main_theme
 thermoSlopes
 ```
+
+```{r, fig.align='center', fig.width=12, fig.height=4.5}
+#plot it
+p4 <- multi_ave_func_df %>%
+  select(c("Plant_richness", "Soil_multidiv",  "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", 
+           "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Group", "meanFunction")) %>%
+  pivot_longer(-c(Group, meanFunction), names_to = "diversity", values_to = "value") %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(diversity = factor(diversity, levels = c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg"))) %>%
+  ggplot(aes(x = value, y = meanFunction)) +
+  geom_point(size=2, alpha=0.8, aes(colour = "#5cc3e8")) +
+  geom_smooth(method="lm", size=1, se=T, colour='black') +
+  # scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  # scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  stat_poly_line(colour='black') +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), 
+                                 after_stat(p.value.label), sep = "*\", \"*")),
+               size = 2.4) +
+  xlab("\nDiversity") + 
+  ylab("Average Value of Standardized Functions\n") +
+  facet_wrap(~diversity, scales = "free_x", ncol = 5) +
+  main_theme + theme(legend.position = "none")
+# ggsave(file.path(save.dir.multifunc, "./cor_diversity_multifunc.pdf"),
+#        p4, width = 10, height = 6, units = "in")
+p4
+```
+
+
+
 ```{r, fig.align='center', fig.width=12, fig.height=5.5}
 #plot it
 p5 <- multi_ave_func_df %>%
@@ -378,3 +383,28 @@ p5 <- multi_ave_func_df %>%
 p5
 ```
 
+```{r, fig.align='center', fig.width=12, fig.height=9.5}
+#plot it
+p6 <- multi_ave_func_df %>%
+  select(c("Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria",	"Ascomycota",	"Basidiomycota",	"Mortierellomycota",	"Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Group", "meanFunction")) %>%
+  pivot_longer(-c(Group, meanFunction), names_to = "diversity", values_to = "value") %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(diversity = factor(diversity, levels = c("Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria",	"Ascomycota",	"Basidiomycota",	"Mortierellomycota",	"Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada"))) %>%
+  ggplot(aes(x = value, y = meanFunction)) +
+  geom_point(size=2, alpha=0.8, aes(colour = "#5cc3e8")) +
+  geom_smooth(method="lm", size=1, se=T, colour='black') +
+  # scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  # scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  stat_poly_line(colour='black') +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), 
+                                 after_stat(p.value.label), sep = "*\", \"*")),
+               size = 2.4) +
+  xlab("\nRelative abundance") + 
+  ylab("Average Value of Standardized Functions\n") +
+  facet_wrap(~diversity, scales = "free_x", ncol = 5) +
+  main_theme + theme(legend.position = "none")
+# ggsave(file.path(save.dir.multifunc, "./cor_diversity_multifunc.pdf"),
+#        p4, width = 10, height = 6, units = "in")
+p6
+```
