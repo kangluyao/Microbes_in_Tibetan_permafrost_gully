@@ -480,8 +480,8 @@ lmm.mat.cal <- function(y, x, method){
   return(df)
 }
 
-diver_table <- multi_ave_func_df[ ,c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria",	"Ascomycota",	"Basidiomycota",	"Mortierellomycota",	"Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada")]
-multifun_table <- multi_ave_func_df[ ,c("meanFunction", "BG", "NAG", "LAP", "PPO", "H2O2", "WHC", "SOC", "NO3_N", "NH4_N", "AP",  "AGB", "plant_pathogen_control", "Soil_respiration")]
+diver_table <- multi_ave_func_df[ ,c("Plant_richness", "Soil_multidiv", "Ric_16s", "Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria", "Ric_its", "Ascomycota",	"Basidiomycota",	"Mortierellomycota", "Ric_pro", "Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Ric_anim", "Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Ric_kegg", "Ric_N", "Ric_P", "Ric_S")]
+multifun_table <- multi_ave_func_df[ ,c("meanFunction", "WHC", "BG", "NAG", "LAP", "PPO", "H2O2", "SOC", "NO3_N", "NH4_N", "AP",  "AGB", "plant_pathogen_control", "Soil_respiration")]
 
 
 lmm.matrix <- lmm.mat.cal(diver_table, multifun_table)
