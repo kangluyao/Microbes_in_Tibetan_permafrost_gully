@@ -33,7 +33,7 @@ pacman::p_load(tidyverse, ggrepel, EnhancedVolcano, edgeR, DESeq2)
 
 Data input
 ```{r}
-source("script/read_data_rdp.R")
+source("script/read_data_all.R")
 ```
 
 Permutational multivariate analysis of variance using distance matrices (adonis) to test the difference of functional composition
@@ -329,6 +329,15 @@ ggsave(file.path(save.dir, "/figs/kegg/kegg_heatmap.pdf"),
        kegg_heatmap, width = 7.5, height = 5, units = "in")
 kegg_heatmap
 ```
+```{r, fig.align='center', fig.width=8.9, fig.height=5}
+library(cowplot)
+left_col <- plot_grid(pcoa_fun_plot, volca_plot_edger, labels = c('A', 'B'), label_size = 6, ncol = 1, align = "v")
+func_plot <- plot_grid(left_col, kegg_heatmap, labels = c('', 'C'), label_size = 6,rel_widths = c(1, 2.2), ncol = 2)
+# ggsave(file.path(save.dir, "/figs/func_plot.pdf"),
+#        funct_plot, width = 8.9, height = 10, units = "in")
+func_plot
+```
+
 
 ## Select the genes involved in C, N, S, and Fe cyclings
 ```{r}
