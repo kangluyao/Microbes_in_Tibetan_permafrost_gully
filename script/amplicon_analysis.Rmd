@@ -271,8 +271,9 @@ otu_rel_abun_1perc_16s <- otu_final_tab_16s %>%
   filter(MRA >= 0.01) %>%
   arrange(desc(MRA)) %>%
   select(., -c('MRA'))
-write.table(otu_rel_abun_1perc_16s, file.path(save.dir, 'tables/otu_rel_abun_1perc_16s.csv'),
-            sep=',',  col.names = T, row.names = F, quote = FALSE)
+# write.table(otu_rel_abun_1perc_16s, file.path(save.dir, 'tables/otu_rel_abun_1perc_16s.csv'),
+#             sep=',',  col.names = T, row.names = F, quote = FALSE)
+names_16s <- otu_rel_abun_1perc_16s$Phylum
 
 ## ITS composition
 # extract the taxa at phylum level
@@ -295,8 +296,9 @@ otu_rel_abun_1perc_its <- otu_final_tab_its %>%
   filter(MRA >= 0.01) %>%
   arrange(desc(MRA)) %>%
   select(., -c('MRA'))
-write.table(otu_rel_abun_1perc_its, file.path(save.dir, 'tables/otu_rel_abun_1perc_its.csv'),
-            sep=',',  col.names = T, row.names = F, quote = FALSE)
+# write.table(otu_rel_abun_1perc_its, file.path(save.dir, 'tables/otu_rel_abun_1perc_its.csv'),
+#             sep=',',  col.names = T, row.names = F, quote = FALSE)
+names_its <- otu_rel_abun_1perc_its$Phylum
 
 ## Protist composition
 # extract the taxa at phylum level
@@ -319,8 +321,9 @@ otu_rel_abun_1perc_pro <- otu_final_tab_pro %>%
   filter(MRA >= 0.01) %>%
   arrange(desc(MRA)) %>%
   select(., -c('MRA'))
-write.table(otu_rel_abun_1perc_pro, file.path(save.dir, 'tables/otu_rel_abun_1perc_protist.csv'),
-            sep=',',  col.names = T, row.names = F, quote = FALSE)
+# write.table(otu_rel_abun_1perc_pro, file.path(save.dir, 'tables/otu_rel_abun_1perc_protist.csv'),
+#             sep=',',  col.names = T, row.names = F, quote = FALSE)
+names_pro <- otu_rel_abun_1perc_pro$Phylum
 
 ## Animal composition
 # extract the taxa at phylum level
@@ -334,7 +337,7 @@ subtaxa_tab_anim <- tax_table(subphylo_anim.rel)[, 3]
 #ecombine the class within proteobacteria and other phyla into one abundance table
 otu_final_tab_anim <- data.frame(subtaxa_tab_anim, ra.tab_anim)
 
-# extrac the phyla with the relative abundance higher than 1%
+# extrac the class with the relative abundance higher than 1%
 otu_rel_abun_1perc_anim <- otu_final_tab_anim %>%
   filter(!Class %in% c("Unassigned")) %>% 
   group_by(Class) %>% 
@@ -343,9 +346,107 @@ otu_rel_abun_1perc_anim <- otu_final_tab_anim %>%
   filter(MRA >= 0.01) %>%
   arrange(desc(MRA)) %>%
   select(., -c('MRA'))
-write.table(otu_rel_abun_1perc_anim, file.path(save.dir, 'tables/otu_rel_abun_1perc_animal.csv'),
-            sep=',',  col.names = T, row.names = F, quote = FALSE)
+# write.table(otu_rel_abun_1perc_anim, file.path(save.dir, 'tables/otu_rel_abun_1perc_animal.csv'),
+#             sep=',',  col.names = T, row.names = F, quote = FALSE)
+names_anim <- otu_rel_abun_1perc_anim$Class
 ```
+
+```{r}
+require("phyloseq")
+require("dplyr")
+# Calculate alpha diversity measures for a specific taxon at a specified rank.
+# You can pass any parameters that you normally pass to `estimate_richness`
+estimate_diversity_for_phyla <- function(ps, taxon_name, tax_rank = "Phylum", ...){
+  # Subset to taxon of interest
+  tax_tbl <- as.data.frame(tax_table(ps))
+  keep <- tax_tbl[,tax_rank] == taxon_name
+  keep[is.na(keep)] <- FALSE
+  ps_phylum <- prune_taxa(keep, ps)
+  
+  # Calculate alpha diversity and generate a table
+  alpha_diversity <- estimate_richness(ps_phylum, ...)
+  alpha_diversity$taxon <- taxon_name
+  alpha_diversity$sample_id <- row.names(alpha_diversity)
+  return(alpha_diversity)
+}
+
+# Estimate alpha diversity for each phylum
+estimate_fun <- function(ps) {
+  alpha <- data.frame()
+  phyla <- get_taxa_unique(ps, taxonomic.rank = 'Phylum')
+  phyla <- phyla[!is.na(phyla)]
+  for (phylum in phyla){
+    a <- estimate_diversity_for_phyla(ps = ps, 
+                                    taxon_name = phylum,
+                                    measure = c("Shannon", "Observed"))
+    alpha <- rbind(alpha, a)
+  }
+  alpha <- alpha %>% select(Observed, taxon, sample_id) %>%
+    pivot_wider(names_from = taxon, values_from = Observed)
+  return(alpha)
+}
+
+richness_16s_phylum <- estimate_fun_phyla(phylo_16s)
+richness_its_phylum <- estimate_fun_phyla(phylo_its)
+richness_pro_phylum <- estimate_fun_phyla(phylo_protist)
+write.table(richness_16s_phylum, file.path(save.dir, 'tables/Richness_16s_phylum.csv'),
+            sep=',',  col.names = T, row.names = F, quote = FALSE)
+write.table(richness_its_phylum, file.path(save.dir, 'tables/Richness_its_phylum.csv'),
+            sep=',',  col.names = T, row.names = F, quote = FALSE)
+write.table(richness_pro_phylum, file.path(save.dir, 'tables/Richness_pro_phylum.csv'),
+            sep=',',  col.names = T, row.names = F, quote = FALSE)
+
+# estimate the richness at the class level for bacterial proteobacteria and soil animals
+estimate_diversity_for_class <- function(ps, taxon_name, tax_rank = "Class", ...){
+  # Subset to taxon of interest
+  tax_tbl <- as.data.frame(tax_table(ps))
+  keep <- tax_tbl[,tax_rank] == taxon_name
+  keep[is.na(keep)] <- FALSE
+  ps_phylum <- prune_taxa(keep, ps)
+  
+  # Calculate alpha diversity and generate a table
+  alpha_diversity <- estimate_richness(ps_phylum, ...)
+  alpha_diversity$taxon <- taxon_name
+  alpha_diversity$sample_id <- row.names(alpha_diversity)
+  return(alpha_diversity)
+}
+
+# Estimate alpha diversity for each phylum
+estimate_fun_class <- function(ps) {
+  alpha <- data.frame()
+  phyla <- get_taxa_unique(ps, taxonomic.rank = 'Class')
+  phyla <- phyla[!is.na(phyla)]
+  for (class in phyla){
+    a <- estimate_diversity_for_class(ps = ps, 
+                                    taxon_name = class,
+                                    measure = c("Shannon", "Observed"))
+    alpha <- rbind(alpha, a)
+  }
+  alpha <- alpha %>% select(Observed, taxon, sample_id) %>%
+    pivot_wider(names_from = taxon, values_from = Observed)
+  return(alpha)
+}
+
+
+richness_16s_class <- estimate_fun_class(phylo_16s)
+richness_anim_class <- estimate_fun_class(phylo_animal)
+write.table(richness_16s_phylum, file.path(save.dir, 'tables/Richness_16s_class.csv'),
+            sep=',',  col.names = T, row.names = F, quote = FALSE)
+write.table(richness_anim_class, file.path(save.dir, 'tables/Richness_animal_class.csv'),
+            sep=',',  col.names = T, row.names = F, quote = FALSE)
+
+tax_names_top_1perc <- c(names_16s, names_its, names_pro, names_anim)
+
+richness_taxon <- data.frame(richness_16s_phylum, richness_16s_class, richness_its_phylum, richness_pro_phylum, richness_anim_class) %>% select(tax_names_top_1perc)
+write.table(richness_taxon, file.path(save.dir, 'tables/Richness_four_groups.csv'),
+            sep=',',  col.names = T, row.names = F, quote = FALSE)
+
+```
+
+
+
+
+
 
 ```{r, fig.align='center', fig.width=8, fig.height=4}
 # boxplot shows the community composition

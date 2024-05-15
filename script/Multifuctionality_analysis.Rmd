@@ -81,12 +81,12 @@ multi_func_df <- data.frame(div_table, Ric_N = R.N, Ric_P = R.P, Ric_S = R.S, Ri
 ### Averaged multifunctional index
 ```{r}
 #Read in data
-div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_div_table_all.csv",
+div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_richness_table_all.csv",
              sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
 
 allVars <- c("BG",  "NAG", "LAP", "PPO", "H2O2", "WHC", "SOC", "NO3_N", "NH4_N", "AGB", "plant_pathogen_control", "AP", "Soil_respiration")
 
-multi_func_df <- multi_func_df[, c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria",	"Ascomycota",	"Basidiomycota",	"Mortierellomycota",	"Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Sample_name", "Gully_id", "Group", allVars)]
+# multi_func_df <- multi_func_df[, c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_N", "Ric_P", "Ric_S", "Ric_kegg", "Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria",	"Ascomycota",	"Basidiomycota",	"Mortierellomycota",	"Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Sample_name", "Gully_id", "Group", allVars)]
 
 # varIdx<-which(names(all_biodepth) %in% allVars)
 
@@ -400,7 +400,7 @@ p6 <- multi_ave_func_df %>%
                                  after_stat(rr.label), 
                                  after_stat(p.value.label), sep = "*\", \"*")),
                size = 2.4) +
-  xlab("\nRelative abundance") + 
+  xlab("\nRichness") + 
   ylab("Average Value of Standardized Functions\n") +
   facet_wrap(~diversity, scales = "free_x", ncol = 5) +
   main_theme + theme(legend.position = "none")
@@ -504,44 +504,5 @@ p <- ggplot(aes(x = Fun, y = Diversity, fill = Correlation), data = lmm.matrix)+
         legend.key=element_blank(),
         legend.background = element_rect(colour = "white"))
 print(p)
-```
-
-```{r}
-require("phyloseq")
-require("dplyr")
-# Calculate alpha diversity measures for a specific taxon at a specified rank.
-# You can pass any parameters that you normally pass to `estimate_richness`
-estimate_diversity_for_taxon <- function(ps, taxon_name, tax_rank = "Phylum", ...){
-  # Subset to taxon of interest
-  tax_tbl <- as.data.frame(tax_table(ps))
-  keep <- tax_tbl[,tax_rank] == taxon_name
-  keep[is.na(keep)] <- FALSE
-  ps_phylum <- prune_taxa(keep, ps)
-  
-  # Calculate alpha diversity and generate a table
-  alpha_diversity <- estimate_richness(ps_phylum, ...)
-  alpha_diversity$taxon <- taxon_name
-  alpha_diversity$sample_id <- row.names(alpha_diversity)
-  return(alpha_diversity)
-}
-
-# Estimate alpha diversity for each phylum
-estimate_fun <- function(ps) {
-  alpha <- data.frame()
-  phyla <- get_taxa_unique(ps, taxonomic.rank = 'Phylum')
-  phyla <- phyla[!is.na(phyla)]
-  for (phylum in phyla){
-    a <- estimate_diversity_for_taxon(ps = ps, 
-                                    taxon_name = phylum,
-                                    measure = c("Shannon", "Observed"))
-    alpha <- rbind(alpha, a)
-  }
-  return(alpha)
-}
-
-richness_16s_phylum <- estimate_fun(phylo_16s)
-richness_its_phylum <- estimate_fun(phylo_its)
-richness_pro_phylum <- estimate_fun(phylo_protist)
-richness_anim_phylum <- estimate_fun(phylo_animal)
 ```
 
