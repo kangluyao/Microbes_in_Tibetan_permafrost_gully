@@ -338,6 +338,30 @@ func_plot <- plot_grid(left_col, kegg_heatmap, labels = c('', 'C'), label_size =
 func_plot
 ```
 
+## Explore the losted genes after permafrost thawing
+```{r}
+# library
+library(ggvenn)
+x <- list(
+  Control = ko_tpm_table %>% data.frame() %>%
+    mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
+    filter(rowsum > 0) %>%
+    rownames(), 
+  Collapsed = ko_tpm_table %>% data.frame() %>%
+    mutate(rowsum = rowSums(select(., grep('_T', metadata$Sample_name, value = T)))) %>%
+    filter(rowsum > 0) %>%
+    rownames()
+  )
+# plot
+ggvenn(
+  x, 
+  fill_color = c("#f8766d", "#a3a500", "#00b0f6"),
+  stroke_color = NA,
+  set_name_size = 4,
+  text_size = 4,
+  show_percentage = F
+)
+```
 
 ## Select the genes involved in C, N, S, and Fe cyclings
 ```{r}
