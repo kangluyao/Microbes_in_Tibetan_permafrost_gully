@@ -364,14 +364,12 @@ ggvenn(
 ```
 
 ## Select the genes involved in C, N, S, and Fe cyclings
+#### Arrange the log fold change table
 ```{r}
 # loading packages
 pacman::p_load(phyloseq, picante, microbiome, readxl, tidyverse, ggpubr, ggplot2)
-```
 
-
-## Arrange the log fold change table
-```{r}
+# Read data
 sel_ko <- read_csv(file.path(wd_fun, 'CN_ko_input.csv'), col_names = T)
 
 C_N_ko_count_tab <- ko_count_table[rownames(ko_count_table) %in% sel_ko$KO, ]
