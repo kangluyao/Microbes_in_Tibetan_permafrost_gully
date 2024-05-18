@@ -91,13 +91,13 @@ allVars <- c("BG",  "NAG", "LAP", "PPO", "H2O2", "WHC", "SOC", "NO3_N", "NH4_N",
 # varIdx<-which(names(all_biodepth) %in% allVars)
 
 #add on the new functions along with the averaged multifunctional index
-multi_ave_func_df <- cbind(div_table, getStdAndMeanFunctions(multi_func_df, allVars, standardizeZScore))
+multi_ave_func_df <- cbind(div_table, getStdAndMeanFunctions(div_table, allVars, standardizeZScore))
 ```
 
 ### Multifunctionality using multithreshold Approach
 ```{r}
 # Threshold Approach
-thermoThresh <- getFuncsMaxed(multi_func_df, allVars, threshmin = 0.05, threshmax = 0.99, 
+thermoThresh <- getFuncsMaxed(div_table, allVars, threshmin = 0.05, threshmax = 0.99, 
                               threshstep = 0.01, prepend = c("plot","Diversity"), maxN = 13)
 
 # mfuncthermoLinear75 <- glm(funcMaxed ~ Ric_kegg, data = subset(thermoThresh, thermoThresh$thresholds == "0.75"), family = quasipoisson(link = "identity"), start = c(0.5,0.5))
