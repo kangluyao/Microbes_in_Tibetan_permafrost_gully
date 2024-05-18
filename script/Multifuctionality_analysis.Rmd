@@ -384,7 +384,7 @@ p5 <- multi_ave_func_df %>%
 p5
 ```
 
-```{r, fig.align='center', fig.width=12, fig.height=9.5}
+```{r, fig.align='center', fig.width=12, fig.height=12.5}
 #plot it
 p6 <- multi_ave_func_df %>%
   select(c("Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria",	"Ascomycota",	"Basidiomycota",	"Mortierellomycota",	"Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Group", "meanFunction")) %>%
@@ -410,7 +410,7 @@ p6 <- multi_ave_func_df %>%
 p6
 ```
 
-```{r, fig.align='center', fig.width=6.5, fig.height=8.5}
+```{r, fig.align='center', fig.width=8.5, fig.height=8.5}
 #linner mixed model for matrix to matrix
 lmm.mat.cal <- function(y, x, method){
   y <- as.matrix(y)
@@ -421,11 +421,15 @@ lmm.mat.cal <- function(y, x, method){
       a <- y[, i, drop = F]
       b <- x[, j, drop = F]
       mode <- lmer(a ~ b + (1|Gully_id), data = multi_ave_func_df, na.action=na.omit)
-      coeff <- summary(mode)$coefficients[2,1]
+      coeff <- summary(mode)$coefficients[2, 1]
       r.square <- MuMIn::r.squaredGLMM(mode)[1]
-      if (coeff>0) r = sqrt(r.square)
-      else r = (-1) * sqrt(r.square)
-      tmp <- c(i, j, r, r.square, anova(mode)$Pr)
+      if (coeff>0) {
+        r = sqrt(r.square)
+      } else {
+        r = (-1) * sqrt(r.square)
+      }
+      p.value = car::Anova(mode, type = 2)[, 3]
+      tmp <- c(i, j, coeff, r, r.square, p.value)
       if(is.null(df)){
         df <- tmp  
       }
@@ -434,75 +438,46 @@ lmm.mat.cal <- function(y, x, method){
       }    
     }
   }
-  df <- data.frame(row.names = NULL, df)
-  colnames(df) <- c("Diversity", "Fun", "Correlation", "r.square", "Pvalue")
+  df <- data.frame(row.names = NULL, df) %>% mutate_at(c(3:6), as.numeric)
+  colnames(df) <- c("Fun", "Diversity", "coefficents", "Correlation", "r.square", "Pvalue")
   df$Pvalue <- as.numeric(as.character(df$Pvalue))
   df$AdjPvalue <- rep(0, dim(df)[1])
   df$Correlation <- as.numeric(as.character(df$Correlation))
   #You can adjust the p-values for multiple comparison using Benjamini & Hochberg (1995):
-  # 1 -> donot adjust
-  # 2 -> adjust Fun + Type (column on the correlation plot)
-  # 3 -> adjust Diversity + Type (row on the correlation plot for each type)
-  # 4 -> adjust Diversity (row on the correlation plot)
-  # 5 -> adjust Fun (panel on the correlation plot)
-  adjustment_label<-c("NoAdj", "AdjEnvAndType", "AdjDiversityAndType", "AdjDiversity", "AdjEnv")
-  adjustment <- 5
-  if(adjustment == 1){
-    df$AdjPvalue <- df$Pvalue
-  } else if (adjustment == 2){
-    for(i in unique(df$Fun)){
-      for(j in unique(df$Type)){
-        sel <- df$Fun==i & df$Type==j
-        df$AdjPvalue[sel] <- p.adjust(df$Pvalue[sel], method = "BH")
-      }
-    }
-  } else if (adjustment == 3){
-    for(i in unique(df$Diversity)){
-      for(j in unique(df$Type)){
-        sel <- df$Diversity == i & df$Type == j
-        df$AdjPvalue[sel] <- p.adjust(df$Pvalue[sel], method = "BH")
-      }
-    }
-  } else if (adjustment == 4){
-    for(i in unique(df$Diversity)){
+  for(i in unique(df$Diversity)){
       sel <- df$Diversity == i
       df$AdjPvalue[sel] <- p.adjust(df$Pvalue[sel], method = "BH")
-    }
-  } else if (adjustment == 5){
-    for(i in unique(df$Fun)){
-      sel <- df$Fun == i
-      df$AdjPvalue[sel] <- p.adjust(df$Pvalue[sel], method = "BH")
-    }
-  }
+      }
   #Now we generate the labels for signifant values
   df$Significance <- cut(df$AdjPvalue, breaks = c(-Inf, 0.001, 0.01, 0.05, Inf), label = c("***", "**", "*", ""))
-  df$Diversity <- factor(df$Diversity, ordered = T, levels = rev(colnames(y)))
-  df$Fun <- factor(df$Fun, ordered = T, levels = colnames(x))
+  df$Diversity <- factor(df$Diversity, ordered = T, levels = rev(colnames(x)))
+  df$Fun <- factor(df$Fun, ordered = T, levels = colnames(y))
   return(df)
 }
 
-diver_table <- multi_ave_func_df[ ,c("Plant_richness", "Soil_multidiv", "Ric_16s", "Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria", "Ric_its", "Ascomycota",	"Basidiomycota",	"Mortierellomycota", "Ric_pro", "Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Ric_anim", "Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Ric_kegg", "Ric_N", "Ric_P", "Ric_S")]
-multifun_table <- multi_ave_func_df[ ,c("meanFunction", "WHC", "BG", "NAG", "LAP", "PPO", "H2O2", "SOC", "NO3_N", "NH4_N", "AP",  "AGB", "plant_pathogen_control", "Soil_respiration")]
+diver_tab <- multi_ave_func_df[ ,c("Plant_richness", "Soil_multidiv", "Ric_16s", "Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria", "Ric_its", "Ascomycota",	"Basidiomycota",	"Mortierellomycota", "Ric_pro", "Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Ric_anim", "Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Ric_kegg", "Ric_N", "Ric_P", "Ric_S")] %>% scale()
+
+multifun_tab <- multi_ave_func_df[ ,c("meanFunction", "WHC", "BG", "NAG", "LAP", "PPO", "H2O2", "SOC", "NO3_N", "NH4_N", "AP",  "AGB", "plant_pathogen_control", "Soil_respiration")]  %>% scale()
 
 
-lmm.matrix <- lmm.mat.cal(diver_table, multifun_table)
+lmm.matrix <- lmm.mat.cal(multifun_tab, diver_tab)
 # lmm.matrix$Correlation[lmm.matrix$AdjPvalue >= 0.05] <- 0
 
 #plot
-p <- ggplot(aes(x = Fun, y = Diversity, fill = Correlation), data = lmm.matrix)+
-  geom_tile() + scale_fill_gradient2(low="#2C7BB6", mid="white", high="#D7191C")+
-  geom_text(aes(label=Significance), color="black", size = 5.5)+
-  labs(y = 'Diversity index', x = 'Multifunctionality', fill= 'Correlation') +
-  theme(panel.background = element_rect(fill='white', colour='black'),
+p <- ggplot(aes(x = Fun, y = Diversity, fill = coefficents), data = lmm.matrix)+
+  geom_tile() + scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C")+
+  geom_text(aes(label = Significance), color="black", size = 5.5)+
+  labs(y = 'Diversity index', x = 'Multifunctionality', fill = 'Standardized coefficients') +
+  theme(panel.background = element_rect(fill = 'white', colour ='black'),
         #panel.grid=element_blank(), 
-        axis.title = element_text(color='black',size=14),
-        axis.ticks.length = unit(0.4,"lines"), axis.ticks = element_line(color='black'),
+        axis.title = element_text(color = 'black', size = 14),
+        axis.ticks.length = unit(0.4,"lines"), axis.ticks = element_line(color = 'black'),
         axis.line = element_line(colour = "black"), 
-        axis.text.y = element_text(colour='black',size=12),
-        axis.text.x = element_text(colour='black', size = 12, angle = 45, hjust = 1),
-        legend.title=element_text(size = 12),
-        legend.text=element_text(size=9),
-        legend.key=element_blank(),
+        axis.text.y = element_text(colour = 'black',size=12),
+        axis.text.x = element_text(colour = 'black', size = 12, angle = 45, hjust = 1),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 9),
+        legend.key = element_blank(),
         legend.background = element_rect(colour = "white"))
 print(p)
 ```
