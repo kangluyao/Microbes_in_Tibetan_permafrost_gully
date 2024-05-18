@@ -81,6 +81,7 @@ multi_func_df <- data.frame(div_table, Ric_N = R.N, Ric_P = R.P, Ric_S = R.S, Ri
 ### Averaged multifunctional index
 ```{r}
 #Read in data
+source("script/read_data_all.R")
 div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_richness_table_all.csv",
              sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
 
