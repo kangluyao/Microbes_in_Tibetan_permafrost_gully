@@ -147,7 +147,7 @@ div_gully_plot
 library(gghalves)
 div_plot <- div_table %>% select(-c("Sample_name", "Gully_id")) %>%
   gather(diversity, value, -c("Group")) %>% 
-  mutate(diversity = factor(diversity, levels = c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Phy_16s", "Phy_its", "Phy_pro", "Phy_anim"))) %>%
+  mutate(diversity = factor(diversity, levels = c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Phy_16s", "Phy_its", "Phy_pro", "Phy_anim", "Soil_multidiv"))) %>%
   ggplot(aes(Group, value, fill = Group)) +
   geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
   geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
@@ -192,8 +192,8 @@ beta_tax_16s_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, gre
   facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
   main_theme +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-ggsave(file.path(save.dir.div, "./beta_variance_16s.pdf"),
-       beta_tax_16s_plot, width = 7.6, height = 2.5, units = "in")
+# ggsave(file.path(save.dir.div, "./beta_variance_16s.pdf"),
+#        beta_tax_16s_plot, width = 7.6, height = 2.5, units = "in")
 beta_tax_16s_plot
 ```
 
