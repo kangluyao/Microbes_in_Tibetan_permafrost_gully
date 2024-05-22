@@ -170,11 +170,11 @@ div_plot
 ```{r, fig.align='center', fig.width=6, fig.height=3}
 library(vegan)
 # determine the dissimilarity matrix based on the bray-curties distance
-tax_dist <-vegdist(t(otu), "bray" )
+tax_16s_dist <-vegdist(t(otu_16s), "bray" )
 # difference in taxonomic variance among Group
 my_comparisons <- list(c('Control', 'Collapsed'))
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
-beta_tax_16s_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, grep(x,metadata$Sample_name, value = T))) %>%
+beta_tax_16s_plot <- sapply(vars, function(x) usedist::dist_subset(tax_16s_dist, grep(x,metadata$Sample_name, value = T))) %>%
   data.frame() %>%  gather("tem_group", "distance") %>% 
   cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
         Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
@@ -195,6 +195,94 @@ beta_tax_16s_plot <- sapply(vars, function(x) usedist::dist_subset(tax_dist, gre
 # ggsave(file.path(save.dir.div, "./beta_variance_16s.pdf"),
 #        beta_tax_16s_plot, width = 7.6, height = 2.5, units = "in")
 beta_tax_16s_plot
+```
+```{r, fig.align='center', fig.width=6, fig.height=3}
+library(vegan)
+# determine the dissimilarity matrix based on the bray-curties distance
+tax_its_dist <-vegdist(t(otu_its), "bray" )
+# difference in taxonomic variance among Group
+my_comparisons <- list(c('Control', 'Collapsed'))
+vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
+beta_tax_its_plot <- sapply(vars, function(x) usedist::dist_subset(tax_its_dist, grep(x,metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Group, y = distance)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = 'Group', y = 'Bray-Curties distance', fill = 'Group') +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
+  main_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# ggsave(file.path(save.dir.div, "./beta_variance_its.pdf"),
+#        beta_tax_its_plot, width = 7.6, height = 2.5, units = "in")
+beta_tax_its_plot
+```
+```{r, fig.align='center', fig.width=6, fig.height=3}
+library(vegan)
+# determine the dissimilarity matrix based on the bray-curties distance
+tax_pro_dist <-vegdist(t(otu_pro), "bray" )
+# difference in taxonomic variance among Group
+my_comparisons <- list(c('Control', 'Collapsed'))
+vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
+beta_tax_pro_plot <- sapply(vars, function(x) usedist::dist_subset(tax_pro_dist, grep(x,metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Group, y = distance)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = 'Group', y = 'Bray-Curties distance', fill = 'Group') +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
+  main_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# ggsave(file.path(save.dir.div, "./beta_variance_pro.pdf"),
+#        beta_tax_pro_plot, width = 7.6, height = 2.5, units = "in")
+beta_tax_pro_plot
+```
+
+```{r, fig.align='center', fig.width=6, fig.height=3}
+library(vegan)
+# determine the dissimilarity matrix based on the bray-curties distance
+tax_anim_dist <-vegdist(t(otu_anim), "bray" )
+# difference in taxonomic variance among Group
+my_comparisons <- list(c('Control', 'Collapsed'))
+vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
+beta_tax_anim_plot <- sapply(vars, function(x) usedist::dist_subset(tax_anim_dist, grep(x,metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Group, y = distance)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = 'Group', y = 'Bray-Curties distance', fill = 'Group') +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_grid(~ Gully_id, scales = "free_x", space = "free_x") +
+  main_theme +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# ggsave(file.path(save.dir.div, "./beta_variance_anim.pdf"),
+#        beta_tax_anim_plot, width = 7.6, height = 2.5, units = "in")
+beta_tax_anim_plot
 ```
 
 ```{r}

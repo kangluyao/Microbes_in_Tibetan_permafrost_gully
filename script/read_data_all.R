@@ -14,13 +14,13 @@ library(Biostrings)
 # read 16S data
 ## metadata
 metadata <- read.delim(file.path(wd_16s, "./metadata.txt"), header = T, sep = "\t")
-rownames(metadata) <- (metadata$Sample_id)
+rownames(metadata) <- (metadata$Sample_name)
 ## otu table
 otu_16s <- read.table(file.path(wd_16s, "./otutab.txt"), header = T, row.names = 1, sep = "\t")
-otu_16s <- otu_16s[, metadata$Sample_id[metadata$Sample_id %in% colnames(otu_16s)]]
+otu_16s <- otu_16s[, metadata$Sample_name[metadata$Sample_name %in% colnames(otu_16s)]]
 ## rarefy out table
 otu_16s_rare <- read.delim(file.path(wd_16s, "./otutab_rare.txt"), header = T, row.names = 1, sep = "\t")
-otu_16s_rare <- otu_16s_rare[, metadata$Sample_id[metadata$Sample_id %in% colnames(otu_16s_rare)]]
+otu_16s_rare <- otu_16s_rare[, metadata$Sample_name[metadata$Sample_name %in% colnames(otu_16s_rare)]]
 ## tax
 tax_16s <- read.table(file.path(wd_16s, "./taxonomy.txt"), header = T, row.names = 1, sep = "\t")
 tax_16s <- as.matrix(tax_16s)
@@ -42,13 +42,13 @@ sample_names(phylo_16s_rare) <- metadata$Sample_name
 # read ITS data
 ## metadata
 metadata <- read.delim(file.path(wd_16s, "./metadata.txt"), header = T, sep = "\t")
-rownames(metadata) <- (metadata$Sample_id)
+rownames(metadata) <- (metadata$Sample_name)
 ## otu table
 otu_its <- read.table(file.path(wd_its, "./otutab.txt"), header = T, row.names = 1, sep = "\t")
-otu_its <- otu_its[, metadata$Sample_id[metadata$Sample_id %in% colnames(otu_its)]]
+otu_its <- otu_its[, metadata$Sample_name[metadata$Sample_name %in% colnames(otu_its)]]
 ## rarefy out table
 otu_its_rare <- read.delim(file.path(wd_its, "./otutab_rare.txt"), header = T, row.names = 1, sep = "\t")
-otu_its_rare <- otu_its_rare[, metadata$Sample_id[metadata$Sample_id %in% colnames(otu_its_rare)]]
+otu_its_rare <- otu_its_rare[, metadata$Sample_name[metadata$Sample_name %in% colnames(otu_its_rare)]]
 ## tax
 tax_its <- read.table(file.path(wd_its, "./taxonomy.txt"), header = T, row.names = 1, sep = "\t")
 tax_its <- as.matrix(tax_its)
