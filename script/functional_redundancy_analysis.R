@@ -134,8 +134,19 @@ nrow(fr_dat)
 species.abund <- fr_dat %>% select(-c("KO")) %>%
   group_by(Species) %>%
   summarise(across(everything(), sum)) %>%
-  column_to_rownames("Species")
+  column_to_rownames(var = "Species")
 
 species.abund[1:5, 1:5]
 
 nrow(species.abund)
+
+
+trait.levels <- fr_dat %>% pivot_longer(cols = -c("KO", "Species"), names_to = "Sample", values_to = "Value") %>%
+  select(-c("Sample")) %>%
+  group_by(Species, KO) %>%
+  summarise(across(everything(), sum)) %>%
+  pivot_wider(names_from = KO, values_from = Value) %>%
+  column_to_rownames(var = "Species")
+
+trait.levels[1:5, 1:5]
+nrow(trait.levels)
