@@ -115,38 +115,35 @@ royalty_fr <- function(abundance.matrix, trait.matrix, q = 0.5) {
   return(fr_out)
 }
 
-spe_abun_test <- load("species.abund.rda")
-species.abund[1:5, 1:5]
-trait_test <- load("trait.levels.rda")
-trait.levels[1:5, 1:5]
-
-fr_raw <- read.table(file = "E:/thermokarst_gully/data/metagenome/humann2/ko.tsv", header = T, row.names = 1, sep = "\t")
-fr_dat <- fr_raw %>%
-  mutate(KO = sapply(strsplit(rownames(.),"[|]"),'[',1),
-         Species = sapply(strsplit(rownames(.),"[.]"),'[',2)) %>%
-  filter(!KO %in% c("UNMAPPED", "UNGROUPED") & !Species %in% c(NA, "unclassified"))
-  
-fr_dat[1:5, 60:62]
-
+# read tada
+fr_dat <- read.table(file = "E:/thermokarst_gully/data/metagenome/kraken2/parse_dat_count.txt", header = T, row.names = NULL, sep = "\t")
 nrow(fr_dat)
+fr_dat[1:5, 1:9]
 
-
-species.abund <- fr_dat %>% select(-c("KO")) %>%
+# prepare the abundance table
+species.abund <- fr_dat %>% select(-c(1:7)) %>%
   group_by(Species) %>%
   summarise(across(everything(), sum)) %>%
-  column_to_rownames(var = "Species")
+  filter(!Species %in% c("", "Unassigned")) %>%
+  column_to_rownames(var = "Species") %>% t()
 
 species.abund[1:5, 1:5]
+ncol(species.abund)
 
-nrow(species.abund)
-
-
-trait.levels <- fr_dat %>% pivot_longer(cols = -c("KO", "Species"), names_to = "Sample", values_to = "Value") %>%
+# prepare the traits table
+trait.levels <- fr_dat %>% select(-c(2:7)) %>%
+  pivot_longer(cols = -c("ko", "Species"), names_to = "Sample", values_to = "Value") %>%
   select(-c("Sample")) %>%
-  group_by(Species, KO) %>%
+  group_by(Species, ko) %>%
   summarise(across(everything(), sum)) %>%
-  pivot_wider(names_from = KO, values_from = Value) %>%
+  filter(!Species %in% c("", "Unassigned")) %>%
+  pivot_wider(names_from = ko, values_from = Value) %>%
   column_to_rownames(var = "Species")
 
 trait.levels[1:5, 1:5]
 nrow(trait.levels)
+ncol(trait.levels)
+
+# Caculate the functional reduntancy
+fr_table <- royalty_fr(species.abund, trait.levels)
+fr_table[999:1111, 1:6]
