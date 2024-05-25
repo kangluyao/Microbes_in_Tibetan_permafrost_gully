@@ -116,34 +116,66 @@ royalty_fr <- function(abundance.matrix, trait.matrix, q = 0.5) {
 }
 
 # read tada
-fr_dat <- read.table(file = "E:/thermokarst_gully/data/metagenome/kraken2/parse_dat_count.txt", header = T, row.names = NULL, sep = "\t")
+fr_dat <- read.table(file = "E:/thermokarst_gully/data/metagenome/kraken2/parse_dat_count.txt", 
+                     header = T, row.names = NULL, sep = "\t")
 nrow(fr_dat)
 fr_dat[1:5, 1:9]
 
+# function mapping
+KO_9leves <- read.table(file = "E:/thermokarst_gully/data/metagenome/ko_9_levels.txt", 
+                        header = T, row.names = NULL, sep = "\t")
+nrow(KO_9leves)
+KO_9leves[1:5, 1:9]
+
+# mapping the KOs into L3 level
+fr_dat <- fr_dat %>% left_join(KO_9leves, by = "KO")
+nrow(fr_dat)
+fr_dat[1:25, c(1:9, 69:75)]
+
 # prepare the abundance table
-species.abund <- fr_dat %>% select(-c(1:7)) %>%
+species.abund <- fr_dat %>% select(c(8:68)) %>%
   group_by(Species) %>%
   summarise(across(everything(), sum)) %>%
   filter(!Species %in% c("", "Unassigned")) %>%
-  column_to_rownames(var = "Species") %>% t()
+  column_to_rownames(var = "Species") %>% 
+  apply(., 2, function(x) x/sum(x)) %>%
+  t()
 
 species.abund[1:5, 1:5]
+nrow(species.abund)
 ncol(species.abund)
 
+
 # prepare the traits table
-trait.levels <- fr_dat %>% select(-c(2:7)) %>%
-  pivot_longer(cols = -c("ko", "Species"), names_to = "Sample", values_to = "Value") %>%
+trait.levels <- fr_dat %>% select(c(8:68, 75)) %>%
+  pivot_longer(cols = -c("L3", "Species"), names_to = "Sample", values_to = "Value") %>%
   select(-c("Sample")) %>%
-  group_by(Species, ko) %>%
+  group_by(Species, L3) %>%
   summarise(across(everything(), sum)) %>%
   filter(!Species %in% c("", "Unassigned")) %>%
-  pivot_wider(names_from = ko, values_from = Value) %>%
+  pivot_wider(names_from = L3, values_from = Value) %>%
   column_to_rownames(var = "Species")
 
+trait.levels[is.na(trait.levels)] <- 0
 trait.levels[1:5, 1:5]
 nrow(trait.levels)
 ncol(trait.levels)
 
 # Caculate the functional reduntancy
 fr_table <- royalty_fr(species.abund, trait.levels)
-fr_table[999:1111, 1:6]
+fr_table[1:100, 1:6]
+
+fr <- fr_table %>%
+  mutate(Gully_id = sapply(strsplit(sample, "_"), '[', 1)) %>%
+  mutate(Group = case_when(
+    grepl("_C", sample) ~ "Control",
+    grepl("_T", sample) ~ "Collapsed"))
+
+ggplot2::ggplot(fr, aes(x = Group, y = fr)) + 
+  geom_boxplot()
+
+
+spe_abun_test <- load("species.abund.rda")
+trait_test <- load("trait.levels.rda")
+species.abund[1:5, 1:5]
+trait.levels[1:5, 1:5]
