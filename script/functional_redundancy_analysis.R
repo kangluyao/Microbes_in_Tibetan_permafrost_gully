@@ -198,7 +198,50 @@ ggplot2::ggplot(fr, aes(x = Group, y = fr)) +
         axis.text.x = element_text(angle = 45, hjust = 1))
 
 
-spe_abun_test <- load("species.abund.rda")
-trait_test <- load("trait.levels.rda")
-species.abund[1:5, 1:5]
-trait.levels[1:5, 1:5]
+# test the difference in alpha diversity
+library(vegan)
+richness_div <- vegan::estimateR(fr_dat %>% select(c(8:68)) %>%
+                                   group_by(Species) %>%
+                                   summarise(across(everything(), sum)) %>%
+                                   filter(!Species %in% c("", "Unassigned")) %>%
+                                   column_to_rownames(var = "Species") %>% 
+                                   round(., digits = 0) %>%
+                                   t()) %>% t()
+
+
+richness_table <- richness_div %>% as.data.frame() %>%
+  rownames_to_column(var = "Sample") %>%
+  mutate(Gully_id = sapply(strsplit(Sample, "_"), '[', 1)) %>%
+  mutate(Group = case_when(
+    grepl("_C", Sample) ~ "Control",
+    grepl("_T", Sample) ~ "Collapsed"))
+
+ggplot2::ggplot(richness_table, aes(x = Group, y = S.obs)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group), outlier.shape = NA) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = 'Group', y = "Richness", fill= 'Group') +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  main_theme +
+  theme(panel.spacing = unit(0, "lines"),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+library(rstatix)
+data.frame(Richness = richness_table$S.obs, meanFunction = multi_ave_func_df$meanFunction) %>%
+  identify_outliers(Richness) %>%
+  identify_outliers(meanFunction)
+  ggplot(aes(x = Richness, y = meanFunction)) +
+  geom_point(size = 2, alpha = 0.8, aes(colour = "#5cc3e8")) +
+  geom_smooth(method = "lm", size = 1, se = T, colour = 'black') +
+  # scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  # scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  stat_poly_line(colour = 'black') +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), 
+                                 after_stat(p.value.label), sep = "*\", \"*")),
+               size = 2.4) +
+  xlab("\nDiversity") + 
+  ylab("Average Value of Standardized Functions\n") +
+  main_theme + theme(legend.position = "none")

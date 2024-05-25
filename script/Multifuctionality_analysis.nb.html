@@ -11,7 +11,7 @@
 
 <meta name="author" content="Luyao Kang" />
 
-<meta name="date" content="2024-05-18" />
+<meta name="date" content="2024-05-25" />
 
 <title>Multifuctionality_analysis</title>
 
@@ -1750,7 +1750,7 @@ display: none;
 
 <h1 class="title toc-ignore">Multifuctionality_analysis</h1>
 <h4 class="author">Luyao Kang</h4>
-<h4 class="date">2024-05-18</h4>
+<h4 class="date">2024-05-25</h4>
 
 </div>
 
@@ -1789,7 +1789,7 @@ save.dir &lt;- file.path(getwd(),&quot;result&quot;)</code></pre>
 <p>Loading packages</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBBdmVyYWdpbmcgQXBwcm9hY2hcbmxpYnJhcnkobXVsdGlmdW5jKVxuXG4jZm9yIHBsb3R0aW5nXG5saWJyYXJ5KGdncGxvdDIpXG5saWJyYXJ5KHBhdGNod29yaylcblxuI2ZvciBkYXRhXG5saWJyYXJ5KHRpZHlyKVxubGlicmFyeShkcGx5cilcbmBgYCJ9 -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBBdmVyYWdpbmcgQXBwcm9hY2hcbmxpYnJhcnkobXVsdGlmdW5jKVxuXG4jZm9yIHBsb3R0aW5nXG5saWJyYXJ5KGdncGxvdDIpXG5saWJyYXJ5KHBhdGNod29yaylcblxuI2ZvciBkYXRhXG5saWJyYXJ5KHRpZHlyKVxubGlicmFyeShkcGx5cilcbmxpYnJhcnkocHVycnIpXG5saWJyYXJ5KGZvcmNhdHMpXG5cbiNmb3IgYW5hbHlzaXNcbmxpYnJhcnkoY2FyKVxubGlicmFyeShnZ3B1YnIpXG5saWJyYXJ5KGdncG1pc2MpXG5saWJyYXJ5KHZlZ2FuKVxubGlicmFyeShsbWU0KVxuYGBgIn0= -->
 <pre class="r"><code># Averaging Approach
 library(multifunc)
 
@@ -1799,73 +1799,17 @@ library(patchwork)
 
 #for data
 library(tidyr)
-library(dplyr)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiXG5BdHRhY2hpbmcgcGFja2FnZTog4oCYZHBseXLigJlcblxuVGhlIGZvbGxvd2luZyBvYmplY3RzIGFyZSBtYXNrZWQgZnJvbSDigJhwYWNrYWdlOnN0YXRz4oCZOlxuXG4gICAgZmlsdGVyLCBsYWdcblxuVGhlIGZvbGxvd2luZyBvYmplY3RzIGFyZSBtYXNrZWQgZnJvbSDigJhwYWNrYWdlOmJhc2XigJk6XG5cbiAgICBpbnRlcnNlY3QsIHNldGRpZmYsIHNldGVxdWFsLCB1bmlvblxuIn0= -->
-<pre><code>
-Attaching package: ‘dplyr’
-
-The following objects are masked from ‘package:stats’:
-
-    filter, lag
-
-The following objects are masked from ‘package:base’:
-
-    intersect, setdiff, setequal, union</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeShwdXJycilcbmxpYnJhcnkoZm9yY2F0cylcblxuI2ZvciBhbmFseXNpc1xubGlicmFyeShjYXIpXG5gYGAifQ== -->
-<pre class="r"><code>library(purrr)
+library(dplyr)
+library(purrr)
 library(forcats)
 
 #for analysis
-library(car)</code></pre>
+library(car)
+library(ggpubr)
+library(ggpmisc)
+library(vegan)
+library(lme4)</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiTG9hZGluZyByZXF1aXJlZCBwYWNrYWdlOiBjYXJEYXRhXG5cbkF0dGFjaGluZyBwYWNrYWdlOiDigJhjYXLigJlcblxuVGhlIGZvbGxvd2luZyBvYmplY3QgaXMgbWFza2VkIGZyb20g4oCYcGFja2FnZTpwdXJycuKAmTpcblxuICAgIHNvbWVcblxuVGhlIGZvbGxvd2luZyBvYmplY3QgaXMgbWFza2VkIGZyb20g4oCYcGFja2FnZTpkcGx5cuKAmTpcblxuICAgIHJlY29kZVxuIn0= -->
-<pre><code>Loading required package: carData
-
-Attaching package: ‘car’
-
-The following object is masked from ‘package:purrr’:
-
-    some
-
-The following object is masked from ‘package:dplyr’:
-
-    recode</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeShnZ3B1YnIpXG5saWJyYXJ5KGdncG1pc2MpXG5gYGAifQ== -->
-<pre class="r"><code>library(ggpubr)
-library(ggpmisc)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiTG9hZGluZyByZXF1aXJlZCBwYWNrYWdlOiBnZ3BwXG5cbkF0dGFjaGluZyBwYWNrYWdlOiDigJhnZ3Bw4oCZXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0IGlzIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6Z2dwbG90MuKAmTpcblxuICAgIGFubm90YXRlXG4ifQ== -->
-<pre><code>Loading required package: ggpp
-
-Attaching package: ‘ggpp’
-
-The following object is masked from ‘package:ggplot2’:
-
-    annotate</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeSh2ZWdhbilcbmBgYCJ9 -->
-<pre class="r"><code>library(vegan)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiTG9hZGluZyByZXF1aXJlZCBwYWNrYWdlOiBwZXJtdXRlXG5Mb2FkaW5nIHJlcXVpcmVkIHBhY2thZ2U6IGxhdHRpY2VcblRoaXMgaXMgdmVnYW4gMi42LTJcbiJ9 -->
-<pre><code>Loading required package: permute
-Loading required package: lattice
-This is vegan 2.6-2</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeShsbWU0KVxuYGBgIn0= -->
-<pre class="r"><code>library(lme4)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiTG9hZGluZyByZXF1aXJlZCBwYWNrYWdlOiBNYXRyaXhcblxuQXR0YWNoaW5nIHBhY2thZ2U6IOKAmE1hdHJpeOKAmVxuXG5UaGUgZm9sbG93aW5nIG9iamVjdHMgYXJlIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6dGlkeXLigJk6XG5cbiAgICBleHBhbmQsIHBhY2ssIHVucGFja1xuIn0= -->
-<pre><code>Loading required package: Matrix
-
-Attaching package: ‘Matrix’
-
-The following objects are masked from ‘package:tidyr’:
-
-    expand, pack, unpack</code></pre>
-<!-- rnb-output-end -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <p>Read data</p>
