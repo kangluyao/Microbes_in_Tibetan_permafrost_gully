@@ -171,8 +171,31 @@ fr <- fr_table %>%
     grepl("_C", sample) ~ "Control",
     grepl("_T", sample) ~ "Collapsed"))
 
+library(ggpubr)
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 6),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 6),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.position = "none")
+
+# box plot
+my_comparisons <- list(c('Control', 'Collapsed'))
 ggplot2::ggplot(fr, aes(x = Group, y = fr)) + 
-  geom_boxplot()
+  geom_boxplot(width = 0.5, aes(fill = Group), outlier.shape = NA) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
+  stat_compare_means(comparisons = my_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.5,
+                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
+  labs(x = 'Group', y = "Functional redundancy", fill= 'Group') +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  main_theme +
+  theme(panel.spacing = unit(0, "lines"),
+        axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 spe_abun_test <- load("species.abund.rda")
