@@ -99,7 +99,7 @@ multi_ave_func_df <- cbind(div_table, getStdAndMeanFunctions(div_table, allVars,
 ```{r}
 # Threshold Approach
 thermoThresh <- getFuncsMaxed(div_table, allVars, threshmin = 0.05, threshmax = 0.99, 
-                              threshstep = 0.01, prepend = c("plot","Diversity"), maxN = 13)
+                              threshstep = 0.01, prepend = c("plot", "Diversity"), maxN = 13)
 
 # mfuncthermoLinear75 <- glm(funcMaxed ~ Ric_kegg, data = subset(thermoThresh, thermoThresh$thresholds == "0.75"), family = quasipoisson(link = "identity"), start = c(0.5,0.5))
 # 
@@ -410,7 +410,7 @@ p6 <- multi_ave_func_df %>%
 p6
 ```
 
-```{r, fig.align='center', fig.width=8.5, fig.height=8.5}
+```{r}
 #linner mixed model for matrix to matrix
 lmm.mat.cal <- function(y, x, method){
   y <- as.matrix(y)
@@ -462,23 +462,177 @@ multifun_tab <- multi_ave_func_df[ ,c("meanFunction", "WHC", "BG", "NAG", "LAP",
 
 lmm.matrix <- lmm.mat.cal(multifun_tab, diver_tab)
 # lmm.matrix$Correlation[lmm.matrix$AdjPvalue >= 0.05] <- 0
+```
 
+```{r, fig.align='center', fig.width=8.5, fig.height=8.5}
 #plot
-p <- ggplot(aes(x = Fun, y = Diversity, fill = coefficents), data = lmm.matrix)+
+heatmap_lmm_plot <- ggplot(aes(x = Fun, y = Diversity, fill = coefficents), data = lmm.matrix)+
   geom_tile() + scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C")+
   geom_text(aes(label = Significance), color="black", size = 5.5)+
   labs(y = 'Diversity index', x = 'Multifunctionality', fill = 'Standardized coefficients') +
+  scale_y_discrete(position = "right") +
   theme(panel.background = element_rect(fill = 'white', colour ='black'),
         #panel.grid=element_blank(), 
-        axis.title = element_text(color = 'black', size = 14),
-        axis.ticks.length = unit(0.4,"lines"), axis.ticks = element_line(color = 'black'),
+        axis.title = element_text(color = 'black', size = 7),
+        axis.ticks.length = unit(0.4, "lines"), axis.ticks = element_line(color = 'black'),
         axis.line = element_line(colour = "black"), 
-        axis.text.y = element_text(colour = 'black',size=12),
-        axis.text.x = element_text(colour = 'black', size = 12, angle = 45, hjust = 1),
-        legend.title = element_text(size = 12),
-        legend.text = element_text(size = 9),
-        legend.key = element_blank(),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6, angle = 45, hjust = 1),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.25, "cm"),
         legend.background = element_rect(colour = "white"))
-print(p)
+  
+heatmap_lmm_plot
+```
+
+### Test the difference in single function between control and collapsed groups using liner models
+```{r}
+# determine the effect size of the permafrost thawing for the diversity indexes
+div_index <- c("Plant_richness", "Soil_multidiv", "Ric_16s", "Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria", "Ric_its", "Ascomycota",	"Basidiomycota",	"Mortierellomycota", "Ric_pro", "Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Ric_anim", "Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Ric_kegg", "Ric_N", "Ric_P", "Ric_S")
+
+div_scale <- multi_ave_func_df %>% 
+  select(c("Group", "Gully_id", div_index)) %>%
+  mutate(across(where(is.numeric), scale)) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  select(where(~ !any(is.na(.))))
+
+# codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
+div_S1 <- sapply(3:ncol(div_scale), function(j) {
+    message("Now j=", j, " in ", ncol(div_scale), ". ", date())
+    if (length(unique(div_scale[, j])) < 3) {
+        result <- rep(NA, 10)
+    } else {
+        fm1 <- lmer(div_scale[, j] ~ Group + (1 | Gully_id), data = div_scale)
+
+        presult <- car::Anova(fm1, type = 2)
+        coefs <- coef(summary(fm1))[, "Estimate"]  ##four coefs
+        names(coefs) <- paste0(names(coefs), ".mean")
+
+        SEvalues <- coef(summary(fm1))[, "Std. Error"]  ##standard errors
+        names(SEvalues) <- paste0(names(SEvalues), ".se")
+
+        tvalues <- coef(summary(fm1))[, "t value"]  ##t values
+        names(tvalues) <- paste0(names(tvalues), ".t")
+
+        chisqP <- c(presult[, 1], presult[, 3])
+        names(chisqP) <- c(paste0(row.names(presult), ".chisq"), paste0(row.names(presult), ".P"))
+
+        result <- c(coefs, tvalues, SEvalues, chisqP)
+    }
+    result
+})
+colnames(div_S1)<-colnames(div_scale)[-c(1:2)]
+data.frame(div_S1)
+```
+
+```{r, fig.align='center', fig.width=3.5, fig.height=7.8}
+rep_str = c("Plant_richness" = "Plant Richness",
+            "Plant_shannon" = "Plant Shannon",
+            "Soil_moisture" = "Soil moisture",
+            "Soil_respiration" = "Soil respiration",
+            "H2O2" = expression(paste("H"[2], "O"[2])),
+            "NH4_N" = expression(paste("NH"[4]^"+", "-N")),
+            "NO3_N" = expression(paste("NO"[3]^"-", "-N")),
+            "plant_pathogen_control" = "Plant pathogen control"
+)
+p.stars <- function(p.values) {
+  unclass(symnum(p.values, corr = FALSE, 
+                 na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
+                 symbols = c("***", "**", "*", ".", " ")))}
+single_div_comparison <- div_S1 %>%
+  t() %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column(., "variables") %>%
+  mutate(sig = as.vector(unlist(lapply(Group.P, p.stars)))) %>%
+  mutate(variables = factor(variables, levels = rev(div_index))) %>%
+  ggplot(aes(x = variables, y = GroupCollapsed.mean, color = variables)) +
+  geom_hline(aes(yintercept = 0), size = 0.7,  colour = "gray2")+
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
+                    ymax = GroupCollapsed.mean + GroupCollapsed.se), 
+                width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
+  geom_text(aes(label = sig, x = variables, y = (GroupCollapsed.mean/abs(GroupCollapsed.mean))*(abs(GroupCollapsed.mean) + GroupCollapsed.se)*1.2),
+            position = position_dodge(0.1), vjust = 0.55) +
+  labs(x = NULL, y = "Effect size")+
+  # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
+  scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
+  theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
+  annotate("rect", xmin = 0.4, xmax = 4.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#ff6666") +
+  annotate("rect", xmin = 4.5, xmax = 10.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#f19837") +
+  annotate("rect", xmin = 10.5, xmax = 21.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#e56eee") +
+  annotate("rect", xmin = 21.5, xmax = 25.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#5fb236") +
+  annotate("rect", xmin = 25.5, xmax = 35.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#1ca9c9") +
+  annotate("rect", xmin = 35.5, xmax = 36.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#0000ff") +
+  annotate("rect", xmin = 36.5, xmax = 37.7, ymin = -2, ymax = 2, alpha = 0.1, fill = "#004225") +
+  main_theme +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = c("#FFF6E1")),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+# if (!dir.exists(file.path(save.dir, "figs/env/"))) {
+#   dir.create(file.path(save.dir, "figs/env/"))
+# }
+# ggsave(file.path(save.dir.multifunc, "./single_div_comparison.pdf"),
+#        single_div_comparison, width = 2.7, height = 5, units = "in")
+```
+
+```{r, fig.align='center', fig.width=4.5, fig.height=6.5}
+### determine the average relative abundance of each phylum within each group
+abun_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_abundance_table_all.csv",
+             sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
+# determine the mean, standard deviations, standard errors for each phylum
+taxa_name <- c("Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria", "Ascomycota",	"Basidiomycota",	"Mortierellomycota", "Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada")
+
+phyla_tabin_control <- abun_table %>%
+  select(c("Group", taxa_name)) %>%
+  mutate_if(is.numeric, ~ . * 100) %>%
+  group_by(Group) %>% 
+  summarise(across(where(is.numeric), list(mean = ~mean(., na.rm = T), 
+                                           sd = ~sd(., na.rm = T), 
+                                           n = ~n()))) %>% 
+  pivot_longer(cols = -c(Group), 
+               names_to = c('Phylum', '.value'), 
+               names_sep = '_') %>% 
+  mutate(se = sd/sqrt(n)) %>%
+  filter(Group == "Control") %>%
+  arrange(mean) %>%
+  rbind(., data.frame(Group = c(rep("Control", 10)),
+                      Phylum = c("Plant_richness", "Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_kegg", "Ric_N", "Ric_P", "Ric_S"), 
+                      mean = c(rep(0, 10)), 
+                      sd = c(rep(0, 10)), 
+                      n = c(rep(30, 10)), 
+                      se = c(rep(0, 10)))) %>%
+    mutate(Phylum = factor(Phylum, levels = rev(div_index)))
+  
+  
+avg_abun_in_control_plot <- phyla_tabin_control %>%
+  ggplot(aes(x = Phylum, y = mean)) +
+  geom_bar(position = 'dodge', stat = 'identity', 
+           fill= '#FFF6E1', colour = 'black', width = 0.7) +
+  geom_errorbar(aes(ymin = mean, ymax = mean + se), width=.2,  position = position_dodge(0.7)) +
+  labs(x = NULL, y = 'Mean relative abundance (%)') +
+  main_theme + coord_flip() + scale_y_reverse(limits=c(90, 0), expand=c(0, 0)) +
+  annotate("rect", xmin = 0.4, xmax = 4.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#ffffff") +
+  annotate("rect", xmin = 4.5, xmax = 10.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#f19837") +
+  annotate("rect", xmin = 10.5, xmax = 21.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#e56eee") +
+  annotate("rect", xmin = 21.5, xmax = 25.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#5fb236") +
+  annotate("rect", xmin = 25.5, xmax = 35.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#1ca9c9") +
+  annotate("rect", xmin = 35.5, xmax = 36.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#ffffff") +
+  annotate("rect", xmin = 36.5, xmax = 37.7, ymin = 0, ymax = 90, alpha = 0.1, fill = "#ffffff") +
+  theme(axis.ticks.y = element_blank(),
+        axis.text.y = element_blank())
+```
+
+
+```{r, fig.align='center', fig.width=9.8, fig.height=6.5}
+library(aplot) # Decorate a 'ggplot' with Associated Information
+diff_richness_abun_plot <- avg_abun_in_control_plot %>%
+  insert_right(single_div_comparison, width = 2) %>%
+  insert_right(heatmap_lmm_plot, width = 2)
+# ggsave(file.path(save.dir.comp, "./diff_comp_16s_plot.pdf"),
+#        diff_comp_16s_plot, width = 4, height = 4.5, units = "in")
+diff_richness_abun_plot
 ```
 

@@ -637,6 +637,7 @@ avg_abun_in_control_16s_plot <- avg_abun_in_control%>%
         axis.text.y = element_blank()
         )
 ```
+
 ### test the difference in abundance of main taxa using liner models
 ```{r}
 # determine the effect size of the permafrost thawing on each phylum
@@ -669,8 +670,7 @@ phylaS1 <- sapply(3:ncol(phyla_tab_scale), function(j) {
     }
     result
 })
-colnames(phylaS1)<-colnames(phyla_tab_scale)[-c(
-  1,2)]
+colnames(phylaS1)<-colnames(phyla_tab_scale)[-c(1,2)]
 data.frame(phylaS1)
 ```
 ### effect size plot

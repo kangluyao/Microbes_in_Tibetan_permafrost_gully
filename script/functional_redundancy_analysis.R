@@ -154,9 +154,9 @@ trait.levels <- fr_dat %>% select(c(8:68, 75)) %>%
   summarise(across(everything(), sum)) %>%
   filter(!Species %in% c("", "Unassigned")) %>%
   pivot_wider(names_from = L3, values_from = Value) %>%
-  column_to_rownames(var = "Species")
+  column_to_rownames(var = "Species") %>%
+  mutate_all(~replace(., is.na(.), 0))
 
-trait.levels[is.na(trait.levels)] <- 0
 trait.levels[1:5, 1:5]
 nrow(trait.levels)
 ncol(trait.levels)
