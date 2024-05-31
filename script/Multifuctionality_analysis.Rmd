@@ -420,7 +420,7 @@ lmm.mat.cal <- function(y, x, method){
     for(j in colnames(x)){
       a <- y[, i, drop = F]
       b <- x[, j, drop = F]
-      mode <- lmer(a ~ b + (1|Gully_id), data = multi_ave_func_df, na.action=na.omit)
+      mode <- lmer(a ~ b + (1 | Gully_id), data = multi_ave_func_df, na.action=na.omit)
       coeff <- summary(mode)$coefficients[2, 1]
       r.square <- MuMIn::r.squaredGLMM(mode)[1]
       if (coeff>0) {
@@ -468,13 +468,13 @@ lmm.matrix <- lmm.mat.cal(multifun_tab, diver_tab)
 #plot
 heatmap_lmm_plot <- ggplot(aes(x = Fun, y = Diversity, fill = coefficents), data = lmm.matrix)+
   geom_tile() + scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C")+
-  geom_text(aes(label = Significance), color="black", size = 5.5)+
-  labs(y = 'Diversity index', x = 'Multifunctionality', fill = 'Standardized coefficients') +
+  geom_text(aes(label = Significance), color="black", size = 3.5)+
+  labs(y = NULL, x = 'Multifunctionality', fill = 'Standardized coefficients') +
   scale_y_discrete(position = "right") +
   theme(panel.background = element_rect(fill = 'white', colour ='black'),
         #panel.grid=element_blank(), 
         axis.title = element_text(color = 'black', size = 7),
-        axis.ticks.length = unit(0.4, "lines"), axis.ticks = element_line(color = 'black'),
+        axis.ticks.length = unit(0.2, "lines"), axis.ticks = element_line(color = 'black'),
         axis.line = element_line(colour = "black"), 
         axis.text.y = element_text(colour = 'black', size = 6),
         axis.text.x = element_text(colour = 'black', size = 6, angle = 45, hjust = 1),
@@ -482,8 +482,6 @@ heatmap_lmm_plot <- ggplot(aes(x = Fun, y = Diversity, fill = coefficents), data
         legend.text = element_text(size = 6),
         legend.key.size = unit(0.25, "cm"),
         legend.background = element_rect(colour = "white"))
-  
-heatmap_lmm_plot
 ```
 
 ### Test the difference in single function between control and collapsed groups using liner models
@@ -629,10 +627,259 @@ avg_abun_in_control_plot <- phyla_tabin_control %>%
 ```{r, fig.align='center', fig.width=9.8, fig.height=6.5}
 library(aplot) # Decorate a 'ggplot' with Associated Information
 diff_richness_abun_plot <- avg_abun_in_control_plot %>%
-  insert_right(single_div_comparison, width = 2) %>%
+  insert_right(single_div_comparison, width = 1.5) %>%
   insert_right(heatmap_lmm_plot, width = 2)
 # ggsave(file.path(save.dir.comp, "./diff_comp_16s_plot.pdf"),
 #        diff_comp_16s_plot, width = 4, height = 4.5, units = "in")
 diff_richness_abun_plot
 ```
+
+# Structural Equation Modeling
+```{r}
+# determine the effect size of the permafrost thawing for the environmental variables
+env_index <- c("pH", "Soil_moisture", "Clay.Silt")
+
+env_scale <- metadata %>% 
+  select(c("Group", "Gully_id", env_index)) %>%
+  mutate(across(where(is.numeric), scale)) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  select(where(~ !any(is.na(.))))
+
+# codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
+env_S1 <- sapply(3:ncol(env_scale), function(j) {
+    message("Now j=", j, " in ", ncol(env_scale), ". ", date())
+    if (length(unique(env_scale[, j])) < 3) {
+        result <- rep(NA, 10)
+    } else {
+        fm1 <- lmer(env_scale[, j] ~ Group + (1 | Gully_id), data = env_scale)
+
+        presult <- car::Anova(fm1, type = 2)
+        coefs <- coef(summary(fm1))[, "Estimate"]  ##four coefs
+        names(coefs) <- paste0(names(coefs), ".mean")
+
+        SEvalues <- coef(summary(fm1))[, "Std. Error"]  ##standard errors
+        names(SEvalues) <- paste0(names(SEvalues), ".se")
+
+        tvalues <- coef(summary(fm1))[, "t value"]  ##t values
+        names(tvalues) <- paste0(names(tvalues), ".t")
+
+        chisqP <- c(presult[, 1], presult[, 3])
+        names(chisqP) <- c(paste0(row.names(presult), ".chisq"), paste0(row.names(presult), ".P"))
+
+        result <- c(coefs, tvalues, SEvalues, chisqP)
+    }
+    result
+})
+colnames(env_S1)<-colnames(env_scale)[-c(1:2)]
+data.frame(env_S1)
+```
+# PLot 
+```{r}
+env_comparison <- env_S1 %>%
+  t() %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column(., "variables") %>%
+  mutate(sig = as.vector(unlist(lapply(Group.P, p.stars)))) %>%
+  mutate(variables = factor(variables, levels = rev(env_index))) %>%
+  ggplot(aes(x = variables, y = GroupCollapsed.mean, color = variables)) +
+  geom_hline(aes(yintercept = 0), size = 0.7,  colour = "gray2")+
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
+                    ymax = GroupCollapsed.mean + GroupCollapsed.se), 
+                width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
+  geom_text(aes(label = sig, x = variables, y = (GroupCollapsed.mean/abs(GroupCollapsed.mean))*(abs(GroupCollapsed.mean) + GroupCollapsed.se)*1.2),
+            position = position_dodge(0.1), vjust = 0.55) +
+  labs(x = NULL, y = "Effect size")+
+  # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
+  scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
+  theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
+  main_theme +
+  theme(legend.position = "none")
+env_comparison
+```
+
+# PCA
+```{r}
+#load the package
+library(vegan)
+library(adespatial)
+#set the environmental variables
+env_vars <- metadata %>%
+  select(c("Soil_moisture", "Clay.Silt"))
+  
+
+soil_table <- decostand(env_vars, 'standardize')
+soil_dist <- vegdist(soil_table, 'euclidean', upper = F)
+decorana(soil_dist)
+sol <- rda(substrates_table, trace = F)
+sol
+soil_PC1 <- scores(sol)$sites[, 1]
+
+sem_df <- data.frame(metadata[, c("Gully_id", "Group")], Soil_PC1 = soil_PC1, 
+                     multi_ave_func_df[, c("Plant_richness", "Soil_multidiv", "Ric_kegg", "meanFunction")])
+```
+
+
+
+```{r}
+#load the package
+library(piecewiseSEM)
+library(lme4)
+library(lmerTest)
+library(nlme)
+#Model
+gully_sem <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Group + Soil_PC1 + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group + Soil_PC1 + Plant_richness + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Group + Soil_PC1 + Plant_richness + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Group + Soil_PC1 + Plant_richness + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+
+
+summary(gully_sem)
+
+
+sem_mod <- psem(
+  lm(LCBD ~ MAP + FrI + Salinity +ALT, data = env_div_agg),
+  lm(ALT ~ MAP, data = env_div_agg),
+  lm(FrI ~ MAP + ALT, data = env_div_agg),
+  lm(Salinity ~ MAP + FrI, data = env_div_agg))
+summary(sem_mod)
+sem_mod <- psem(
+  lm(LCBD ~ MAP + FrI + Salinity +ALT, data = env_div_agg),
+  lm(FrI ~ MAP + ALT, data = env_div_agg),
+  lm(Salinity ~ MAP + FrI, data = env_div_agg))
+summary(sem_mod)
+sem_mod <- psem(
+  lm(LCBD ~ MAP + FrI + Salinity, data = env_div_agg),
+  lm(FrI ~ MAP + ALT, data = env_div_agg),
+  lm(Salinity ~ MAP + FrI, data = env_div_agg))
+summary(sem_mod)
+sem_mod <- psem(
+  lm(LCBD ~ MAP + FrI, data = env_div_agg),
+  lm(FrI ~ MAP + ALT, data = env_div_agg),
+  lm(Salinity ~ MAP + FrI, data = env_div_agg))
+summary(sem_mod)
+sem_mod <- psem(
+  lm(LCBD ~ MAP + FrI, data = env_div_agg),
+  lm(FrI ~ MAP, data = env_div_agg),
+  lm(Salinity ~ MAP + FrI, data = env_div_agg))
+summary(sem_mod)
+sem_mod <- psem(
+  lm(LCBD ~ MAP + FrI, data = env_div_agg),
+  lm(FrI ~ MAP, data = env_div_agg),
+  lm(Salinity ~ MAP, data = env_div_agg))
+summary(sem_mod)
+fisherC(sem_mod)
+rsquared(sem_mod)
+
+coeffs_sem <- coefs(sem_mod, standardize = "scale")[,c(1,2,8)]
+coeffs_sem
+## Direct effect of climate variables on total community composition.
+clim_dir_effect <- coeffs_sem[1,3]
+## Ind effect of climate variables on total community composition.
+clim_ind_effect <- coeffs_sem[3,3]*coeffs_sem[2,3]
+
+total_clim_effect <- clim_dir_effect + clim_ind_effect
+
+## Direct effect of ALT on total community composition.
+ALT_dir_effect <- 0
+## Ind effect of ALT on total community composition.
+ALT_ind_effect <- 0
+total_ALT_effect <- ALT_dir_effect + ALT_ind_effect
+
+## Direct effect of DOM variables on total community composition.
+DOM_dir_effect <- coeffs_sem[2,3]
+## Ind effect of DOM variables on total community composition.
+DOM_ind_effect <- 0
+total_DOM_effect <- DOM_dir_effect + DOM_ind_effect
+
+## Direct effect of physio_chemical variables on total community composition.
+physio_chemical_dir_effect <- 0
+## Ind effect of climate variables on total community composition.
+physio_chemical_ind_effect <- 0
+total_physio_chemical_effect <- physio_chemical_dir_effect + physio_chemical_ind_effect
+## bar plot
+sem_effect <- data.frame(variable = c(rep('Climate elements',3),
+                                      rep('ALT', 3),
+                                      rep('DOM properties', 3),
+                                      rep('physio-chemical factors', 3)),
+                         type_of_effects = c(rep(c('Total effects', 'Direct effects', 
+                                                   'Indirect effects'), 4)),
+                         value = c(total_clim_effect, clim_dir_effect, clim_ind_effect,
+                                   total_ALT_effect, ALT_dir_effect, ALT_ind_effect,
+                                   total_DOM_effect, DOM_dir_effect, DOM_ind_effect,
+                                   total_physio_chemical_effect, physio_chemical_dir_effect,
+                                   physio_chemical_ind_effect))
+sem_effect$type_of_effects <- factor(sem_effect$type_of_effects, ordered = T,
+                                     levels = c('Total effects', 'Direct effects', 'Indirect effects'))
+sem_effect$variable <- factor(sem_effect$variable, ordered = T,
+                              levels = c('Climate elements', 'DOM properties', 'physio-chemical factors', 'ALT'))
+sem_effect_plot <-  ggplot(data = sem_effect, 
+                           aes(x = variable, y = value, fill = variable)) +
+  geom_bar(stat="identity", width = 0.6) +
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(limits = c(-0.8, 0.5)) +
+  labs(x = 'Variables', y = 'Standardized effects from SEM') +
+  facet_wrap(~ type_of_effects) +
+  theme_bw() +
+  theme(legend.position = 'none',
+        axis.title = element_text(color='black',size=14),
+        strip.text = element_text(color='black',size=14),
+        axis.ticks.length = unit(0.4,"lines"), axis.ticks = element_line(color='black'),
+        axis.line = element_line(colour = "black"), 
+        axis.text.y = element_text(colour='black',size=12),
+        axis.text.x = element_text(colour='black', size = 12, angle = 45, hjust = 1),
+        legend.title=element_text(size = 12),
+        legend.text=element_text(size=9),
+        legend.key=element_blank(),
+        legend.background = element_rect(colour = "white"))
+
+sem_effect_plot
+```
+
+
+```{r}
+bowen <- read.csv("https://raw.githubusercontent.com/jslefche/sem_book/master/data/bowen.csv")
+
+bowen <- na.omit(bowen)
+
+library(nlme)
+
+bowen_sem <- psem(
+  lme(observed_otus ~ status, random = ~1|Genotype, data = bowen, method = "ML"),
+  lme(RNA.DNA ~ status + observed_otus, random = ~1|Genotype, data = bowen, method = "ML"), 
+  lme(below.C ~ observed_otus + status, random = ~1|Genotype, data = bowen, method = "ML"), 
+  lme(abovebiomass_g ~ RNA.DNA + observed_otus + belowCN + status, random = ~1|Genotype, data = bowen, method = "ML"),
+  data = bowen
+)
+```
+
+
+```{r}
+library(nlme)
+library(lme4)
+
+shipley_psem <- psem(
+
+  lme(DD ~ lat, random = ~ 1 | site / tree, na.action = na.omit,
+  data = shipley),
+
+  lme(Date ~ DD, random = ~ 1 | site / tree, na.action = na.omit,
+  data = shipley),
+
+  lme(Growth ~ Date, random = ~ 1 | site / tree, na.action = na.omit,
+  data = shipley),
+
+  glmer(Live ~ Growth + (1 | site) + (1 | tree),
+  family = binomial(link = "logit"), data = shipley)
+
+  )
+
+summary(shipley_psem, .progressBar = FALSE)
+```
+
+
 

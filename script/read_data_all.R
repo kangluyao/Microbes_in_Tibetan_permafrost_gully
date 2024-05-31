@@ -70,7 +70,7 @@ sample_names(phylo_its_rare) <- metadata$Sample_name
 
 # read protist data
 ## metadata
-metadata <- read.table(file.path(wd_18s_protist, "./metadata.txt"), header = T, sep = "\t")
+metadata <- read.delim(file.path(wd_16s, "./metadata.txt"), header = T, sep = "\t")
 rownames(metadata) <- (metadata$Sample_name)
 ## otu table
 otu_pro <- read.table(file.path(wd_18s_protist, "./otutab.txt"), header = T, row.names = 1, sep = "\t")
