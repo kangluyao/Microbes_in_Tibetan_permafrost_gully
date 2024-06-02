@@ -157,6 +157,7 @@ if (!dir.exists(save.dir.multifunc)) {
 #        p1, width = 3.5, height = 2.5, units = "in")
 p1
 ```
+
 Test the difference of multifunctionality at 25%, 50%, 75%, and 90% thresholds using wilcox test.
 ```{r, fig.align='center', fig.width=8.9, fig.height=3.2}
 gcPlot <- subset(thermoThresh, thermoThresh$thresholds %in% qw(0.25, 0.5, 0.75, 0.90)) #note, using qw as %in% is a string comparison operator
@@ -552,7 +553,7 @@ single_div_comparison <- div_S1 %>%
                 width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
   geom_text(aes(label = sig, x = variables, y = (GroupCollapsed.mean/abs(GroupCollapsed.mean))*(abs(GroupCollapsed.mean) + GroupCollapsed.se)*1.2),
             position = position_dodge(0.1), vjust = 0.55) +
-  labs(x = NULL, y = "Effect size")+
+  labs(x = NULL, y = "Effect size") +
   # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
@@ -711,7 +712,7 @@ env_vars <- metadata %>%
 soil_table <- decostand(env_vars, 'standardize')
 soil_dist <- vegdist(soil_table, 'euclidean', upper = F)
 decorana(soil_dist)
-sol <- rda(substrates_table, trace = F)
+sol <- rda(soil_table, trace = F)
 sol
 soil_PC1 <- scores(sol)$sites[, 1]
 
@@ -719,16 +720,14 @@ sem_df <- data.frame(metadata[, c("Gully_id", "Group")], Soil_PC1 = soil_PC1,
                      multi_ave_func_df[, c("Plant_richness", "Soil_multidiv", "Ric_kegg", "meanFunction")])
 ```
 
-
-
 ```{r}
 #load the package
 library(piecewiseSEM)
-library(lme4)
-library(lmerTest)
+# library(lme4)
+# library(lmerTest)
 library(nlme)
 #Model
-gully_sem <- psem(
+gully_sem_1 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
   lme(Plant_richness ~ Group + Soil_PC1 + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
   lme(Soil_multidiv ~ Group + Soil_PC1 + Plant_richness + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
@@ -736,44 +735,100 @@ gully_sem <- psem(
   lme(meanFunction ~ Group + Soil_PC1 + Plant_richness + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
   data = sem_df
 )
+summary(gully_sem_1, .progressBar = FALSE)
 
 
-summary(gully_sem)
+#remove Soil_PC1 ---> Plant_richness (P = 0.8337)
+gully_sem_2 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Group + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group + Soil_PC1 + Plant_richness + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Group + Soil_PC1 + Plant_richness + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Group + Soil_PC1 + Plant_richness + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_2, .progressBar = FALSE)
+
+#remove Group ---> Plant_richness (P = 0.5907)
+gully_sem_3 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group + Soil_PC1 + Plant_richness + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Group + Soil_PC1 + Plant_richness + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Group + Soil_PC1 + Plant_richness + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_3, .progressBar = FALSE)
+
+#remove Group ---> meanFunction (P = 0.4670)
+gully_sem_4 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group + Soil_PC1 + Plant_richness + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Group + Soil_PC1 + Plant_richness + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Plant_richness + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_4, .progressBar = FALSE)
+
+#remove Group ---> Ric_kegg (P = 0.3224)
+gully_sem_5 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group + Soil_PC1 + Plant_richness + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Soil_PC1 + Plant_richness + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Plant_richness + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_5, .progressBar = FALSE)
+
+#remove Plant_richness ---> meanFunction (P = 0.3352)
+gully_sem_6 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group + Soil_PC1 + Plant_richness + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Soil_PC1 + Plant_richness + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_6, .progressBar = FALSE)
+
+#remove Ric_kegg ---> Soil_multidiv (P = 0.1656)
+gully_sem_7 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group + Soil_PC1 + Plant_richness, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Soil_PC1 + Plant_richness + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_7, .progressBar = FALSE)
+
+#remove Plant_richness ---> Soil_multidiv (P = 0.1656)
+gully_sem_8 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group + Soil_PC1, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Soil_PC1 + Plant_richness + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_8, .progressBar = FALSE)
+
+#remove Soil_PC1 ---> Soil_multidiv (P = 0.1656)
+gully_sem_9 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Soil_PC1 + Plant_richness + Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_9, .progressBar = FALSE)
 
 
-sem_mod <- psem(
-  lm(LCBD ~ MAP + FrI + Salinity +ALT, data = env_div_agg),
-  lm(ALT ~ MAP, data = env_div_agg),
-  lm(FrI ~ MAP + ALT, data = env_div_agg),
-  lm(Salinity ~ MAP + FrI, data = env_div_agg))
-summary(sem_mod)
-sem_mod <- psem(
-  lm(LCBD ~ MAP + FrI + Salinity +ALT, data = env_div_agg),
-  lm(FrI ~ MAP + ALT, data = env_div_agg),
-  lm(Salinity ~ MAP + FrI, data = env_div_agg))
-summary(sem_mod)
-sem_mod <- psem(
-  lm(LCBD ~ MAP + FrI + Salinity, data = env_div_agg),
-  lm(FrI ~ MAP + ALT, data = env_div_agg),
-  lm(Salinity ~ MAP + FrI, data = env_div_agg))
-summary(sem_mod)
-sem_mod <- psem(
-  lm(LCBD ~ MAP + FrI, data = env_div_agg),
-  lm(FrI ~ MAP + ALT, data = env_div_agg),
-  lm(Salinity ~ MAP + FrI, data = env_div_agg))
-summary(sem_mod)
-sem_mod <- psem(
-  lm(LCBD ~ MAP + FrI, data = env_div_agg),
-  lm(FrI ~ MAP, data = env_div_agg),
-  lm(Salinity ~ MAP + FrI, data = env_div_agg))
-summary(sem_mod)
-sem_mod <- psem(
-  lm(LCBD ~ MAP + FrI, data = env_div_agg),
-  lm(FrI ~ MAP, data = env_div_agg),
-  lm(Salinity ~ MAP, data = env_div_agg))
-summary(sem_mod)
-fisherC(sem_mod)
-rsquared(sem_mod)
+
+
 
 coeffs_sem <- coefs(sem_mod, standardize = "scale")[,c(1,2,8)]
 coeffs_sem
