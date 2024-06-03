@@ -894,7 +894,7 @@ coeffs_sem <- coefs(gully_sem_13, standardize = "scale")[,c(1,2,8)]
 coeffs_sem
 ```
 
-```{r, fig.align='center', fig.height=3.5, fig.width=5}
+```{r}
 ## Direct effect of collapsed on EMF.
 colla_dir_effect <- 0
 ## Indirect effect of collapsed on EMF.
@@ -922,14 +922,16 @@ sem_effect <- data.frame(variable = c(rep('Permafrost thawing',3),
                                                    'Indirect effects'), 3)),
                          value = c(total_colla_effect, colla_dir_effect, colla_ind_effect,
                                    total_soil_effect, soil_dir_effect, soil_ind_effect,
-                                   total_gene_effect, gene_dir_effect, gene_ind_effect))
-sem_effect$type_of_effects <- factor(sem_effect$type_of_effects, ordered = T,
-                                     levels = c('Total effects', 'Direct effects', 'Indirect effects'))
+                                   total_gene_effect, gene_dir_effect, gene_ind_effect)) %>% 
+  mutate(type_of_effects = factor(type_of_effects, ordered = T,
+                                  levels = c('Total effects', 'Direct effects', 'Indirect effects'))) %>%
+  mutate(variable = factor(variable, ordered = T,
+                                    levels = c('Permafrost thawing', 'Soil properties', 'Functional genes')))
+           
+sem_effect[1:5, 1:3]
+```
 
-
-
-sem_effect$variable <- factor(sem_effect$variable, ordered = T,
-                              levels = c('Permafrost thawing', 'Soil properties', 'Functional genes'))
+```{r, fig.align='center', fig.height=3.5, fig.width=5}
 sem_effect_plot <-  ggplot(data = sem_effect, 
                            aes(x = variable, y = value, fill = variable)) +
   geom_bar(stat = "identity", width = 0.6) +
@@ -952,117 +954,5 @@ sem_effect_plot <-  ggplot(data = sem_effect,
 
 sem_effect_plot
 ```
-
-
-
-
-
-
-coeffs_sem <- coefs(sem_mod, standardize = "scale")[,c(1,2,8)]
-coeffs_sem
-## Direct effect of climate variables on total community composition.
-clim_dir_effect <- coeffs_sem[1,3]
-## Ind effect of climate variables on total community composition.
-clim_ind_effect <- coeffs_sem[3,3]*coeffs_sem[2,3]
-
-total_clim_effect <- clim_dir_effect + clim_ind_effect
-
-## Direct effect of ALT on total community composition.
-ALT_dir_effect <- 0
-## Ind effect of ALT on total community composition.
-ALT_ind_effect <- 0
-total_ALT_effect <- ALT_dir_effect + ALT_ind_effect
-
-## Direct effect of DOM variables on total community composition.
-DOM_dir_effect <- coeffs_sem[2,3]
-## Ind effect of DOM variables on total community composition.
-DOM_ind_effect <- 0
-total_DOM_effect <- DOM_dir_effect + DOM_ind_effect
-
-## Direct effect of physio_chemical variables on total community composition.
-physio_chemical_dir_effect <- 0
-## Ind effect of climate variables on total community composition.
-physio_chemical_ind_effect <- 0
-total_physio_chemical_effect <- physio_chemical_dir_effect + physio_chemical_ind_effect
-## bar plot
-sem_effect <- data.frame(variable = c(rep('Climate elements',3),
-                                      rep('ALT', 3),
-                                      rep('DOM properties', 3),
-                                      rep('physio-chemical factors', 3)),
-                         type_of_effects = c(rep(c('Total effects', 'Direct effects', 
-                                                   'Indirect effects'), 4)),
-                         value = c(total_clim_effect, clim_dir_effect, clim_ind_effect,
-                                   total_ALT_effect, ALT_dir_effect, ALT_ind_effect,
-                                   total_DOM_effect, DOM_dir_effect, DOM_ind_effect,
-                                   total_physio_chemical_effect, physio_chemical_dir_effect,
-                                   physio_chemical_ind_effect))
-sem_effect$type_of_effects <- factor(sem_effect$type_of_effects, ordered = T,
-                                     levels = c('Total effects', 'Direct effects', 'Indirect effects'))
-sem_effect$variable <- factor(sem_effect$variable, ordered = T,
-                              levels = c('Climate elements', 'DOM properties', 'physio-chemical factors', 'ALT'))
-sem_effect_plot <-  ggplot(data = sem_effect, 
-                           aes(x = variable, y = value, fill = variable)) +
-  geom_bar(stat="identity", width = 0.6) +
-  geom_hline(yintercept = 0) +
-  scale_y_continuous(limits = c(-0.8, 0.5)) +
-  labs(x = 'Variables', y = 'Standardized effects from SEM') +
-  facet_wrap(~ type_of_effects) +
-  theme_bw() +
-  theme(legend.position = 'none',
-        axis.title = element_text(color='black',size=14),
-        strip.text = element_text(color='black',size=14),
-        axis.ticks.length = unit(0.4,"lines"), axis.ticks = element_line(color='black'),
-        axis.line = element_line(colour = "black"), 
-        axis.text.y = element_text(colour='black',size=12),
-        axis.text.x = element_text(colour='black', size = 12, angle = 45, hjust = 1),
-        legend.title=element_text(size = 12),
-        legend.text=element_text(size=9),
-        legend.key=element_blank(),
-        legend.background = element_rect(colour = "white"))
-
-sem_effect_plot
-```
-
-
-```{r}
-bowen <- read.csv("https://raw.githubusercontent.com/jslefche/sem_book/master/data/bowen.csv")
-
-bowen <- na.omit(bowen)
-
-library(nlme)
-
-bowen_sem <- psem(
-  lme(observed_otus ~ status, random = ~1|Genotype, data = bowen, method = "ML"),
-  lme(RNA.DNA ~ status + observed_otus, random = ~1|Genotype, data = bowen, method = "ML"), 
-  lme(below.C ~ observed_otus + status, random = ~1|Genotype, data = bowen, method = "ML"), 
-  lme(abovebiomass_g ~ RNA.DNA + observed_otus + belowCN + status, random = ~1|Genotype, data = bowen, method = "ML"),
-  data = bowen
-)
-```
-
-
-```{r}
-library(nlme)
-library(lme4)
-
-shipley_psem <- psem(
-
-  lme(DD ~ lat, random = ~ 1 | site / tree, na.action = na.omit,
-  data = shipley),
-
-  lme(Date ~ DD, random = ~ 1 | site / tree, na.action = na.omit,
-  data = shipley),
-
-  lme(Growth ~ Date, random = ~ 1 | site / tree, na.action = na.omit,
-  data = shipley),
-
-  glmer(Live ~ Growth + (1 | site) + (1 | tree),
-  family = binomial(link = "logit"), data = shipley)
-
-  )
-
-summary(shipley_psem, .progressBar = FALSE)
-```
-
 
 
