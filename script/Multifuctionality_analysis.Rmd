@@ -951,7 +951,6 @@ sem_effect_plot <-  ggplot(data = sem_effect,
         legend.text = element_text(size = 6),
         legend.key = element_blank(),
         legend.background = element_rect(colour = "white"))
-
 sem_effect_plot
 ```
 

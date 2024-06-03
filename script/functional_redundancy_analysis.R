@@ -230,8 +230,6 @@ ggplot2::ggplot(richness_table, aes(x = Group, y = S.obs)) +
 
 library(rstatix)
 data.frame(Richness = richness_table$S.obs, meanFunction = multi_ave_func_df$meanFunction) %>%
-  identify_outliers(Richness) %>%
-  identify_outliers(meanFunction)
   ggplot(aes(x = Richness, y = meanFunction)) +
   geom_point(size = 2, alpha = 0.8, aes(colour = "#5cc3e8")) +
   geom_smooth(method = "lm", size = 1, se = T, colour = 'black') +
@@ -245,3 +243,190 @@ data.frame(Richness = richness_table$S.obs, meanFunction = multi_ave_func_df$mea
   xlab("\nDiversity") + 
   ylab("Average Value of Standardized Functions\n") +
   main_theme + theme(legend.position = "none")
+
+
+### PERMANOVA test
+library(usedist)
+item_groups <- rep(rep(c("Control", "Collapsed"), each = 5), 6)
+tax_16s_dist <- as.matrix(vegdist(t(otu_16s), "bray")) %>%
+  usedist::dist_groups(., item_groups)
+phy_dist <- as.matrix(UniFrac(phylo_16s, weighted = TRUE, normalized = TRUE, parallel = T, fast = TRUE)) %>%
+  usedist::dist_groups(., item_groups)
+fun_dist <- as.matrix(vegdist(t(ko_tpm_table), "bray")) %>%
+  usedist::dist_groups(., item_groups)
+
+
+dist_dat <- data.frame(tax_16s_dist, phy_dist[ , 6], fun_dist[ , 6])
+colnames(dist_dat) <- c("Item1", "Item2", "Group1", "Group2", "Label", "Taxnomic_distance", "Phylogenetic_distance", "Functional_distance")
+
+
+p_linear_tax_fun <- dist_dat %>%
+  filter(Label %in% c("Within Control", "Within Collapsed")) %>%
+  mutate(Group1 = factor(Group1, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Taxnomic_distance, y = Functional_distance, fill = Group1)) +
+  geom_point(size = 3.5, alpha = 0.8, aes(colour = Group1)) +
+  geom_smooth(method = "lm", size=1, se = T, colour = 'black') +
+  scale_colour_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  scale_fill_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  stat_poly_line(colour = 'black') +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group1)) +
+  ylab("Functional distance")+xlab("Taxnomic distance") +
+  theme_bw() +
+  theme(panel.grid = element_blank(), 
+        axis.title = element_text(color = 'black', size = 14),
+        axis.ticks.length = unit(0.2, "lines"), axis.ticks = element_line(color = 'black'),
+        axis.line = element_blank(), 
+        axis.text.y = element_text(colour = 'black',size = 12),
+        axis.text.x = element_text(colour = 'black', size = 12),
+        strip.text = element_text(size = 14),
+        legend.position = c(0.15, 0.65))
+p_linear_tax_fun
+
+
+
+
+p_linear_phy_fun <- dist_dat %>%
+  filter(Label %in% c("Within Control", "Within Collapsed")) %>%
+  mutate(Group1 = factor(Group1, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Phylogenetic_distance, y = Functional_distance, fill = Group1)) +
+  geom_point(size = 3.5, alpha = 0.8, aes(colour = Group1)) +
+  geom_smooth(method = "lm", size=1, se = T, colour = 'black') +
+  scale_colour_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  scale_fill_manual(values = c("#f8766d", "#a3a500", "#00b0f6")) +
+  stat_poly_line(colour = 'black') +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), sep = "*\", \"*"), colour = Group1)) +
+  ylab("Functional distance")+xlab("Phylogenetic distance") +
+  theme_bw() +
+  theme(panel.grid = element_blank(), 
+        axis.title = element_text(color = 'black', size = 14),
+        axis.ticks.length = unit(0.2, "lines"), axis.ticks = element_line(color = 'black'),
+        axis.line = element_blank(), 
+        axis.text.y = element_text(colour = 'black',size = 12),
+        axis.text.x = element_text(colour = 'black', size = 12),
+        strip.text = element_text(size = 14),
+        legend.position = c(0.15, 0.65))
+p_linear_phy_fun
+
+
+
+
+
+
+
+uniqueness <- function(comm, dis, tol = 1e-8, abundance = TRUE){
+  
+  if(!is.null(colnames(comm)) & !is.null(attributes(dis)$Labels)){
+    if(any(!colnames(comm)%in%attributes(dis)$Labels)) stop("One or several species in comm are not in dis; check species names in comm and in dis")
+    else dis <- as.dist(as.matrix(dis)[colnames(comm), colnames(comm)])
+  }
+  else if(ncol(comm)!=attributes(dis)$Size) stop("the number of species in comm must be equal to that in dis") 		
+  
+  D <- as.matrix(dis)
+  if(!abundance){
+    comm[comm>0] <- 1
+  }
+  commt <- as.data.frame(t(comm))
+  
+  funK <- function(v){
+    p <- v/sum(v)
+    K <- apply(D, 1, function(x) sum(x*p))
+    K[p<tol] <- NA
+    return(K)
+  }
+  V <- cbind.data.frame(sapply(commt, funK))
+  rownames(V) <- colnames(comm)
+  colnames(V) <- rownames(comm)
+  funKbar <- function(v){
+    p <- v/sum(v)
+    Kbar <- sapply(1:nrow(D), function(i) sum(D[i,]*v/sum(v[-i])))
+    Kbar[p<tol] <- NA
+    return(Kbar)
+  }
+  Kbar <- cbind.data.frame(sapply(commt, funKbar))
+  rownames(Kbar) <- colnames(comm)
+  colnames(Kbar) <- rownames(comm)
+  funQ <- function(v){
+    p <- v/sum(v)
+    Q <- t(p)%*%D%*%p
+    return(Q)
+  }
+  Q <- unlist(sapply(commt, funQ))
+  
+  funSim <- function(v){
+    p <- v/sum(v)
+    S <- 1-sum(p^2)
+    return(S)
+  }
+  Sim <- unlist(sapply(commt, funSim))
+  
+  funN <- function(v){
+    p <- v/sum(v)
+    N <- length(p[p>tol])
+    return(N)
+  }
+  N <- unlist(sapply(commt, funN))
+  U <- Q/Sim
+  
+  
+  red <- cbind.data.frame(N=N, D=Sim, Q=Q, U=U)
+  rownames(red) <- rownames(comm)
+  
+  res <- list()
+  res$Kbar <- Kbar
+  res$V <- V
+  res$red <- red
+  return(res)
+  
+}
+
+
+# Load in R the first data set analyzed in the main text. Name Com the data frame with species' abundances (species as rows and plots as columns as in Appendix S2). Name T the data frame with species' traits (species as rows and C, S, R as columns as in Appendix S2). 
+Com <- species.abund # Species are columns and plots are rows
+traits <- trait.levels
+Com <- Com[, rownames(traits)]
+
+# Here we define a function to calculate the Marczewski–Steinhaus coefficient among species' trait profiles.
+
+dist.MS <- function (comm, diag = FALSE, upper = FALSE, tol = 1e-07) 
+{
+  
+  df <- data.frame(comm)
+  if (!inherits(df, "data.frame")) 
+    stop("df is not a data.frame")
+  nlig <- nrow(df)
+  d <- matrix(0, nlig, nlig)
+  d.names <- row.names(df)
+  fun1 <- function(x) {
+    sum(abs(df[x[1], ] - df[x[2], ]))/sum(apply(cbind.data.frame(df[x[1], ], df[x[2], ]), 1, max))
+  }
+  df <- as.matrix(df)
+  index <- cbind(col(d)[col(d) < row(d)], row(d)[col(d) < row(d)])
+  
+  d <- unlist(apply(index, 1, fun1))
+  
+  attr(d, "Size") <- nlig
+  attr(d, "Labels") <- d.names
+  attr(d, "Diag") <- diag
+  attr(d, "Upper") <- upper
+  attr(d, "method") <- "Marczewski–Steinhaus"
+  attr(d, "call") <- match.call()
+  class(d) <- "dist"
+  return(d)
+}
+# This function is a modification of function dist.quant from library ade4 (Dray & Dufour 2007) where other dissimilarity coefficients can be found.
+
+Dis <- dist.MS(traits)
+Uni <- uniqueness(Com, Dis, abundance = TRUE)
+
+fac <- factor(rep(rep(c("Control", "Collapsed"), each = 5), 6), levels = c("Control", "Collapsed"))
+
+#Mean for species richness N, the Rao index Q, the Simpson index D, and community-level functional uniqueness   for the three successional stages identified along the primary succession on the foreland of the Rutor glacier.
+sapply(Uni$red, function(x) tapply(x, fac, mean))
+
+#SD for species richness N, the Rao index Q, the Simpson index D, and community-level functional uniqueness   for the three successional stages identified along the primary succession on the foreland of the Rutor glacier.
+sapply(Uni$red, function(x) tapply(x, fac, sd))
+
+
+
