@@ -717,15 +717,11 @@ sol
 soil_PC1 <- scores(sol)$sites[, 1]
 
 sem_df <- data.frame(metadata[, c("Gully_id", "Group")], Soil_PC1 = soil_PC1, 
-                     multi_ave_func_df[, c("Plant_richness", "Soil_multidiv", "Ric_kegg", "meanFunction")])
+                     multi_ave_func_df[, c("Plant_richness", "Soil_multidiv", "Ric_kegg", "meanFunction")]) %>% 
+  mutate(Group = ifelse(Group == "Control", 0, 1))
 ```
 
 ```{r}
-#load the package
-library(piecewiseSEM)
-# library(lme4)
-# library(lmerTest)
-library(nlme)
 #Model
 gully_sem_1 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
@@ -736,8 +732,9 @@ gully_sem_1 <- psem(
   data = sem_df
 )
 summary(gully_sem_1, .progressBar = FALSE)
+```
 
-
+```{r}
 #remove Soil_PC1 ---> Plant_richness (P = 0.8337)
 gully_sem_2 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
@@ -749,7 +746,7 @@ gully_sem_2 <- psem(
 )
 summary(gully_sem_2, .progressBar = FALSE)
 
-#remove Group ---> Plant_richness (P = 0.5907)
+#remove Group ---> Plant_richness (P = 0.6024)
 gully_sem_3 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
   lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
@@ -759,8 +756,10 @@ gully_sem_3 <- psem(
   data = sem_df
 )
 summary(gully_sem_3, .progressBar = FALSE)
+```
 
-#remove Group ---> meanFunction (P = 0.4670)
+```{r}
+#remove Group ---> meanFunction (P = 0.4935)
 gully_sem_4 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
   lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
@@ -770,8 +769,10 @@ gully_sem_4 <- psem(
   data = sem_df
 )
 summary(gully_sem_4, .progressBar = FALSE)
+```
 
-#remove Group ---> Ric_kegg (P = 0.3224)
+```{r}
+#remove Group ---> Ric_kegg (P = 0.3480)
 gully_sem_5 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
   lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
@@ -781,8 +782,10 @@ gully_sem_5 <- psem(
   data = sem_df
 )
 summary(gully_sem_5, .progressBar = FALSE)
+```
 
-#remove Plant_richness ---> meanFunction (P = 0.3352)
+```{r}
+#remove Plant_richness ---> meanFunction (P = 0.2241)
 gully_sem_6 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
   lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
@@ -792,7 +795,9 @@ gully_sem_6 <- psem(
   data = sem_df
 )
 summary(gully_sem_6, .progressBar = FALSE)
+```
 
+```{r}
 #remove Ric_kegg ---> Soil_multidiv (P = 0.1656)
 gully_sem_7 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
@@ -803,8 +808,10 @@ gully_sem_7 <- psem(
   data = sem_df
 )
 summary(gully_sem_7, .progressBar = FALSE)
+```
 
-#remove Plant_richness ---> Soil_multidiv (P = 0.1656)
+```{r}
+#remove Plant_richness ---> Soil_multidiv (P = 0.1012)
 gully_sem_8 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
   lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
@@ -814,8 +821,10 @@ gully_sem_8 <- psem(
   data = sem_df
 )
 summary(gully_sem_8, .progressBar = FALSE)
+```
 
-#remove Soil_PC1 ---> Soil_multidiv (P = 0.1656)
+```{r}
+#remove Soil_PC1 ---> Soil_multidiv (P = 0.2974)
 gully_sem_9 <- psem(
   lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
   lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
@@ -825,6 +834,125 @@ gully_sem_9 <- psem(
   data = sem_df
 )
 summary(gully_sem_9, .progressBar = FALSE)
+```
+
+```{r}
+#remove Soil_multidiv ---> Ric_kegg (P = 0.0731)
+gully_sem_10 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Soil_PC1 + Plant_richness, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_10, .progressBar = FALSE)
+```
+
+```{r}
+#remove Plant_richness ---> Ric_kegg (P = 0.1414)
+gully_sem_11 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Soil_PC1, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Soil_multidiv + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_11, .progressBar = FALSE)
+```
+
+```{r}
+#remove Soil_multidiv ---> meanFunction (P = 0.0626)
+gully_sem_12 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Plant_richness ~ Soil_multidiv, random = ~1|Gully_id, data = sem_df, method = "ML"), 
+  lme(Soil_multidiv ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Soil_PC1, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_12, .progressBar = FALSE)
+```
+
+```{r}
+#remove Soil_multidiv ---> Plant_richness (P = 0.0611)
+gully_sem_13 <- psem(
+  lme(Soil_PC1 ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Soil_multidiv ~ Group, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(Ric_kegg ~ Soil_PC1, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  lme(meanFunction ~ Soil_PC1 + Ric_kegg, random = ~1|Gully_id, data = sem_df, method = "ML"),
+  data = sem_df
+)
+summary(gully_sem_13, .progressBar = FALSE)
+```
+
+```{r}
+fisherC(gully_sem_13)
+rsquared(gully_sem_13)
+coeffs_sem <- coefs(gully_sem_13, standardize = "scale")[,c(1,2,8)]
+coeffs_sem
+```
+
+```{r, fig.align='center', fig.height=3.5, fig.width=5}
+## Direct effect of collapsed on EMF.
+colla_dir_effect <- 0
+## Indirect effect of collapsed on EMF.
+colla_ind_effect <- coeffs_sem[1,3]*coeffs_sem[4,3] + coeffs_sem[1,3]*coeffs_sem[3,3]*coeffs_sem[5,3]
+
+total_colla_effect <- colla_dir_effect + colla_ind_effect
+
+## Direct effect of soil variables on EMF.
+soil_dir_effect <- coeffs_sem[1,3]
+## Ind effect of soil variables on EMF.
+soil_ind_effect <- coeffs_sem[3,3]*coeffs_sem[5,3]
+total_soil_effect <- soil_dir_effect + soil_ind_effect
+
+## Direct effect of functional genes on EMF.
+gene_dir_effect <- coeffs_sem[5,3]
+## Ind effect of Dfunctional genes on EMF.
+gene_ind_effect <- 0
+total_gene_effect <- gene_dir_effect + gene_ind_effect
+
+## bar plot
+sem_effect <- data.frame(variable = c(rep('Permafrost thawing',3),
+                                      rep('Soil properties', 3),
+                                      rep('Functional genes', 3)),
+                         type_of_effects = c(rep(c('Total effects', 'Direct effects', 
+                                                   'Indirect effects'), 3)),
+                         value = c(total_colla_effect, colla_dir_effect, colla_ind_effect,
+                                   total_soil_effect, soil_dir_effect, soil_ind_effect,
+                                   total_gene_effect, gene_dir_effect, gene_ind_effect))
+sem_effect$type_of_effects <- factor(sem_effect$type_of_effects, ordered = T,
+                                     levels = c('Total effects', 'Direct effects', 'Indirect effects'))
+
+
+
+sem_effect$variable <- factor(sem_effect$variable, ordered = T,
+                              levels = c('Permafrost thawing', 'Soil properties', 'Functional genes'))
+sem_effect_plot <-  ggplot(data = sem_effect, 
+                           aes(x = variable, y = value, fill = variable)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  geom_hline(yintercept = 0) +
+  scale_y_continuous(limits = c(-0.65, 0.65)) +
+  labs(x = 'Variables', y = 'Standardized effects from SEM') +
+  facet_wrap( ~ type_of_effects) +
+  theme_bw() +
+  theme(legend.position = 'none',
+        axis.title = element_text(color = 'black', size = 7),
+        strip.text = element_text(color = 'black',size = 6),
+        axis.ticks.length = unit(0.4, "lines"), axis.ticks = element_line(color = 'black'),
+        axis.line = element_line(colour = "black"), 
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6, angle = 45, hjust = 1),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 6),
+        legend.key = element_blank(),
+        legend.background = element_rect(colour = "white"))
+
+sem_effect_plot
+```
+
 
 
 
