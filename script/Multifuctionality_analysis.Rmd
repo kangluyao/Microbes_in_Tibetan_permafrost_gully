@@ -936,7 +936,7 @@ sem_effect_plot <-  ggplot(data = sem_effect,
                            aes(x = variable, y = value, fill = variable)) +
   geom_bar(stat = "identity", width = 0.6) +
   geom_hline(yintercept = 0) +
-  scale_y_continuous(limits = c(-0.65, 0.65)) +
+  scale_y_continuous(limits = c(-0.60, 0.60)) +
   labs(x = 'Variables', y = 'Standardized effects from SEM') +
   facet_wrap( ~ type_of_effects) +
   theme_bw() +
