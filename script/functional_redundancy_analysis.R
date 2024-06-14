@@ -418,7 +418,7 @@ dist.MS <- function (comm, diag = FALSE, upper = FALSE, tol = 1e-07)
 # This function is a modification of function dist.quant from library ade4 (Dray & Dufour 2007) where other dissimilarity coefficients can be found.
 
 Dis <- dist.MS(traits)
-Uni <- uniqueness(Com, Dis, abundance = TRUE)
+Uni <- uniqueness(Com, Dis, abundance = T)
 
 fac <- factor(rep(rep(c("Control", "Collapsed"), each = 5), 6), levels = c("Control", "Collapsed"))
 
