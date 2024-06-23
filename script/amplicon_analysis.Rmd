@@ -147,7 +147,7 @@ div_gully_plot
 library(gghalves)
 div_plot <- div_table %>% select(-c("Sample_name", "Gully_id")) %>%
   gather(diversity, value, -c("Group")) %>% 
-  mutate(diversity = factor(diversity, levels = c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Phy_16s", "Phy_its", "Phy_pro", "Phy_anim", "Soil_multidiv"))) %>%
+  mutate(diversity = factor(diversity, levels = c("Soil_multidiv", "Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Phy_16s", "Phy_its", "Phy_pro", "Phy_anim"))) %>%
   ggplot(aes(Group, value, fill = Group)) +
   geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
   geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +

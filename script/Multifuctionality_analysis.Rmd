@@ -22,7 +22,7 @@ setwd('e:/thermokarst_gully/')
 save.dir <- file.path(getwd(),"result")
 ```
 Loading packages
-```{r}
+```{r,message=FALSE}
 # Averaging Approach
 library(multifunc)
 
@@ -45,9 +45,9 @@ library(lme4)
 ```
 
 Read data
-```{r}
+```{r, message=FALSE}
 # read metadata
-# source("script/read_data_all.R")
+source("script/read_data_all.R")
 # taxonomic diversity
 div_table <- read.table(file = file.path(save.dir, 'tables/div_table_all.csv'),
              sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
@@ -636,7 +636,7 @@ diff_richness_abun_plot
 ```
 
 # Structural Equation Modeling
-```{r}
+```{r,message=FALSE}
 # determine the effect size of the permafrost thawing for the environmental variables
 env_index <- c("pH", "Soil_moisture", "Clay.Silt")
 

@@ -1,0 +1,354 @@
+---
+title: "Diversity and Distance analysis"
+author: "Luyao Kang"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: yes
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r setup, include = F}
+knitr::opts_chunk$set(
+  collapse = T, echo = T, comment = "#>", message = F, warning = F,
+	fig.align = "center", fig.width= 4.5, fig.height = 3, dpi = 150)
+```
+## Data input 
+Set working and saving directory
+```{r, message=FALSE}
+setwd('e:/thermokarst_gully/')
+save.dir <- file.path(getwd(),"result")
+```
+Loading packages
+```{r}
+pacman::p_load(phyloseq, ape, vegan, Biostrings, microbiome, tidyverse, rstatix)
+```
+Data input
+```{r, message=FALSE}
+#Read in data
+source("script/read_data_all.R")
+div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_richness_table_all.csv",
+             sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
+```
+
+## Descriptive statistics for all diversity indexes
+```{r}
+div_index <- c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_kegg")
+div_stats <- div_table %>% group_by(Group) %>%
+  get_summary_stats(div_index, type = "common") %>% #or using type = "mean_sd"
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  arrange(variable, Group)
+div_stats
+```
+## Linear mixed models test the effect of permafrost thawing on microbial diversity
+```{r, message=FALSE}
+library(lme4)
+library(lmerTest)
+lmm_div_modes <- lapply(div_index, function(x) {
+  lmer(substitute(i ~ Group + (1|Gully_id), list(i = as.name(x))), data = div_table)})
+summary.model <- function(model){
+  F.value <- anova(model)$'F value'
+  p.value <- anova(model)$'Pr(>F)'
+  p.stars <- function(p.values) {
+    unclass(symnum(p.values, corr = FALSE, 
+                   na = FALSE, cutpoints = c(0,0.001, 0.01, 0.05, 0.1, 1),
+                   symbols = c("***", "**", "*", ".", " ")))}
+  sig <- p.stars(p.value)
+  results<-data.frame(F.value, p.value, sig)
+  return(results)
+}
+df <- NULL
+for(i in 1:length(div_index)) {
+  tmp <- summary.model(lmm_div_modes[[i]])
+  if (is.null(df)){
+    df <- tmp
+  } else {
+    df <- rbind(df, tmp)
+  }
+}
+
+div_result_lmm <-data.frame(diversity = div_index, group1 = rep("Control", length(div_index)),
+                            group2 = rep("Collapsed", length(div_index)), df)
+div_result_lmm
+```
+```{r, fig.align='center', fig.height=2, fig.width=7}
+# Add the p-value manually
+sig.div.labs <- data.frame(Group = div_stats$Group, 
+                       diversity = div_stats$variable,
+                       y.pos = div_stats$max *1.05,
+                       sig.lab = c("a", "b", "a", "b", "a", "b", "a", "b", "b", "a"))
+# Create a box plot
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 7),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 7),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.title = element_text(colour = 'black', size = 7),
+        legend.text = element_text(colour = 'black', size = 6),
+        legend.key.size = unit(0.5, 'cm'))
+library(gghalves)
+div_plot <- div_table %>% select(c("Group", div_index)) %>%
+  gather(diversity, value, -c("Group")) %>% 
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(diversity = factor(diversity, levels = div_index)) %>%
+  ggplot(aes(Group, value, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
+  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  geom_text(data = sig.div.labs, aes(y = y.pos, label = sig.lab), 
+                  position = position_dodge(width = .75), size = 3.5) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~diversity, scales = "free_y", ncol = 5) +
+  main_theme +
+  theme(legend.position = "none")
+
+# save the plot
+div_plot
+```
+
+## Test the overall difference in the taxonomic and functional composition.
+```{r}
+library(vegan)
+#determine the dissimilarity matrix based on the bray-curties distance
+tax_16s_dist <-vegdist(t(otu_16s), "bray")
+tax_its_dist <-vegdist(t(otu_its), "bray")
+tax_pro_dist <-vegdist(t(otu_pro), "bray")
+tax_anim_dist <-vegdist(t(otu_anim), "bray")
+fun_dist <-vegdist(t(ko_count_table), "bray")
+#permanova test the difference in compositional variance
+adonis2(tax_16s_dist ~ Group, data = metadata)
+adonis2(tax_its_dist ~ Group, data = metadata)
+adonis2(tax_pro_dist ~ Group, data = metadata)
+adonis2(tax_anim_dist ~ Group, data = metadata)
+adonis2(fun_dist ~ Group, data = metadata)
+```
+Visualization for the overall difference by PCoA plot.
+```{r, fig.align='center', fig.width=8.9, fig.height=2.5}
+#16S
+ord.16s <-  cmdscale(tax_16s_dist,  k = 2, eig = T, add = T)
+pcoa_16s_plot <- data.frame(Group = metadata$Group, scores(ord.16s)) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
+  geom_point(size = 1, alpha = 0.8) + 
+  # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
+  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  labs(x=paste("PCoA1 (", format(100 * ord.16s$eig[1] / sum(ord.16s$eig), digits = 3), "%)", sep = ""),
+       y=paste("PCoA2 (", format(100 * ord.16s$eig[2] / sum(ord.16s$eig), digits = 3), "%)", sep = "")) +
+  theme(legend.position = "none", 
+        axis.title = element_text(size = 8, colour = "black"),
+        axis.text = element_text(size = 6, colour = "black"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        panel.grid = element_blank(),
+        panel.background = element_blank(), 
+        panel.border = element_rect(fill = NA, colour = "black"))
+#ITS
+ord.its <-  cmdscale(tax_its_dist,  k = 2, eig = T, add = T)
+pcoa_its_plot <- data.frame(Group = metadata$Group, scores(ord.its)) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
+  geom_point(size = 1, alpha = 0.8) + 
+  # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
+  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  labs(x=paste("PCoA1 (", format(100 * ord.its$eig[1] / sum(ord.its$eig), digits = 3), "%)", sep = ""),
+       y=paste("PCoA2 (", format(100 * ord.its$eig[2] / sum(ord.its$eig), digits = 3), "%)", sep = "")) +
+  theme(legend.position = "none", 
+        axis.title = element_text(size = 8, colour = "black"),
+        axis.text = element_text(size = 6, colour = "black"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        panel.grid = element_blank(),
+        panel.background = element_blank(), 
+        panel.border = element_rect(fill = NA, colour = "black"))
+#protist
+ord.pro <-  cmdscale(tax_pro_dist,  k = 2, eig = T, add = T)
+pcoa_pro_plot <- data.frame(Group = metadata$Group, scores(ord.pro)) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
+  geom_point(size = 1, alpha = 0.8) + 
+  # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
+  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  labs(x=paste("PCoA1 (", format(100 * ord.pro$eig[1] / sum(ord.pro$eig), digits = 3), "%)", sep = ""),
+       y=paste("PCoA2 (", format(100 * ord.pro$eig[2] / sum(ord.pro$eig), digits = 3), "%)", sep = "")) +
+  theme(legend.position = "none", 
+        axis.title = element_text(size = 8, colour = "black"),
+        axis.text = element_text(size = 6, colour = "black"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        panel.grid = element_blank(),
+        panel.background = element_blank(), 
+        panel.border = element_rect(fill = NA, colour = "black"))
+#Animal
+ord.anim <-  cmdscale(tax_anim_dist,  k = 2, eig = T, add = T)
+pcoa_anim_plot <- data.frame(Group = metadata$Group, scores(ord.anim)) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
+  geom_point(size = 1, alpha = 0.8) + 
+  # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
+  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  labs(x=paste("PCoA1 (", format(100 * ord.anim$eig[1] / sum(ord.anim$eig), digits = 3), "%)", sep = ""),
+       y=paste("PCoA2 (", format(100 * ord.anim$eig[2] / sum(ord.anim$eig), digits = 3), "%)", sep = "")) +
+  theme(legend.position = "none", 
+        axis.title = element_text(size = 8, colour = "black"),
+        axis.text = element_text(size = 6, colour = "black"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        panel.grid = element_blank(),
+        panel.background = element_blank(), 
+        panel.border = element_rect(fill = NA, colour = "black"))
+#Function
+ord.fun <-  cmdscale(fun_dist,  k = 2, eig = T, add = T)
+pcoa_fun_plot <- data.frame(Group = metadata$Group, scores(ord.fun)) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
+  geom_point(size = 1, alpha = 0.8) + 
+  # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
+  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  labs(x=paste("PCoA1 (", format(100 * ord.fun$eig[1] / sum(ord.fun$eig), digits = 3), "%)", sep = ""),
+       y=paste("PCoA2 (", format(100 * ord.fun$eig[2] / sum(ord.fun$eig), digits = 3), "%)", sep = "")) +
+  theme(legend.position = "none",
+        axis.title = element_text(size = 8, colour = "black"),
+        axis.text = element_text(size = 6, colour = "black"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        panel.grid = element_blank(),
+        panel.background = element_blank(), 
+        panel.border = element_rect(fill = NA, colour = "black"))
+cowplot::plot_grid(pcoa_16s_plot, pcoa_its_plot, pcoa_pro_plot, pcoa_anim_plot, pcoa_fun_plot, ncol = 5)
+```
+## Explore the biotic homogenization
+```{r, message=FALSE}
+# difference in taxonomic variance among Group
+vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
+Similar_16s_data <- sapply(vars, function(x) usedist::dist_subset(tax_16s_dist, grep(x, metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
+
+Similar_its_data <- sapply(vars, function(x) usedist::dist_subset(tax_its_dist, grep(x, metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
+
+Similar_pro_data <- sapply(vars, function(x) usedist::dist_subset(tax_pro_dist, grep(x, metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
+
+Similar_anim_data <- sapply(vars, function(x) usedist::dist_subset(tax_anim_dist, grep(x, metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
+
+Similar_fun_data <- sapply(vars, function(x) usedist::dist_subset(fun_dist, grep(x, metadata$Sample_name, value = T))) %>%
+  data.frame() %>%  gather("tem_group", "distance") %>% 
+  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
+        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
+  select(., -c('tem_group')) %>% 
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
+
+similar_data <- data.frame(Group = Similar_16s_data$Group,
+                            Gully_id = Similar_16s_data$Gully_id, 
+                            distance_16s = Similar_16s_data$distance,
+                            distance_its = Similar_its_data$distance,
+                            distance_pro = Similar_pro_data$distance, 
+                            distance_anima = Similar_anim_data$distance,
+                            distance_fun = Similar_fun_data$distance)
+
+#Descriptive statistics for all diversity indexes
+distance_index <- c("distance_16s", "distance_its", "distance_pro", "distance_anima", "distance_fun")
+distance_stats <- similar_data %>% group_by(Group) %>%
+  get_summary_stats(distance_index, type = "common") %>% #or using type = "mean_sd"
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  arrange(variable, Group)
+distance_stats
+```
+Linear mixed models test the effect of permafrost thawing on microbial similarity
+```{r, message=FALSE}
+library(lme4)
+library(lmerTest)
+lmm_dist_modes <- lapply(distance_index, function(x) {
+  lmer(substitute(i ~ Group + (1|Gully_id), list(i = as.name(x))), data = similar_data)})
+df <- NULL
+for(i in 1:length(distance_index)) {
+  tmp <- summary.model(lmm_dist_modes[[i]])
+  if (is.null(df)){
+    df <- tmp
+  } else {
+    df <- rbind(df, tmp)
+  }
+}
+
+dist_result_lmm <-data.frame(dist_index = distance_index, 
+                             group1 = rep("Control", length(distance_index)),
+                             group2 = rep("Collapsed", length(distance_index)), df)
+dist_result_lmm
+```
+```{r, fig.align='center', fig.height=2, fig.width=7}
+# Add the p-value manually
+sig.dist.labs <- data.frame(Group = distance_stats$Group, 
+                            dist_index = distance_stats$variable,
+                            y.pos = distance_stats$max *1.05,
+                            sig.lab = c("b", "a", "b", "a", "a", "a", "b", "a", "b", "a"))
+# Create a box plot
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 7),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 7),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.title = element_text(colour = 'black', size = 7),
+        legend.text = element_text(colour = 'black', size = 6),
+        legend.key.size = unit(0.5, 'cm'))
+library(gghalves)
+dist_plot <- similar_data %>% select(c("Group", distance_index)) %>%
+  gather(dist_index, value, -c("Group")) %>% 
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(dist_index = factor(dist_index, levels = distance_index)) %>%
+  ggplot(aes(Group, value, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
+  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  geom_text(data = sig.dist.labs, aes(y = y.pos, label = sig.lab), 
+                  position = position_dodge(width = .75), size = 3.5) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~dist_index, scales = "free_y", ncol = 5) +
+  main_theme +
+  theme(legend.position = "none")
+
+# save the plot
+dist_plot
+```
+
+
