@@ -1,0 +1,441 @@
+---
+title: "Diversity and Distance analysis"
+author: "Luyao Kang"
+date: "`r Sys.Date()`"
+output:
+  html_notebook:
+    toc: yes
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+```{r setup, include = F}
+knitr::opts_chunk$set(
+  collapse = T, echo = T, comment = "#>", message = F, warning = F,
+	fig.align = "center", fig.width= 4.5, fig.height = 3, dpi = 150)
+```
+## Data input 
+Set working and saving directory
+```{r, message=FALSE}
+setwd('e:/thermokarst_gully/')
+save.dir <- file.path(getwd(),"result")
+```
+Loading packages
+```{r}
+pacman::p_load(phyloseq, ape, vegan, Biostrings, microbiome, tidyverse, rstatix)
+```
+
+```{r}
+env_vars <- c("Plant_richness", "pH", "Soil_moisture", "Clay.Silt", "WHC", "AGB", 
+              "NH4_N", "NO3_N", "AP", "SOC")
+div_vars <- c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_kegg")
+
+df_all <- data.frame(metadata[, c("Group", "Gully_id", env_vars)],
+                 div_table[, div_vars])
+```
+
+```{r, message=FALSE}
+#linner mixed model for matrix to matrix
+library(lme4)
+lmm.mat.cal <- function(y, x, input_df){
+  y <- as.matrix(y)
+  x <- as.matrix(x)
+  df <- NULL
+  for(i in colnames(y)){
+    for(j in colnames(x)){
+      a <- y[, i, drop = F]
+      b <- x[, j, drop = F]
+      mode <- lmer(a ~ b + (1 | Gully_id), data = input_df, na.action = na.omit)
+      coeff <- summary(mode)$coefficients[2, 1]
+      r.square <- MuMIn::r.squaredGLMM(mode)[1]
+      p.value <- car::Anova(mode, type = 2)[, 3]
+      tmp <- c(i, j, coeff, r.square, p.value)
+      if(is.null(df)){
+        df <- tmp  
+      }
+      else{
+        df <- rbind(df, tmp)
+      }    
+    }
+  }
+  df <- data.frame(row.names = NULL, df) %>% mutate_at(c(3:5), as.numeric)
+  colnames(df) <- c("Diversity", "Env", "coefficents", "r.square", "Pvalue")
+  df$Pvalue <- as.numeric(as.character(df$Pvalue))
+  df$AdjPvalue <- rep(0, dim(df)[1])
+  #You can adjust the p-values for multiple comparison using Benjamini & Hochberg (1995):
+  for(i in unique(df$Env)){
+      sel <- df$Env == i
+      df$AdjPvalue[sel] <- p.adjust(df$Pvalue[sel], method = "BH")
+      }
+  #Now we generate the labels for signifant values
+  df$Sig <- cut(df$AdjPvalue, breaks = c(-Inf, 0.001, 0.01, 0.05, Inf), label = c("***", "**", "*", ""))
+  df$Env <- factor(df$Env, ordered = T, levels = rev(colnames(x)))
+  df$Diversity <- factor(df$Diversity, ordered = T, levels = colnames(y))
+  return(df)
+}
+
+diver_tab <- df_all[ ,div_vars] %>% scale()
+env_tab <- df_all[ ,env_vars] %>% scale()
+lmm.matrix <- lmm.mat.cal(diver_tab, env_tab, df_all)
+
+df_control <- df_all %>% filter(Group == "Control")
+diver_control_tab <- df_control %>% select(div_vars) %>% scale()
+env_control_tab <- df_control %>% select(env_vars) %>% scale()
+
+df_collapsed <- df_all %>% filter(Group == "Collapsed")
+diver_collapsed_tab <- df_collapsed %>% select(div_vars) %>% scale()
+env_collapsed_tab <- df_collapsed %>% select(env_vars) %>% scale()
+
+
+lmm.matrix_control <- lmm.mat.cal(diver_control_tab, env_control_tab, df_control)
+# lmm.matrix$Correlation[lmm.matrix$AdjPvalue >= 0.05] <- 0
+lmm.matrix_collapsed <- lmm.mat.cal(diver_collapsed_tab, env_collapsed_tab, df_collapsed)
+lmm.matrix_all <- rbind(data.frame(Group = rep("Control", nrow(lmm.matrix_control)),
+                                   lmm.matrix_control),
+                        data.frame(Group = rep("Collapsed", nrow(lmm.matrix_collapsed)),
+                                   lmm.matrix_collapsed)) %>%
+  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Diversity = factor(Diversity, levels = div_vars))
+lmm.matrix_all                      
+```
+
+```{r, fig.align='center', fig.width=5.5, fig.height=2.5}
+#plot
+heatmap_lmm_plot <- ggplot(aes(x = Env, y = Diversity, fill = coefficents), data = lmm.matrix_all )+
+  geom_tile() + scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C")+
+  geom_text(aes(label = Sig), color="black", size = 3.5)+
+  labs(y = NULL, x = 'Multifunctionality', fill = 'Standardized coefficients') +
+  scale_y_discrete(position = "right") +
+  facet_wrap(~Group, ncol = 2) +
+  theme(panel.background = element_rect(fill = 'white', colour ='black'),
+        #panel.grid=element_blank(), 
+        axis.title = element_text(color = 'black', size = 7),
+        axis.ticks.length = unit(0.2, "lines"), axis.ticks = element_line(color = 'black'),
+        axis.line = element_line(colour = "black"), 
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6, angle = 45, hjust = 1),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.25, "cm"),
+        legend.background = element_rect(colour = "white"))
+heatmap_lmm_plot
+```
+
+```{r}
+partial.mantel.fun <- function(phylo) {
+  env.table <- data.frame(sample_data(phylo))
+  #env.table <- env.table[complete.cases(env.table), ]
+  otu_table <- as.matrix(t(otu_table(phylo)))
+  otu_table_hel <- decostand(otu_table, 'hellinger')
+  otu_table_hel_dist <- vegdist(otu_table_hel, 'bray',upper=F)
+  df <- NULL
+  vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay.Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+  for (x in vars) {
+    y.dist <- vegdist(scale(env.table[,x]), 'euclidean', na.rm = T)
+    z.dist <- vegdist(scale(env.table[ , setdiff(vars, x)]), 'euclidean', na.rm = T)
+    mode <- mantel.partial(otu_table_hel_dist, y.dist, z.dist, 
+                           method = "pearson", permutations = 999, na.rm = T)
+    r <- mode$statistic
+    p <- mode$signif
+    tmp <- data.frame(env = x, r = r, p.value = p)
+    if(is.null(df))
+      df <- tmp
+    else
+      df <- rbind(df ,tmp)
+  }
+  return(df)
+}
+
+phylo_16s_control <- subset_samples(phylo_16s, Group == 'Control')
+phylo_16s_control <- prune_taxa(taxa_sums(phylo_16s_control)>=1, phylo_16s_control)
+
+phylo_its_control <- subset_samples(phylo_its, Group == 'Control')
+phylo_its_control <- prune_taxa(taxa_sums(phylo_its_control)>=1, phylo_its_control)
+
+phylo_pro_control <- subset_samples(phylo_protist, Group == 'Control')
+phylo_pro_control <- prune_taxa(taxa_sums(phylo_pro_control)>=1, phylo_pro_control)
+
+phylo_anim_control <- subset_samples(phylo_animal, Group == 'Control')
+phylo_anim_control <- prune_taxa(taxa_sums(phylo_anim_control)>=1, phylo_anim_control)
+
+phylo_16s_collapsed <- subset_samples(phylo_16s, Group == 'Collapsed')
+phylo_16s_collapsed <- prune_taxa(taxa_sums(phylo_16s_collapsed)>=1, phylo_16s_collapsed)
+
+phylo_its_collapsed <- subset_samples(phylo_its, Group == 'Collapsed')
+phylo_its_collapsed <- prune_taxa(taxa_sums(phylo_its_collapsed)>=1, phylo_its_collapsed)
+
+phylo_pro_collapsed <- subset_samples(phylo_protist, Group == 'Collapsed')
+phylo_pro_collapsed <- prune_taxa(taxa_sums(phylo_pro_collapsed)>=1, phylo_pro_collapsed)
+
+phylo_anim_collapsed <- subset_samples(phylo_animal, Group == 'Collapsed')
+phylo_anim_collapsed <- prune_taxa(taxa_sums(phylo_anim_collapsed)>=1, phylo_anim_collapsed)
+
+
+set.seed(123)
+par.mant.16s.control <- partial.mantel.fun(phylo_16s_control)
+set.seed(123)
+par.mant.16s.collapsed <- partial.mantel.fun(phylo_16s_collapsed)
+
+set.seed(123)
+par.mant.its.control <- partial.mantel.fun(phylo_its_control)
+set.seed(123)
+par.mant.its.collapsed <- partial.mantel.fun(phylo_its_collapsed)
+
+set.seed(123)
+par.mant.pro.control <- partial.mantel.fun(phylo_pro_control)
+set.seed(123)
+par.mant.pro.collapsed <- partial.mantel.fun(phylo_pro_collapsed)
+
+set.seed(123)
+par.mant.anim.control <- partial.mantel.fun(phylo_anim_control)
+set.seed(123)
+par.mant.anim.collapsed <- partial.mantel.fun(phylo_anim_collapsed)
+```
+
+```{r}
+library(ggcor)
+library(linkET)
+par.man.tibble.control <- tibble(spec = c(rep('Bacteria', nrow(par.mant.16s.control)),
+                                          rep('Fungi', nrow(par.mant.its.control)),
+                                          rep('Protist', nrow(par.mant.pro.control)),
+                                          rep('Animal', nrow(par.mant.anim.control))),
+                         rbind(par.mant.16s.control, par.mant.its.control, 
+                              par.mant.pro.control, par.mant.anim.control))
+
+par.man.tibble.collapsed <- tibble(spec = c(rep('Bacteria', nrow(par.mant.16s.collapsed)),
+                                          rep('Fungi', nrow(par.mant.its.collapsed)),
+                                          rep('Protist', nrow(par.mant.pro.collapsed)),
+                                          rep('Animal', nrow(par.mant.anim.collapsed))),
+                         rbind(par.mant.16s.collapsed, par.mant.its.collapsed, 
+                              par.mant.pro.collapsed, par.mant.anim.collapsed))
+
+
+vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay.Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+env.table <- metadata[ , vars]
+mantel_control <- par.man.tibble.control %>% 
+  mutate(r = cut(r, breaks = c(-Inf, 0.2, 0.4, Inf), 
+                 labels = c("<0.20", "0.20-0.4", ">0.40"),
+                 right = FALSE),
+         p.value = cut(p.value, breaks = c(-Inf, 0.001, 0.01, 0.05, Inf),
+                       labels = c("<0.001", "0.001-0.01", "0.01-0.05", ">0.05"),
+                       right = T))
+set_corrplot_style()
+p_control <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spearman"), type = "lower", diag = FALSE) +
+  geom_square() +
+  geom_couple(aes(colour = p.value, size = r), 
+              data = mantel_control, 
+              curvature = nice_curvature()) +
+  scale_size_manual(values = c(0.5, 1.5, 3)) +
+  scale_colour_manual(values = c("#e95f5c", "#79ceb8", '#3C5488FF', 'grey')) +
+  # scale_x_discrete(labels = rep_str) +
+  # scale_y_discrete(labels = rep_str) +
+  guides(size = guide_legend(title = "Mantel's r",
+                             override.aes = list(colour = "grey35"), 
+                             order = 2),
+         colour = guide_legend(title = "Mantel's p", 
+                               override.aes = list(size = 3), 
+                               order = 1),
+         fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3)))
+
+# ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_revision12.pdf'), p, width = 8.9, height = 4.5, units = "in")
+p_control
+```
+
+```{r}
+mantel_collapsed <- par.man.tibble.collapsed %>% 
+  mutate(r = cut(r, breaks = c(-Inf, 0.2, 0.4, Inf), 
+                 labels = c("<0.20", "0.20-0.4", ">0.40"),
+                 right = FALSE),
+         p.value = cut(p.value, breaks = c(-Inf, 0.001, 0.01, 0.05, Inf),
+                       labels = c("<0.001", "0.001-0.01", "0.01-0.05", ">0.05"),
+                       right = T))
+set_corrplot_style()
+p_collapsed <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spearman"), type = "lower", diag = FALSE) +
+  geom_square() +
+  geom_couple(aes(colour = p.value, size = r), 
+              data = mantel_collapsed, 
+              curvature = nice_curvature()) +
+  scale_size_manual(values = c(0.5, 1.5, 3)) +
+  scale_colour_manual(values = c("#e95f5c", "#79ceb8", '#3C5488FF', 'grey')) +
+  # scale_x_discrete(labels = rep_str) +
+  # scale_y_discrete(labels = rep_str) +
+  guides(size = guide_legend(title = "Mantel's r",
+                             override.aes = list(colour = "grey35"), 
+                             order = 2),
+         colour = guide_legend(title = "Mantel's p", 
+                               override.aes = list(size = 3), 
+                               order = 1),
+         fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3)))
+
+# ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_revision12.pdf'), p, width = 8.9, height = 4.5, units = "in")
+p_collapsed
+```
+
+
+Mantel test for functional genes
+```{r}
+partial.mantel.gene.fun <- function(gene.tab, group) {
+  gene_table <- as.matrix(t(gene.tab))
+  gene_table_hel <- decostand(gene_table, 'hellinger')
+  gene_table_hel_dist <- vegdist(gene_table_hel, 'bray', upper = F)
+  vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay.Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+  env.tab <- metadata %>% filter(Group == group) %>% select(vars) %>% data.frame()
+  df <- NULL
+  for (x in vars) {
+    y.dist <- vegdist(scale(env.tab[, x]), 'euclidean', na.rm = T)
+    z.dist <- vegdist(scale(env.tab[ , setdiff(vars, x)]), 'euclidean', na.rm = T)
+    mode <- mantel.partial(gene_table_hel_dist, y.dist, z.dist,
+                           method = "pearson", permutations = 999, na.rm = T)
+    r <- mode$statistic
+    p <- mode$signif
+    tmp <- data.frame(env = x, r = r, p.value = p)
+    if(is.null(df))
+      df <- tmp
+    else
+      df <- rbind(df, tmp)
+  }
+  return(df)
+}
+
+gene.control.tab <- ko_count_table[, grepl("_C", colnames(ko_count_table))]
+gene.collapsed.tab <- ko_count_table[, grepl("_T", colnames(ko_count_table))]
+par.man.gene.control <- partial.mantel.gene.fun(gene.control.tab, "Control")
+par.man.gene.collapsed <- partial.mantel.gene.fun(gene.collapsed.tab, "Collapsed")
+
+
+par.man.tibble.gene <- tibble(spec = c(rep('Control', nrow(par.man.gene.control)),
+                                          rep('collapsed', nrow(par.man.gene.collapsed))),
+                         rbind(par.man.gene.control, par.man.gene.collapsed))
+
+vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay.Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+env.table <- metadata[ , vars]
+mantel_gene <- par.man.tibble.gene %>% 
+  mutate(r = cut(r, breaks = c(-Inf, 0.2, 0.4, Inf), 
+                 labels = c("<0.20", "0.20-0.4", ">0.40"),
+                 right = FALSE),
+         p.value = cut(p.value, breaks = c(-Inf, 0.001, 0.01, 0.05, Inf),
+                       labels = c("<0.001", "0.001-0.01", "0.01-0.05", ">0.05"),
+                       right = T))
+set_corrplot_style()
+p_gene <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spearman"), type = "lower", diag = FALSE) +
+  geom_square() +
+  geom_couple(aes(colour = p.value, size = r), 
+              data = mantel_gene, 
+              curvature = nice_curvature()) +
+  scale_size_manual(values = c(0.5, 1.5, 3)) +
+  scale_colour_manual(values = c("#e95f5c", "#79ceb8", 'grey')) +
+  # scale_x_discrete(labels = rep_str) +
+  # scale_y_discrete(labels = rep_str) +
+  guides(size = guide_legend(title = "Mantel's r",
+                             override.aes = list(colour = "grey35"), 
+                             order = 2),
+         colour = guide_legend(title = "Mantel's p", 
+                               override.aes = list(size = 3), 
+                               order = 1),
+         fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3)))
+
+# ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_revision12.pdf'), p, width = 8.9, height = 4.5, units = "in")
+p_gene
+```
+
+Employe the Null model to infer the ecological processes underlying the community assembly.
+```{r}
+save.dir = "E:/thermokarst_gully/result/"
+if(!dir.exists(save.dir)){dir.create(save.dir)}
+# prune the phylo object into control and collapsed groups
+comm_16s_control <- t(otu_table(phylo_16s_control))
+tree_16s_control <- phy_tree(phylo_16s_control)
+
+comm_its_control <- t(otu_table(phylo_its_control))
+tree_its_control <- phy_tree(phylo_its_control)
+
+comm_pro_control <- t(otu_table(phylo_pro_control))
+tree_pro_control <- phy_tree(phylo_pro_control)
+
+comm_anim_control <- t(otu_table(phylo_anim_control))
+tree_anim_control <- phy_tree(phylo_anim_control)
+
+
+comm_16s_collapsed <- t(otu_table(phylo_16s_collapsed))
+tree_16s_collapsed <- phy_tree(phylo_16s_collapsed)
+
+comm_its_collapsed <- t(otu_table(phylo_its_collapsed))
+tree_its_collapsed <- phy_tree(phylo_its_collapsed)
+
+comm_pro_collapsed <- t(otu_table(phylo_pro_collapsed))
+tree_pro_collapsed <- phy_tree(phylo_pro_collapsed)
+
+comm_anim_collapsed <- t(otu_table(phylo_anim_collapsed))
+tree_anim_collapsed <- phy_tree(phylo_anim_collapsed)
+```
+
+```{r,message=FALSE}
+setwd(save.dir)
+library(iCAMP)
+set.seed(123)
+icamp_16s_control <- icamp.big(comm = comm_16s_control, tree = tree_16s_control, pd.wd = paste0(save.dir,"tables/null_model/16s_control"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_16s_control$CbMPDiCBraya)
+# write.csv(icamp_16s_control$CbMPDiCBraya,
+#           file.path(save.dir, './tables/null_model/16s_control/iCAMP.process.CbMPDiCBraya.csv'))
+
+set.seed(123)
+icamp_its_control <- icamp.big(comm = comm_its_control, tree = tree_its_control, pd.wd = paste0(save.dir,"tables/null_model/its_control"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_its_control$CbMPDiCBraya)
+write.csv(icamp_its_control$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/its_control/iCAMP.process.CbMPDiCBraya.csv'))
+
+
+set.seed(123)
+icamp_pro_control <- icamp.big(comm = comm_pro_control, tree = tree_pro_control, pd.wd = paste0(save.dir,"tables/null_model/pro_control"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_pro_control$CbMPDiCBraya)
+write.csv(icamp_pro_control$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/pro_control/iCAMP.process.CbMPDiCBraya.csv'))
+
+set.seed(123)
+icamp_anim_control <- icamp.big(comm = comm_anim_control, tree = tree_anim_control, pd.wd = paste0(save.dir,"tables/null_model/anim_control"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_anim_control$CbMPDiCBraya)
+write.csv(icamp_anim_control$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/anim_control/iCAMP.process.CbMPDiCBraya.csv'))
+
+set.seed(123)
+icamp_16s_collapsed <- icamp.big(comm = comm_16s_collapsed, tree = tree_16s_collapsed, pd.wd = paste0(save.dir,"tables/null_model/16s_collapsed"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_16s_collapsed$CbMPDiCBraya)
+write.csv(icamp_16s_collapsed$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/16s_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
+
+set.seed(123)
+icamp_its_collapsed <- icamp.big(comm = comm_its_collapsed, tree = tree_its_collapsed, pd.wd = paste0(save.dir,"tables/null_model/its_collapsed"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_its_collapsed$CbMPDiCBraya)
+write.csv(icamp_its_collapsed$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/its_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
+
+set.seed(123)
+icamp_pro_collapsed <- icamp.big(comm = comm_pro_collapsed, tree = tree_pro_collapsed, pd.wd = paste0(save.dir,"tables/null_model/pro_collapsed"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_pro_collapsed$CbMPDiCBraya)
+write.csv(icamp_pro_collapsed$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/pro_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
+
+set.seed(123)
+icamp_anim_collapsed <- icamp.big(comm = comm_anim_collapsed, tree = tree_anim_collapsed, pd.wd = paste0(save.dir,"tables/null_model/anim_collapsed"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_anim_collapsed$CbMPDiCBraya)
+write.csv(icamp_anim_collapsed$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/anim_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
+```
+
