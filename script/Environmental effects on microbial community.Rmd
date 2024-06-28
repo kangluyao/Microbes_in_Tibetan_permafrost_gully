@@ -27,7 +27,7 @@ pacman::p_load(phyloseq, ape, vegan, Biostrings, microbiome, tidyverse, rstatix)
 ```
 
 ```{r}
-env_vars <- c("Plant_richness", "pH", "Soil_moisture", "Clay.Silt", "WHC", "AGB", 
+env_vars <- c("Plant_richness", "pH", "Soil_moisture", "Clay_Silt", "WHC", "AGB", 
               "NH4_N", "NO3_N", "AP", "SOC")
 div_vars <- c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_kegg")
 
@@ -130,7 +130,7 @@ partial.mantel.fun <- function(phylo) {
   otu_table_hel <- decostand(otu_table, 'hellinger')
   otu_table_hel_dist <- vegdist(otu_table_hel, 'bray',upper=F)
   df <- NULL
-  vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay.Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+  vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
   for (x in vars) {
     y.dist <- vegdist(scale(env.table[,x]), 'euclidean', na.rm = T)
     z.dist <- vegdist(scale(env.table[ , setdiff(vars, x)]), 'euclidean', na.rm = T)
@@ -339,7 +339,64 @@ p_gene <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spearman")
 p_gene
 ```
 
-Employe the Null model to infer the ecological processes underlying the community assembly.
+Using the Null model to infer the ecological processes underlying the community assembly.
+```{r}
+save.dir = "E:/thermokarst_gully/result/"
+# extract the community and tree files from the phylo projects
+comm_16s <- t(otu_table(phylo_16s))
+tree_16s <- phy_tree(phylo_16s)
+
+comm_its <- t(otu_table(phylo_its))
+tree_its <- phy_tree(phylo_its)
+
+comm_pro <- t(otu_table(phylo_protist))
+tree_pro <- phy_tree(phylo_protist)
+
+comm_anim <- t(otu_table(phylo_animal))
+tree_anim <- phy_tree(phylo_animal)
+```
+
+
+```{r}
+setwd(save.dir)
+library(iCAMP)
+set.seed(123)
+icamp_16s <- icamp.big(comm = comm_16s, tree = tree_16s, pd.wd = paste0(save.dir,"tables/null_model/16s_all"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_16s$CbMPDiCBraya)
+write.csv(icamp_16s$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/16s_all/iCAMP.process.CbMPDiCBraya.csv'))
+
+set.seed(123)
+icamp_its <- icamp.big(comm = comm_its, tree = tree_its, pd.wd = paste0(save.dir,"tables/null_model/its_all"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_its$CbMPDiCBraya)
+write.csv(icamp_its$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/its_all/iCAMP.process.CbMPDiCBraya.csv'))
+
+set.seed(123)
+icamp_pro <- icamp.big(comm = comm_pro, tree = tree_pro, pd.wd = paste0(save.dir,"tables/null_model/pro_all"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_pro$CbMPDiCBraya)
+write.csv(icamp_pro$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/pro_all/iCAMP.process.CbMPDiCBraya.csv'))
+
+set.seed(123)
+icamp_anim <- icamp.big(comm = comm_anim, tree = tree_anim, pd.wd = paste0(save.dir,"tables/null_model/anim_all"), 
+                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
+                       rand = 1000, nworker = 8)
+head(icamp_anim$CbMPDiCBraya)
+write.csv(icamp_anim$CbMPDiCBraya,
+          file.path(save.dir, './tables/null_model/anim_all/iCAMP.process.CbMPDiCBraya.csv'))
+```
+
+
+
+
+
 ```{r}
 save.dir = "E:/thermokarst_gully/result/"
 if(!dir.exists(save.dir)){dir.create(save.dir)}
@@ -386,8 +443,8 @@ icamp_its_control <- icamp.big(comm = comm_its_control, tree = tree_its_control,
                        ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
                        rand = 1000, nworker = 8)
 head(icamp_its_control$CbMPDiCBraya)
-write.csv(icamp_its_control$CbMPDiCBraya,
-          file.path(save.dir, './tables/null_model/its_control/iCAMP.process.CbMPDiCBraya.csv'))
+# write.csv(icamp_its_control$CbMPDiCBraya,
+          # file.path(save.dir, './tables/null_model/its_control/iCAMP.process.CbMPDiCBraya.csv'))
 
 
 set.seed(123)
@@ -395,47 +452,47 @@ icamp_pro_control <- icamp.big(comm = comm_pro_control, tree = tree_pro_control,
                        ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
                        rand = 1000, nworker = 8)
 head(icamp_pro_control$CbMPDiCBraya)
-write.csv(icamp_pro_control$CbMPDiCBraya,
-          file.path(save.dir, './tables/null_model/pro_control/iCAMP.process.CbMPDiCBraya.csv'))
+# write.csv(icamp_pro_control$CbMPDiCBraya,
+#           file.path(save.dir, './tables/null_model/pro_control/iCAMP.process.CbMPDiCBraya.csv'))
 
 set.seed(123)
 icamp_anim_control <- icamp.big(comm = comm_anim_control, tree = tree_anim_control, pd.wd = paste0(save.dir,"tables/null_model/anim_control"), 
                        ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
                        rand = 1000, nworker = 8)
 head(icamp_anim_control$CbMPDiCBraya)
-write.csv(icamp_anim_control$CbMPDiCBraya,
-          file.path(save.dir, './tables/null_model/anim_control/iCAMP.process.CbMPDiCBraya.csv'))
+# write.csv(icamp_anim_control$CbMPDiCBraya,
+#           file.path(save.dir, './tables/null_model/anim_control/iCAMP.process.CbMPDiCBraya.csv'))
 
 set.seed(123)
 icamp_16s_collapsed <- icamp.big(comm = comm_16s_collapsed, tree = tree_16s_collapsed, pd.wd = paste0(save.dir,"tables/null_model/16s_collapsed"), 
                        ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
                        rand = 1000, nworker = 8)
 head(icamp_16s_collapsed$CbMPDiCBraya)
-write.csv(icamp_16s_collapsed$CbMPDiCBraya,
-          file.path(save.dir, './tables/null_model/16s_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
+# write.csv(icamp_16s_collapsed$CbMPDiCBraya,
+#           file.path(save.dir, './tables/null_model/16s_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
 
 set.seed(123)
 icamp_its_collapsed <- icamp.big(comm = comm_its_collapsed, tree = tree_its_collapsed, pd.wd = paste0(save.dir,"tables/null_model/its_collapsed"), 
                        ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
                        rand = 1000, nworker = 8)
 head(icamp_its_collapsed$CbMPDiCBraya)
-write.csv(icamp_its_collapsed$CbMPDiCBraya,
-          file.path(save.dir, './tables/null_model/its_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
+# write.csv(icamp_its_collapsed$CbMPDiCBraya,
+#           file.path(save.dir, './tables/null_model/its_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
 
 set.seed(123)
 icamp_pro_collapsed <- icamp.big(comm = comm_pro_collapsed, tree = tree_pro_collapsed, pd.wd = paste0(save.dir,"tables/null_model/pro_collapsed"), 
                        ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
                        rand = 1000, nworker = 8)
 head(icamp_pro_collapsed$CbMPDiCBraya)
-write.csv(icamp_pro_collapsed$CbMPDiCBraya,
-          file.path(save.dir, './tables/null_model/pro_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
+# write.csv(icamp_pro_collapsed$CbMPDiCBraya,
+#           file.path(save.dir, './tables/null_model/pro_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
 
 set.seed(123)
 icamp_anim_collapsed <- icamp.big(comm = comm_anim_collapsed, tree = tree_anim_collapsed, pd.wd = paste0(save.dir,"tables/null_model/anim_collapsed"), 
                        ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
                        rand = 1000, nworker = 8)
 head(icamp_anim_collapsed$CbMPDiCBraya)
-write.csv(icamp_anim_collapsed$CbMPDiCBraya,
-          file.path(save.dir, './tables/null_model/anim_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
+# write.csv(icamp_anim_collapsed$CbMPDiCBraya,
+#           file.path(save.dir, './tables/null_model/anim_collapsed/iCAMP.process.CbMPDiCBraya.csv'))
 ```
 
