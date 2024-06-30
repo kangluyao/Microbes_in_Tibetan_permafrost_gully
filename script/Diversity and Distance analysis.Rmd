@@ -111,6 +111,8 @@ div_plot <- div_table %>% select(c("Group", div_index)) %>%
   theme(legend.position = "none")
 
 # save the plot
+ggsave(file.path(save.dir, "./figs/diversity/div_four_groups_plot.pdf"),
+       div_plot, width = 5, height = 3, units = "in")
 div_plot
 ```
 
@@ -170,7 +172,7 @@ single_div_comparison <- div_S1 %>%
                             GroupCollapsed.mean > 0 & Group.P <= 0.05 ~ "Positvie",
                             Group.P > 0.05 ~ "Neutral")) %>%
   ggplot(aes(x = variables, y = GroupCollapsed.mean, colour = colour)) +
-  geom_hline(aes(yintercept = 0), size = 0.7,  colour = "gray2")+
+  geom_hline(aes(yintercept = 0), size = 0.375,  colour = "gray2")+
   geom_point(size = 2) +
   geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
                     ymax = GroupCollapsed.mean + GroupCollapsed.se), 
@@ -180,23 +182,23 @@ single_div_comparison <- div_S1 %>%
   labs(x = NULL, y = "Effect size") +
   scale_color_manual(values=c("#79ceb8", "grey", "#e95f5c")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
-  theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
-  annotate("rect", xmin = 0.5, xmax = 3.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#ffffff") +
-  annotate("rect", xmin = 3.5, xmax = 8.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#f19837") +
-  annotate("rect", xmin = 8.5, xmax = 18.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#e56eee") +
-  annotate("rect", xmin = 18.5, xmax = 21.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#5fb236") +
-  annotate("rect", xmin = 21.5, xmax = 30.5, ymin = 0, ymax = 90, alpha = 0.1, fill = "#1ca9c9") +
+  coord_flip() + scale_x_discrete(position = "top") +
+  annotate("rect", xmin = 0.5, xmax = 3.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#ffdb00") +
+  annotate("rect", xmin = 3.5, xmax = 8.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#f19837") +
+  annotate("rect", xmin = 8.5, xmax = 18.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#e56eee") +
+  annotate("rect", xmin = 18.5, xmax = 21.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#5fb236") +
+  annotate("rect", xmin = 21.5, xmax = 30.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#1ca9c9") +
   main_theme +
   theme(legend.position = "none",
         strip.background = element_rect(fill = c("#FFF6E1")),
-        # axis.text.y = element_blank(),
-        axis.ticks.y = element_blank())
+        # axis.text.y = element_blank()
+        )
 
 # if (!dir.exists(file.path(save.dir, "figs/env/"))) {
 #   dir.create(file.path(save.dir, "figs/env/"))
 # }
-# ggsave(file.path(save.dir.multifunc, "./single_div_comparison.pdf"),
-#        single_div_comparison, width = 2.7, height = 5, units = "in")
+ggsave(file.path(save.dir, "./figs/diversity/single_div_comparison.pdf"),
+       single_div_comparison, width = 2.5, height = 5.5, units = "in")
 single_div_comparison
 ```
 

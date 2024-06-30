@@ -48,7 +48,7 @@ otu_rel_abun_1perc_phyla_16s <- subextract_fun(phylo_16s, "Phylum", 0.01)
 otu_rel_abun_1perc_class_16s <- subextract_fun(phylo_16s, "Class", 0.01)
 
 #ecombine the class within proteobacteria and other phyla into one abundance table
-otu_rel_abun_1perc_16s <- rbind(data.frame(subtaxa_class_tab, ra.class.tab) %>%
+otu_rel_abun_1perc_16s <- rbind(otu_rel_abun_1perc_class_16s %>%
                          filter(Class %in% c("Alphaproteobacteria", "Betaproteobacteria",
                                              "Gammaproteobacteria", "Deltaproteobacteria")) %>%
                          dplyr::rename(Phylum = Class), otu_rel_abun_1perc_phyla_16s %>%
@@ -125,6 +125,7 @@ links_datset[1:5, ]
 ```
 Sanke plot
 ```{r}
+library(networkD3)
 # Give a color for each group
 # my_color <- 'd3.scaleOrdinal() .domain(["a", "b", "my_unique_group"]) .range(["#4970a0", "#f8696b", "#FCCDE5"])'
 
@@ -403,12 +404,12 @@ single_dist_comparison <- dist_S1 %>%
   labs(x = NULL, y = "Effect size") +
   scale_color_manual(values=c("grey", "#e95f5c")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
-  theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
+  theme_bw() + coord_flip() + scale_x_discrete(position = "bottom") +
   main_theme +
   theme(legend.position = "none",
         strip.background = element_rect(fill = c("#FFF6E1")),
-        # axis.text.y = element_blank(),
-        axis.ticks.y = element_blank())
+        # axis.text.y = element_blank()
+        )
 
 # if (!dir.exists(file.path(save.dir, "figs/env/"))) {
 #   dir.create(file.path(save.dir, "figs/env/"))
