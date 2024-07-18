@@ -121,7 +121,7 @@ links_datset <- mutate(links,
                        group = rep(c(rep("a", 27), rep("b", 27)), 2)
                        )
 # Add a 'group' column to each node. Here I decide to put all of them in the same group to make them grey
-nodes$group <- as.factor(c("my_unique_group"))
+nodes$group <- as.factor(nodes$name)
 links_datset[1:5, ]
 ```
 Sanke plot
@@ -133,10 +133,10 @@ my_color <- 'd3.scaleOrdinal() .domain(["a", "b", "my_unique_group"]) .range(["#
 # Make the Network. I call my colour scale with the colourScale argument
 sankey_plot <- sankeyNetwork(Links = links_datset, Nodes = nodes, 
                    Source = "IDsource", Target = "IDtarget", 
-                   Value = "value", NodeID = "name", colourScale = my_color, 
+                   Value = "value", NodeID = "name", 
                    LinkGroup = "group", NodeGroup = "group", iterations = 0, 
                    fontFamily = 'Arial', fontSize = 15, 
-                   nodeWidth = 20, nodePadding = 10, height = 700, width = 600,
+                   nodeWidth = 15, nodePadding = 10, height = 700, width = 600,
                    sinksRight = F)
 # save the widget
 # recommend htmlwidgets
@@ -150,8 +150,97 @@ sankey_plot <- sankeyNetwork(Links = links_datset, Nodes = nodes,
 sankey_plot
 ```
 
-```{r}
+Unique otus profile among three layers
+```{r, fig.width = 4, fig.height = 6.5}
+# library
+library(ggvenn)
+# Make the venn plot for 16S
+x_16s = list(
+  Control = otu_table(phylo_16s) %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames(),
+  Collapsed = otu_table(phylo_16s) %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('_T', metadata$Sample_name, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames()
+  )
 
+p1 <- ggvenn(
+  x_16s, 
+  fill_color = c("#79ceb8", "#e95f5c"),
+  stroke_color = NA,
+  set_name_size = 4,
+  text_size = 3.5,
+  show_percentage = T,
+  auto_scale = F
+)
+# Make the venn plot for ITS
+x_its = list(
+  Control = otu_table(phylo_its) %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames(),
+  Collapsed = otu_table(phylo_its) %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('_T', metadata$Sample_name, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames()
+  )
+
+p2 <- ggvenn(
+  x_its, 
+  fill_color = c("#79ceb8", "#e95f5c"),
+  stroke_color = NA,
+  set_name_size = 4,
+  text_size = 3.5,
+  show_percentage = T,
+  auto_scale = F
+)
+# Make the venn plot for protist
+x_pro = list(
+  Control = otu_table(phylo_protist) %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames(),
+  Collapsed = otu_table(phylo_protist) %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('_T', metadata$Sample_name, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames()
+  )
+
+p3 <- ggvenn(
+  x_pro, 
+  fill_color = c("#79ceb8", "#e95f5c"),
+  stroke_color = NA,
+  set_name_size = 4,
+  text_size = 3.5,
+  show_percentage = T,
+  auto_scale = F
+)
+# Make the venn plot for soil animal
+x_anim = list(
+  Control = otu_table(phylo_animal) %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames(),
+  Collapsed = otu_table(phylo_animal) %>% data.frame() %>%
+      mutate(rowsum = rowSums(select(., grep('_T', metadata$Sample_name, value = T)))) %>%
+      filter(rowsum > 0) %>%
+      rownames()
+  )
+
+p4 <- ggvenn(
+  x_anim, 
+  fill_color = c("#79ceb8", "#e95f5c"),
+  stroke_color = NA,
+  set_name_size = 4,
+  text_size = 3.5,
+  show_percentage = T,
+  auto_scale = F
+)
+library(cowplot)
+venn_plots <- plot_grid(p1, p2, p3, p4, ncol = 1, align = "v")
+venn_plots
 ```
 
 
