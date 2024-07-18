@@ -21,9 +21,10 @@ Set working and saving directory
 setwd('e:/thermokarst_gully/')
 save.dir <- file.path(getwd(),"result")
 ```
-Loading packages
+Loading packages and reading data
 ```{r}
 pacman::p_load(phyloseq, ape, vegan, Biostrings, microbiome, tidyverse, rstatix)
+source("script/read_data_all.R")
 ```
 
 Composition
@@ -117,7 +118,7 @@ links$IDtarget <- match(links$target, nodes$name)-1
 # Set color of connections
 # Add a 'group' column to each connection:
 links_datset <- mutate(links,
-                       group = rep(c("a", "b"), 54)
+                       group = rep(c(rep("a", 27), rep("b", 27)), 2)
                        )
 # Add a 'group' column to each node. Here I decide to put all of them in the same group to make them grey
 nodes$group <- as.factor(c("my_unique_group"))
@@ -127,12 +128,13 @@ Sanke plot
 ```{r}
 library(networkD3)
 # Give a color for each group
-# my_color <- 'd3.scaleOrdinal() .domain(["a", "b", "my_unique_group"]) .range(["#4970a0", "#f8696b", "#FCCDE5"])'
+my_color <- 'd3.scaleOrdinal() .domain(["a", "b", "my_unique_group"]) .range(["#79ceb8", "#e95f5c", "#c0c0c0"])'
 
 # Make the Network. I call my colour scale with the colourScale argument
 sankey_plot <- sankeyNetwork(Links = links_datset, Nodes = nodes, 
                    Source = "IDsource", Target = "IDtarget", 
-                   Value = "value", NodeID = "name", iterations = 0, 
+                   Value = "value", NodeID = "name", colourScale = my_color, 
+                   LinkGroup = "group", NodeGroup = "group", iterations = 0, 
                    fontFamily = 'Arial', fontSize = 15, 
                    nodeWidth = 20, nodePadding = 10, height = 700, width = 600,
                    sinksRight = F)
@@ -146,17 +148,13 @@ sankey_plot <- sankeyNetwork(Links = links_datset, Nodes = nodes,
 # Make a webshot in pdf : high quality but can not choose printed zone
 # webshot(paste0(sankey.plots.folder, "/sankey_plot.html"), delay = 0.2)
 sankey_plot
+```
 
-# 
-# pacman::p_load(ggthemes, networkD3, data.table)
-# sankeyNetwork(Links = links, Nodes = nodes, 
-#               Source = "IDsource", Target = "IDtarget", 
-#               Value = "value", NodeID = "name", iterations = 0, 
-#               fontFamily = 'Arial', fontSize = 15, 
-#               nodeWidth = 20, nodePadding = 10, height = 700, width = 700,
-#               sinksRight = F)
+```{r}
 
 ```
+
+
 
 ## Test the overall difference in the taxonomic and functional composition.
 ```{r}
