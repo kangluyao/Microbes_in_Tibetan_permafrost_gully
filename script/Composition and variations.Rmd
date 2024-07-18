@@ -134,7 +134,9 @@ my_color <- 'd3.scaleOrdinal() .domain(["a", "b", "my_unique_group"]) .range(["#
 sankey_plot <- sankeyNetwork(Links = links_datset, Nodes = nodes, 
                    Source = "IDsource", Target = "IDtarget", 
                    Value = "value", NodeID = "name", 
-                   LinkGroup = "group", NodeGroup = "group", iterations = 0, 
+                   # colourScale = my_color,
+                   # LinkGroup = "group", NodeGroup = "group", 
+                   iterations = 0, 
                    fontFamily = 'Arial', fontSize = 15, 
                    nodeWidth = 15, nodePadding = 10, height = 700, width = 600,
                    sinksRight = F)
