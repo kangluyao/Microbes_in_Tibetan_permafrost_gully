@@ -432,6 +432,8 @@ distance_stats
 ```
 ### Test the difference in beta distance between control and collapsed groups using liner models
 ```{r}
+library(lme4)
+library(lmerTest)
 # determine the effect size of the permafrost thawing for the diversity indexes
 dist_scale <- similar_data %>% 
   select(c("Group", "Gully_id", distance_index)) %>%
@@ -469,6 +471,18 @@ data.frame(dist_S1)
 ```
 
 ```{r, fig.align='center', fig.width=3.5, fig.height=2.5}
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 7),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 7),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.title = element_text(colour = 'black', size = 7),
+        legend.text = element_text(colour = 'black', size = 6),
+        legend.key.size = unit(0.5, 'cm'))
 p.stars <- function(p.values) {
   unclass(symnum(p.values, corr = FALSE, 
                  na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
@@ -542,18 +556,6 @@ sig.dist.labs <- data.frame(Group = distance_stats$Group,
                             y.pos = distance_stats$max *1.05,
                             sig.lab = c("b", "a", "b", "a", "a", "a", "b", "a", "b", "a"))
 # Create a box plot
-main_theme = theme_bw() + 
-  theme(panel.grid = element_blank(),
-        panel.border = element_rect(size = 0.5),
-        strip.text = element_text(colour = 'black', size = 7),
-        strip.background = element_rect(colour = 'black', fill = 'grey'),
-        axis.title = element_text(color = 'black',size = 7),
-        axis.ticks = element_line(color = "black", linewidth = 0.5),
-        axis.text.y = element_text(colour = 'black', size = 6),
-        axis.text.x = element_text(colour = 'black', size = 6),
-        legend.title = element_text(colour = 'black', size = 7),
-        legend.text = element_text(colour = 'black', size = 6),
-        legend.key.size = unit(0.5, 'cm'))
 library(gghalves)
 dist_plot <- similar_data %>% select(c("Group", distance_index)) %>%
   gather(dist_index, value, -c("Group")) %>% 
