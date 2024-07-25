@@ -1,5 +1,5 @@
 ---
-title: "Diversity and Distance analysis"
+title: "Composition and variations analysis"
 author: "Luyao Kang"
 date: "`r Sys.Date()`"
 output:
@@ -128,21 +128,31 @@ Sanke plot
 ```{r}
 library(networkD3)
 # Give a color for each group
-my_color <- 'd3.scaleOrdinal() .domain(["a", "b", "my_unique_group"]) .range(["#79ceb8", "#e95f5c", "#c0c0c0"])'
+my_colors = c("#79ceb8", "#e95f5c", "#e4d00a", "#FB8072", "#FDB462", "#80B1D3", "#BEBADA", "#B3DE69", "#FCCDE5", "#A6CEE3",
+               "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#893f45", "#FF7F00", "#1F78B4",
+               "#6A3D9A", "#b31b1b", "#5d3954", "#008b8b", "#8b008b", "#e75480", "#872657", "#8fbc8f",
+               "#00bfff", "#d71868", "#ffff00", "#c08081", "#cc6666", "#e49b0f", "#c90016", "#355e3b",
+               "#29ab87", "#9457eb", "#f56991", "#32cd32", "#035096", "#bb3385", "#009E73", "#000000")
+
+my_colors <- paste(my_colors, collapse = '", "')
+colorJS <- paste('d3.scaleOrdinal(["', my_colors, '"])')
+
+
+# my_color <- 'd3.scaleOrdinal() .domain(["a", "b", "my_unique_group"]) .range(["#79ceb8", "#e95f5c", "#c0c0c0"])'
 
 # Make the Network. I call my colour scale with the colourScale argument
 sankey_plot <- sankeyNetwork(Links = links_datset, Nodes = nodes, 
                    Source = "IDsource", Target = "IDtarget", 
                    Value = "value", NodeID = "name", 
-                   # colourScale = my_color,
-                   # LinkGroup = "group", NodeGroup = "group", 
+                   # colourScale = colorJS,
+                   # LinkGroup = "group", NodeGroup = "group",
                    iterations = 0, 
                    fontFamily = 'Arial', fontSize = 15, 
                    nodeWidth = 15, nodePadding = 10, height = 700, width = 600,
                    sinksRight = F)
 # save the widget
 # recommend htmlwidgets
-# library(htmlwidgets)
+library(htmlwidgets)
 # saveWidget(p, file = paste0(sankey.plots.folder, "/sankey_plot24_6_10.html"))
 # library(webshot)
 # install phantom:
@@ -365,6 +375,36 @@ pcoa_fun_plot <- data.frame(Group = metadata$Group, scores(ord.fun)) %>%
 cowplot::plot_grid(pcoa_16s_plot, pcoa_its_plot, pcoa_pro_plot, pcoa_anim_plot, pcoa_fun_plot, ncol = 5)
 ```
 
+## ANCOM-BC2 test
+```{r, message = FALSE}
+library(microbiomeMarker)
+ancom_fun <- function(ps) {
+  ps_genus <- tax_glom(ps, "Genus", NArm = TRUE)
+  ps_genus <- subset_taxa(ps_genus, Genus != "Unassigned")
+  output <- run_ancom(
+  ps_genus,
+  group = "Group",
+  confounders = character(0),
+  taxa_rank = "Genus",
+  transform = "log10",
+  norm = "TSS",
+  norm_para = list(),
+  p_adjust = "BH",
+  pvalue_cutoff = 0.01,
+  W_cutoff = 0.75
+)
+  return(marker_table(output))
+}
+marker_16s <- ancom_fun(phylo_16s)
+marker_its <- ancom_fun(phylo_its)
+marker_pro <- ancom_fun(phylo_protist)
+marker_anim <- ancom_fun(phylo_animal)
+marker_tab <- rbind(cbind(Taxa = rep("Bacteria", nrow(marker_16s)), marker_16s),
+                    cbind(Taxa = rep("Fungi", nrow(marker_its)), marker_its),
+                    cbind(Taxa = rep("Protist", nrow(marker_pro)), marker_pro),
+                    cbind(Taxa = rep("Animal", nrow(marker_anim)), marker_anim))
+marker_tab
+```
 
 
 
