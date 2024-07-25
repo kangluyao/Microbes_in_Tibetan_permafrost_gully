@@ -596,10 +596,8 @@ single_dist_comparison
 ```{r, fig.align='center', fig.width=6.5, fig.height=7}
 # Combining Plots
 library(cowplot)
-venn_ANCOM_plots <- ggdraw() +
-  draw_plot(venn_plots, x = 0, y = 0, width = 0.5, height = 1) +
-  draw_plot(ANCOM_barplot, x = 0.5, y = 0.3, width = 0.5, height = 0.7) +
-  draw_plot(single_dist_comparison, x = 0.5, y = 0, width = 0.5, height = 0.3)
+temp_right_plot <- plot_grid(ANCOM_barplot, single_dist_comparison, ncol = 1, rel_heights = c(0.7, 0.3), align = "v")
+venn_ANCOM_plots <- plot_grid(venn_plots, temp_right_plot, ncol = 2, align = "h")
 venn_ANCOM_plots
 ```
 
@@ -607,6 +605,17 @@ Linear mixed models test the effect of permafrost thawing on microbial similarit
 ```{r, message=FALSE}
 library(lme4)
 library(lmerTest)
+summary.model <- function(model){
+  F.value <- anova(model)$`F value`
+  p.value <- anova(model)$'Pr(>F)'
+  p.stars <- function(p.values) {
+    unclass(symnum(p.values, corr = FALSE, 
+                   na = FALSE, cutpoints = c(0,0.001, 0.01, 0.05, 0.1, 1),
+                   symbols = c("***", "**", "*", ".", " ")))}
+  sig <- p.stars(p.value)
+  results<-data.frame(F.value, p.value, sig)
+  return(results)
+}
 lmm_dist_modes <- lapply(distance_index, function(x) {
   lmer(substitute(i ~ Group + (1|Gully_id), list(i = as.name(x))), data = similar_data)})
 df <- NULL
@@ -631,7 +640,7 @@ dist_result_lmm
 sig.dist.labs <- data.frame(Group = distance_stats$Group, 
                             dist_index = distance_stats$variable,
                             y.pos = distance_stats$max *1.05,
-                            sig.lab = c("b", "a", "b", "a", "a", "a", "b", "a", "b", "a"))
+                            sig.lab = c("b", "a", "b", "a", "a", "a", "b", "a"))
 # Create a box plot
 library(gghalves)
 dist_plot <- similar_data %>% select(c("Group", distance_index)) %>%
