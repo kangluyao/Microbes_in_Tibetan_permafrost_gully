@@ -375,8 +375,8 @@ pcoa_fun_plot <- data.frame(Group = metadata$Group, scores(ord.fun)) %>%
 cowplot::plot_grid(pcoa_16s_plot, pcoa_its_plot, pcoa_pro_plot, pcoa_anim_plot, pcoa_fun_plot, ncol = 5)
 ```
 
-## ANCOM-BC2 test
-```{r, message = FALSE}
+## ANCOM test
+```{r, message = FALSE, warning=FALSE}
 library(microbiomeMarker)
 ancom_fun <- function(ps) {
   ps_genus <- tax_glom(ps, "Genus", NArm = TRUE)
@@ -393,77 +393,108 @@ ancom_fun <- function(ps) {
   pvalue_cutoff = 0.01,
   W_cutoff = 0.75
 )
-  return(marker_table(output))
+  tax_tab <- data.frame(tax_table(ps_genus)[, c(1, 2, 6)])
+  colnames(tax_tab) <- c("Kingdom", "Phylum", "feature")
+  marker_tab <- data.frame(marker_table(output))
+  marker_tab <- inner_join(marker_tab, tax_tab, by = "feature")
+  return(marker_tab)
 }
 marker_16s <- ancom_fun(phylo_16s)
 marker_its <- ancom_fun(phylo_its)
 marker_pro <- ancom_fun(phylo_protist)
 marker_anim <- ancom_fun(phylo_animal)
-marker_tab <- rbind(cbind(Taxa = rep("Bacteria", nrow(marker_16s)), marker_16s),
-                    cbind(Taxa = rep("Fungi", nrow(marker_its)), marker_its),
-                    cbind(Taxa = rep("Protist", nrow(marker_pro)), marker_pro),
-                    cbind(Taxa = rep("Animal", nrow(marker_anim)), marker_anim))
+
+marker_tab <- rbind(marker_16s, marker_its, marker_pro, marker_anim)
+
+marker_tab <- marker_tab %>%
+  mutate(dif = case_when(
+                      enrich_group == "Control" ~ "(-)", 
+                      enrich_group == "Collapsed" ~ "(+)"))
 marker_tab
 ```
 
-
-
-
+## bar plot
+```{r, fig.align='center', fig.width=4.5, fig.height=5}
+# phylum: c('Acidobacteriota','Actinobacteriota','Bacteroidota','Chloroflexi','Cyanobacteria','Firmicutes','Others,'Patescibacteria','Planctomycetota','Proteobacteria','Verrucomicrobiota')
+# colors: c('#B09C85FF','#F39B7FFF','#DC0000FF','#91D1C2FF','#00A087FF','#7E6148FF','grey','dimgrey','#4DBBD5FF','#3C5488FF','#8491B4FF')
+ANCOM_barplot <- ggplot(marker_tab, aes(x = ef_CLR_diff_mean, 
+               y = reorder(as.factor(feature), ef_CLR_diff_mean), 
+               fill = Phylum)) + 
+  geom_bar(stat='identity', position = 'dodge', width = 0.7) + 
+  geom_text(aes(label = dif, x = ef_CLR_diff_mean + 0.1), 
+            position = position_dodge(0.7), vjust = 0,size = 3) +
+  scale_fill_manual(values = rep(c('#F39B7FFF','#DC0000FF','#00A087FF','grey','dimgrey','#3C5488FF','#8491B4FF'), 2)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 2.2)) +
+  ylab('') + xlab('CLR mean difference') +
+  theme_bw()+
+  theme(panel.grid=element_blank(), 
+        axis.title = element_text(color = 'black', size = 8),
+        axis.ticks.length = unit(0.15, "lines"), axis.ticks = element_line(color = 'black'),
+        axis.line = element_line(colour = "black"), 
+        axis.text.y = element_text(colour = 'black', size = 6, face = "italic"),
+        axis.text.x = element_text(colour = 'black', size = 6, hjust = 1),
+        legend.position = "inside", 
+        legend.position.inside =  c(0.7, 0.25),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.3, 'cm'),
+        legend.background = element_rect(colour = "white"))
+ANCOM_barplot  
+```
 
 ## Explore the biotic homogenization
 ```{r, message=FALSE}
 # difference in taxonomic variance among Group
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
-Similar_16s_data <- sapply(vars, function(x) usedist::dist_subset(tax_16s_dist, grep(x, metadata$Sample_name, value = T))) %>%
-  data.frame() %>%  gather("tem_group", "distance") %>% 
-  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
-        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
-  select(., -c('tem_group')) %>% 
-  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
+# Assuming vars is defined somewhere earlier in your code
+similar_16s_data <- lapply(vars, function(x) usedist::dist_subset(tax_16s_dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
+  do.call(cbind, .) %>%
+  data.frame() %>%
+  gather("tem_group", "distance") %>%
+  cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
+        Group = rep(c('Control', 'Collapsed'), each = 10, times = 6)) %>%
+  select(-tem_group) %>%
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
+         Group = factor(Group, levels = c('Control', 'Collapsed')))
 
-Similar_its_data <- sapply(vars, function(x) usedist::dist_subset(tax_its_dist, grep(x, metadata$Sample_name, value = T))) %>%
-  data.frame() %>%  gather("tem_group", "distance") %>% 
-  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
-        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
-  select(., -c('tem_group')) %>% 
-  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
+similar_its_data <- lapply(vars, function(x) usedist::dist_subset(tax_its_dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
+  do.call(cbind, .) %>%
+  data.frame() %>%
+  gather("tem_group", "distance") %>%
+  cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
+        Group = rep(c('Control', 'Collapsed'), each = 10, times = 6)) %>%
+  select(-tem_group) %>%
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
+         Group = factor(Group, levels = c('Control', 'Collapsed')))
 
-Similar_pro_data <- sapply(vars, function(x) usedist::dist_subset(tax_pro_dist, grep(x, metadata$Sample_name, value = T))) %>%
-  data.frame() %>%  gather("tem_group", "distance") %>% 
-  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
-        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
-  select(., -c('tem_group')) %>% 
-  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
+similar_pro_data <- lapply(vars, function(x) usedist::dist_subset(tax_pro_dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
+  do.call(cbind, .) %>%
+  data.frame() %>%
+  gather("tem_group", "distance") %>%
+  cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
+        Group = rep(c('Control', 'Collapsed'), each = 10, times = 6)) %>%
+  select(-tem_group) %>%
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
+         Group = factor(Group, levels = c('Control', 'Collapsed')))
 
-Similar_anim_data <- sapply(vars, function(x) usedist::dist_subset(tax_anim_dist, grep(x, metadata$Sample_name, value = T))) %>%
-  data.frame() %>%  gather("tem_group", "distance") %>% 
-  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
-        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
-  select(., -c('tem_group')) %>% 
-  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
-
-Similar_fun_data <- sapply(vars, function(x) usedist::dist_subset(fun_dist, grep(x, metadata$Sample_name, value = T))) %>%
-  data.frame() %>%  gather("tem_group", "distance") %>% 
-  cbind(Gully_id = c(rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20)), 
-        Group = c(rep(c('Control', 'Collapsed'), each = 10, times = 6))) %>%
-  select(., -c('tem_group')) %>% 
-  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'))) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
-
-similar_data <- data.frame(Group = Similar_16s_data$Group,
-                            Gully_id = Similar_16s_data$Gully_id, 
-                            distance_16s = Similar_16s_data$distance,
-                            distance_its = Similar_its_data$distance,
-                            distance_pro = Similar_pro_data$distance, 
-                            distance_anima = Similar_anim_data$distance,
-                            distance_fun = Similar_fun_data$distance)
+similar_anim_data <- lapply(vars, function(x) usedist::dist_subset(tax_anim_dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
+  do.call(cbind, .) %>%
+  data.frame() %>%
+  gather("tem_group", "distance") %>%
+  cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
+        Group = rep(c('Control', 'Collapsed'), each = 10, times = 6)) %>%
+  select(-tem_group) %>%
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
+         Group = factor(Group, levels = c('Control', 'Collapsed')))
+similar_data <- data.frame(Group = similar_16s_data$Group,
+                            Gully_id = similar_16s_data$Gully_id, 
+                            distance_16s = similar_16s_data$distance,
+                            distance_its = similar_its_data$distance,
+                            distance_pro = similar_pro_data$distance, 
+                            distance_anima = similar_anim_data$distance)
 
 #Descriptive statistics for all diversity indexes
-distance_index <- c("distance_16s", "distance_its", "distance_pro", "distance_anima", "distance_fun")
+distance_index <- c("distance_16s", "distance_its", "distance_pro", "distance_anima")
 distance_stats <- similar_data %>% group_by(Group) %>%
   get_summary_stats(distance_index, type = "common") %>% #or using type = "mean_sd"
   mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
@@ -563,7 +594,13 @@ single_dist_comparison
 ```
 
 ```{r, fig.align='center', fig.width=6.5, fig.height=7}
-cowplot::plot_grid(pcoa_16s_plot, pcoa_its_plot, pcoa_pro_plot, pcoa_anim_plot, pcoa_fun_plot, single_dist_comparison, ncol = 2, align = "hv")
+# Combining Plots
+library(cowplot)
+venn_ANCOM_plots <- ggdraw() +
+  draw_plot(venn_plots, x = 0, y = 0, width = 0.5, height = 1) +
+  draw_plot(ANCOM_barplot, x = 0.5, y = 0.3, width = 0.5, height = 0.7) +
+  draw_plot(single_dist_comparison, x = 0.5, y = 0, width = 0.5, height = 0.3)
+venn_ANCOM_plots
 ```
 
 Linear mixed models test the effect of permafrost thawing on microbial similarity
