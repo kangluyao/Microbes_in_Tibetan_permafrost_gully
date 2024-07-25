@@ -128,11 +128,12 @@ Sanke plot
 ```{r}
 library(networkD3)
 # Give a color for each group
-my_colors = c("#79ceb8", "#e95f5c", "#e4d00a", "#FB8072", "#FDB462", "#80B1D3", "#BEBADA", "#B3DE69", "#FCCDE5", "#A6CEE3",
-               "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C", "#893f45", "#FF7F00", "#1F78B4",
-               "#6A3D9A", "#b31b1b", "#5d3954", "#008b8b", "#8b008b", "#e75480", "#872657", "#8fbc8f",
-               "#00bfff", "#d71868", "#ffff00", "#c08081", "#cc6666", "#e49b0f", "#c90016", "#355e3b",
-               "#29ab87", "#9457eb", "#f56991", "#32cd32", "#035096", "#bb3385", "#009E73", "#000000")
+my_colors = c("#e95f5c", "#79ceb8", "#1F77B4", "#AEC7E8", "#FF7F0E", "#FFBB78", 
+              "#2CA02C", "#98DF8A", "#D62728", "#FF9896", "#9467BD", "#C5B0D5", 
+              "#8C564B", "#C49C94", "#E377C2", "#F7B6D2", "#7F7F7F", "#C7C7C7", 
+              "#BCBD22", "#DBDB8D", "#17BECF", "#9EDAE5", "#1F77B4", "#AEC7E8", 
+              "#FF7F0E", "#FFBB78", "#2CA02C", "#98DF8A", "#D62728", "#FF9896", 
+              "#9467BD", "#C5B0D5", "#9457eb", "#f56991", "#32cd32")
 
 my_colors <- paste(my_colors, collapse = '", "')
 colorJS <- paste('d3.scaleOrdinal(["', my_colors, '"])')
@@ -144,16 +145,16 @@ colorJS <- paste('d3.scaleOrdinal(["', my_colors, '"])')
 sankey_plot <- sankeyNetwork(Links = links_datset, Nodes = nodes, 
                    Source = "IDsource", Target = "IDtarget", 
                    Value = "value", NodeID = "name", 
-                   # colourScale = colorJS,
-                   # LinkGroup = "group", NodeGroup = "group",
+                   colourScale = colorJS,
+                   LinkGroup = "group", NodeGroup = "group",
                    iterations = 0, 
-                   fontFamily = 'Arial', fontSize = 15, 
-                   nodeWidth = 15, nodePadding = 10, height = 700, width = 600,
+                   fontFamily = 'Arial', fontSize = 10, 
+                   nodeWidth = 10, nodePadding = 10, height = 600, width = 300,
                    sinksRight = F)
 # save the widget
 # recommend htmlwidgets
 library(htmlwidgets)
-# saveWidget(p, file = paste0(sankey.plots.folder, "/sankey_plot24_6_10.html"))
+saveWidget(sankey_plot, file = paste0(save.dir, "/figs/composition/composition_sankey_plot.html"))
 # library(webshot)
 # install phantom:
 # webshot::install_phantomjs()
@@ -181,9 +182,10 @@ x_16s = list(
 p1 <- ggvenn(
   x_16s, 
   fill_color = c("#79ceb8", "#e95f5c"),
+  stroke_size = ,
   stroke_color = NA,
-  set_name_size = 4,
-  text_size = 3.5,
+  set_name_size = 3,
+  text_size = 2.5,
   show_percentage = T,
   auto_scale = F
 )
@@ -203,8 +205,8 @@ p2 <- ggvenn(
   x_its, 
   fill_color = c("#79ceb8", "#e95f5c"),
   stroke_color = NA,
-  set_name_size = 4,
-  text_size = 3.5,
+  set_name_size = 3,
+  text_size = 2.5,
   show_percentage = T,
   auto_scale = F
 )
@@ -224,8 +226,8 @@ p3 <- ggvenn(
   x_pro, 
   fill_color = c("#79ceb8", "#e95f5c"),
   stroke_color = NA,
-  set_name_size = 4,
-  text_size = 3.5,
+  set_name_size = 3,
+  text_size = 2.5,
   show_percentage = T,
   auto_scale = F
 )
@@ -245,8 +247,8 @@ p4 <- ggvenn(
   x_anim, 
   fill_color = c("#79ceb8", "#e95f5c"),
   stroke_color = NA,
-  set_name_size = 4,
-  text_size = 3.5,
+  set_name_size = 3,
+  text_size = 2.5,
   show_percentage = T,
   auto_scale = F
 )
@@ -421,23 +423,25 @@ ANCOM_barplot <- ggplot(marker_tab, aes(x = ef_CLR_diff_mean,
                y = reorder(as.factor(feature), ef_CLR_diff_mean), 
                fill = Phylum)) + 
   geom_bar(stat='identity', position = 'dodge', width = 0.7) + 
-  geom_text(aes(label = dif, x = ef_CLR_diff_mean + 0.1), 
-            position = position_dodge(0.7), vjust = 0,size = 3) +
-  scale_fill_manual(values = rep(c('#F39B7FFF','#DC0000FF','#00A087FF','grey','dimgrey','#3C5488FF','#8491B4FF'), 2)) +
-  scale_x_continuous(expand = c(0, 0), limits = c(0, 2.2)) +
+  geom_text(aes(label = dif, x = ef_CLR_diff_mean + 0.15), 
+            position = position_dodge(0.7), vjust = 0,size = 1.5) +
+  scale_fill_manual(values = c('#F39B7FFF','#DC0000FF','#00A087FF','grey','dimgrey','#3C5488FF','#8491B4FF', 
+                               "#1F77B4", "#AEC7E8", "#FF7F0E", "#FFBB78", 
+               "#FF9896", "#9467BD", "#C5B0D5")) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 2.4)) +
   ylab('') + xlab('CLR mean difference') +
   theme_bw()+
   theme(panel.grid=element_blank(), 
-        axis.title = element_text(color = 'black', size = 8),
-        axis.ticks.length = unit(0.15, "lines"), axis.ticks = element_line(color = 'black'),
-        axis.line = element_line(colour = "black"), 
+        axis.title = element_text(color = 'black', size = 6),
+        axis.ticks.length = unit(0.1, "lines"), axis.ticks = element_line(color = 'black', size = 0.3),
+        axis.line = element_line(colour = "black", size = 0.25), 
         axis.text.y = element_text(colour = 'black', size = 6, face = "italic"),
         axis.text.x = element_text(colour = 'black', size = 6, hjust = 1),
         legend.position = "inside", 
         legend.position.inside =  c(0.7, 0.25),
         legend.title = element_text(size = 7),
         legend.text = element_text(size = 6),
-        legend.key.size = unit(0.3, 'cm'),
+        legend.key.size = unit(0.2, 'cm'),
         legend.background = element_rect(colour = "white"))
 ANCOM_barplot  
 ```
@@ -569,7 +573,7 @@ single_dist_comparison <- dist_S1 %>%
                             Group.P > 0.05 ~ "Neutral")) %>%
   ggplot(aes(x = variables, y = GroupCollapsed.mean, colour = colour)) +
   geom_hline(aes(yintercept = 0), size = 0.7,  colour = "gray2")+
-  geom_point(size = 2) +
+  geom_point(size = 1) +
   geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
                     ymax = GroupCollapsed.mean + GroupCollapsed.se), 
                 width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
@@ -579,11 +583,17 @@ single_dist_comparison <- dist_S1 %>%
   scale_color_manual(values=c("grey", "#e95f5c")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   theme_bw() + coord_flip() + scale_x_discrete(position = "bottom") +
-  main_theme +
-  theme(legend.position = "none",
-        strip.background = element_rect(fill = c("#FFF6E1")),
-        # axis.text.y = element_blank()
-        )
+  theme(legend.position = "none", 
+        panel.grid=element_blank(), 
+        axis.title = element_text(color = 'black', size = 6),
+        axis.ticks.length = unit(0.1, "lines"), axis.ticks = element_line(color = 'black', size = 0.3),
+        axis.line = element_line(colour = "black", size = 0.1), 
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6, hjust = 1),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.2, 'cm'),
+        legend.background = element_rect(colour = "white"))
 
 # if (!dir.exists(file.path(save.dir, "figs/env/"))) {
 #   dir.create(file.path(save.dir, "figs/env/"))
@@ -596,8 +606,9 @@ single_dist_comparison
 ```{r, fig.align='center', fig.width=6.5, fig.height=7}
 # Combining Plots
 library(cowplot)
-temp_right_plot <- plot_grid(ANCOM_barplot, single_dist_comparison, ncol = 1, rel_heights = c(0.7, 0.3), align = "v")
-venn_ANCOM_plots <- plot_grid(venn_plots, temp_right_plot, ncol = 2, align = "h")
+temp_right_plot <- plot_grid(ANCOM_barplot, single_dist_comparison, ncol = 1, rel_heights = c(0.75, 0.25), align = "v")
+venn_ANCOM_plots <- plot_grid(venn_plots, temp_right_plot, ncol = 2, align = "hv")
+ggsave(venn_ANCOM_plots, file = paste0(save.dir, "/figs/composition/venn_ANCOM_plots.pdf"), height = 5, width = 4.5)
 venn_ANCOM_plots
 ```
 
