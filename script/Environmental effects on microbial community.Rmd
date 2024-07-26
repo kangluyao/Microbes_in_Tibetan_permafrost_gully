@@ -1,5 +1,5 @@
 ---
-title: "Diversity and Distance analysis"
+title: "Determine the drivers underlying the microbial assemblages"
 author: "Luyao Kang"
 date: "`r Sys.Date()`"
 output:
@@ -21,9 +21,12 @@ Set working and saving directory
 setwd('e:/thermokarst_gully/')
 save.dir <- file.path(getwd(),"result")
 ```
-Loading packages
+Loading packages and read data
 ```{r}
 pacman::p_load(phyloseq, ape, vegan, Biostrings, microbiome, tidyverse, rstatix)
+source("script/read_data_all.R")
+div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_richness_table_all.csv",
+             sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
 ```
 
 ```{r}
@@ -193,8 +196,7 @@ set.seed(123)
 par.mant.anim.collapsed <- partial.mantel.fun(phylo_anim_collapsed)
 ```
 
-```{r}
-library(ggcor)
+```{r, fig.align='center', fig.width=6.5, fig.height=5}
 library(linkET)
 par.man.tibble.control <- tibble(spec = c(rep('Bacteria', nrow(par.mant.16s.control)),
                                           rep('Fungi', nrow(par.mant.its.control)),
@@ -211,7 +213,7 @@ par.man.tibble.collapsed <- tibble(spec = c(rep('Bacteria', nrow(par.mant.16s.co
                               par.mant.pro.collapsed, par.mant.anim.collapsed))
 
 
-vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay.Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
 env.table <- metadata[ , vars]
 mantel_control <- par.man.tibble.control %>% 
   mutate(r = cut(r, breaks = c(-Inf, 0.2, 0.4, Inf), 
@@ -236,13 +238,19 @@ p_control <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spearma
          colour = guide_legend(title = "Mantel's p", 
                                override.aes = list(size = 3), 
                                order = 1),
-         fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3)))
+         fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3))) +
+  theme(panel.grid=element_blank(), 
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6, hjust = 1),
+        legend.title = element_text(size = 6), 
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.8, "lines"))
 
 # ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_revision12.pdf'), p, width = 8.9, height = 4.5, units = "in")
 p_control
 ```
 
-```{r}
+```{r, fig.align='center', fig.width=6.5, fig.height=5}
 mantel_collapsed <- par.man.tibble.collapsed %>% 
   mutate(r = cut(r, breaks = c(-Inf, 0.2, 0.4, Inf), 
                  labels = c("<0.20", "0.20-0.4", ">0.40"),
@@ -266,7 +274,14 @@ p_collapsed <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spear
          colour = guide_legend(title = "Mantel's p", 
                                override.aes = list(size = 3), 
                                order = 1),
-         fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3)))
+         fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3))) +
+  theme(panel.grid=element_blank(), 
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6, hjust = 1),
+        legend.title = element_text(size = 6), 
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.8, "lines"))
+
 
 # ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_revision12.pdf'), p, width = 8.9, height = 4.5, units = "in")
 p_collapsed
@@ -274,12 +289,12 @@ p_collapsed
 
 
 Mantel test for functional genes
-```{r}
+```{r, fig.align='center', fig.width=6.5, fig.height=5}
 partial.mantel.gene.fun <- function(gene.tab, group) {
   gene_table <- as.matrix(t(gene.tab))
   gene_table_hel <- decostand(gene_table, 'hellinger')
   gene_table_hel_dist <- vegdist(gene_table_hel, 'bray', upper = F)
-  vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay.Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+  vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
   env.tab <- metadata %>% filter(Group == group) %>% select(vars) %>% data.frame()
   df <- NULL
   for (x in vars) {
@@ -308,7 +323,7 @@ par.man.tibble.gene <- tibble(spec = c(rep('Control', nrow(par.man.gene.control)
                                           rep('collapsed', nrow(par.man.gene.collapsed))),
                          rbind(par.man.gene.control, par.man.gene.collapsed))
 
-vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay.Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
 env.table <- metadata[ , vars]
 mantel_gene <- par.man.tibble.gene %>% 
   mutate(r = cut(r, breaks = c(-Inf, 0.2, 0.4, Inf), 
@@ -333,7 +348,13 @@ p_gene <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spearman")
          colour = guide_legend(title = "Mantel's p", 
                                override.aes = list(size = 3), 
                                order = 1),
-         fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3)))
+         fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3))) +
+  theme(panel.grid=element_blank(), 
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6, hjust = 1),
+        legend.title = element_text(size = 6), 
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.8, "lines"))
 
 # ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_revision12.pdf'), p, width = 8.9, height = 4.5, units = "in")
 p_gene
