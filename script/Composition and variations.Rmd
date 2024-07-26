@@ -441,7 +441,7 @@ ANCOM_barplot <- ggplot(marker_tab, aes(x = ef_CLR_diff_mean,
         legend.position.inside =  c(0.7, 0.25),
         legend.title = element_text(size = 7),
         legend.text = element_text(size = 6),
-        legend.key.size = unit(0.2, 'cm'),
+        legend.key.size = unit(0.5, "lines"),
         legend.background = element_rect(colour = "white"))
 ANCOM_barplot  
 ```
