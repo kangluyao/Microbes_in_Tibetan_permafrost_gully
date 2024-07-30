@@ -450,6 +450,9 @@ null.df <- rbind(data.frame(Taxa = rep("Bacteria", nrow(null.df.16s)), null.df.1
                  data.frame(Taxa = rep("Protist", nrow(null.df.pro)), null.df.pro),
                  data.frame(Taxa = rep("Animal", nrow(null.df.anim)), null.df.anim)) %>%
   mutate(process = stringr::str_replace_all(process, rep_str1))
+```
+
+```{r, fig.align='center', fig.width=8.9, fig.height=8.9}
 # plot
 rep_str2 <- list("Dispersal.Limitation" = "DL",
             "Drift.and.Others" = "DR",
@@ -477,87 +480,74 @@ my_comparisons_process <- list( c("Heterogeneous Selection", "Homogeneous Select
 process_within_group <- null.df %>%
   mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
   mutate(Taxa = factor(Taxa, levels = c("Bacteria", "Fungi", "Protist", "Animal"))) %>%
-  ggplot(aes(process, rel_impor * 100)) +
-  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
-  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
+  ggplot(aes(process, rel_impor * 100, fill = process)) +
+  geom_half_violin(position = position_nudge(x = 0.2), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.3, size = 0.75, outlier.color = NA) +
   # geom_jitter(aes(fill = process), shape = 21, size = 1.5, width = 0.2) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
   scale_x_discrete(labels = rep_str2) + 
   facet_grid(Taxa ~ Group, scales = 'free') +
-    stat_compare_means(comparisons = my_comparisons_process, method = "wilcox.test", p.adjust.method = "BH") +
+  stat_compare_means(comparisons = my_comparisons_process, 
+                     method = "wilcox.test", p.adjust.method = "BH", 
+                     bracket.size = 0.3,
+                     size = 3.5, tip.length = 0.00) +
   labs(x = NULL, y = NULL) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00", "#1F77B4", "#AEC7E8", "#FF7F0E", "#FFBB78")) +
   theme_bw() +
   theme(axis.title = element_text(colour = "black", size = 14),
-        axis.text.x = element_text(colour = "black", size = 12, angle = 45),
+        axis.text.x = element_text(colour = "black", size = 12, 
+                                   angle = 45, hjust = 1, vjust = 1),
         axis.text.y = element_text(colour = "black", size = 12),
         strip.text = element_text(colour = "black", size = 12),
         legend.key.size = unit(1,"line"),
         panel.grid = element_blank(),
         panel.spacing = unit(0, "lines"),
         legend.position = "none")
+process_within_group
+```
 
-  # mutate(process = factor(process, levels = c('Dispersal.Limitation', 'Drift.and.Others', 'Homogeneous.Selection', 'Homogenizing.Dispersal', 'Heterogeneous.Selection'))) %>%
-  ggplot(aes(process, value*100))+
-  geom_boxplot(width = 0.5, aes(fill = process))+
-  facet_grid(. ~ layer, scales = 'free_x', space = 'free_x') +
-  stat_compare_means(comparisons = my_comparisons_process, p.adjust.method = "BH") +
-  # scale_fill_manual(labels = legend_label_rep) +
-  labs(x = 'Ecological process', y = 'Relative importance (%)', fill = 'Process') +
-  scale_x_discrete(labels = rep_str2) +
-  # scale_y_continuous(limits = c(0, 80)) +
-  theme_bw() +
-  theme(axis.title = element_text(colour = "black", size = 14),
-        axis.text = element_text(colour = "black", size = 12, angle = 45),
-        strip.text = element_text(colour = "black", size = 12),
-        legend.key.size = unit(1,"line"),
-        panel.grid = element_blank(),
-        panel.spacing = unit(0, "lines"),
-        legend.position = "none")
-# ggsave(file.path(save.dir, './figs/null_model/process_within_layer.pdf'), process_within_layer, width = 8, height = 3)
 
+```{r, fig.align='center', fig.width=8.9, fig.height=8.9}
 #boxplot
 library(ggpubr)
 my_comparisons_group <- list(c('Control', 'Collapsed'))
-process_among_group <- null_df %>%
-  pivot_longer(cols = -c(layer), names_to = "process", values_to = "value") %>%
-  mutate(layer = factor(layer, levels = c("SUR", "SUB", "PL"))) %>%
-  mutate(process = factor(process, levels = c('Dispersal.Limitation', 'Drift.and.Others', 'Homogeneous.Selection', 'Homogenizing.Dispersal', 'Heterogeneous.Selection'))) %>%
-  ggplot(aes(layer, value*100))+
-  geom_boxplot(width = 0.5, aes(fill = process))+
-  facet_grid(. ~ process, scales = 'free_x', space = 'free_x') +
-  stat_compare_means(comparisons = my_comparisons_layer, p.adjust.method = "BH") +
-  # scale_fill_manual(labels = legend_label_rep) +
-  labs(x = 'Layers', y = 'Relative importance (%)', fill = 'Process') +
-  scale_y_continuous(limits = c(0, 80)) +
+process_among_group <- null.df %>%
+   mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Taxa = factor(Taxa, levels = c("Bacteria", "Fungi", "Protist", "Animal"))) %>%
+  ggplot(aes(Group, rel_impor * 100)) +
+  geom_half_violin(position = position_nudge(x = 0.2), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.3, size = 0.75, outlier.color = NA) +
+  # geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  scale_x_discrete(labels = rep_str2) + 
+  facet_grid(Taxa ~ process, scales = 'free') +
+  stat_compare_means(comparisons = my_comparisons_group, 
+                     method = "wilcox.test", p.adjust.method = "BH",
+                     bracket.size = 0.3,
+                     size = 3.5, tip.length = 0.00) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00", "#1F77B4", "#AEC7E8", "#FF7F0E", "#FFBB78")) +
   theme_bw() +
   theme(axis.title = element_text(colour = "black", size = 14),
-        axis.text = element_text(colour = "black", size = 12),
+        axis.text.x = element_text(colour = "black", size = 12, 
+                                   angle = 45, hjust = 1, vjust = 1),
+        axis.text.y = element_text(colour = "black", size = 12),
         strip.text = element_text(colour = "black", size = 12),
         legend.key.size = unit(1,"line"),
         panel.grid = element_blank(),
         panel.spacing = unit(0, "lines"),
         legend.position = "none")
 # ggsave(file.path(save.dir, './figs/null_model/process_among_layers.pdf'), process_among_layers, width = 8, height = 3)
-
-cowplot::plot_grid(process_within_layer, process_among_layers, ncol = 1)
-
-null_plot <- null.df %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
-  ggplot(aes(Group, rel_impor, fill = process)) +
-  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
-  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
-  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
-  stat_compare_means(comparisons = my_comparisons, paired = F,
-                     p.adjust.method = "BH", label = "p.signif", bracket.size = 0.3,
-                     size = 3.5, tip.length = 0.00, method = "wilcox.test") +
-  labs(x = NULL, y = NULL) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00", "#1F77B4", "#AEC7E8", "#FF7F0E", "#FFBB78")) +
-  facet_wrap(process ~ Taxa, scales = "free_y", ncol = 4) +
-  main_theme
-
+process_among_group
 ```
+
+
+
+
+
+
+
+
 
 
 
