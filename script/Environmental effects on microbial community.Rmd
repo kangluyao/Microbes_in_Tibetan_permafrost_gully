@@ -30,7 +30,7 @@ div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_rich
 ```
 
 ```{r}
-env_vars <- c("Plant_richness", "pH", "Soil_moisture", "Clay_Silt", "WHC", "AGB", 
+env_vars <- c("Plant_richness", "pH", "Soil_moisture", "Clay_Silt", "WHC", "AGB", "BGB",
               "NH4_N", "NO3_N", "AP", "SOC")
 div_vars <- c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_kegg")
 
@@ -133,7 +133,7 @@ partial.mantel.fun <- function(phylo) {
   otu_table_hel <- decostand(otu_table, 'hellinger')
   otu_table_hel_dist <- vegdist(otu_table_hel, 'bray',upper=F)
   df <- NULL
-  vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+  vars <- c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
   for (x in vars) {
     y.dist <- vegdist(scale(env.table[,x]), 'euclidean', na.rm = T)
     z.dist <- vegdist(scale(env.table[ , setdiff(vars, x)]), 'euclidean', na.rm = T)
@@ -213,7 +213,7 @@ par.man.tibble.collapsed <- tibble(spec = c(rep('Bacteria', nrow(par.mant.16s.co
                               par.mant.pro.collapsed, par.mant.anim.collapsed))
 
 
-vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+vars <- c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
 env.table <- metadata[ , vars]
 mantel_control <- par.man.tibble.control %>% 
   mutate(r = cut(r, breaks = c(-Inf, 0.2, 0.4, Inf), 
@@ -294,7 +294,7 @@ partial.mantel.gene.fun <- function(gene.tab, group) {
   gene_table <- as.matrix(t(gene.tab))
   gene_table_hel <- decostand(gene_table, 'hellinger')
   gene_table_hel_dist <- vegdist(gene_table_hel, 'bray', upper = F)
-  vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+  vars <- c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
   env.tab <- metadata %>% filter(Group == group) %>% select(vars) %>% data.frame()
   df <- NULL
   for (x in vars) {
@@ -323,7 +323,7 @@ par.man.tibble.gene <- tibble(spec = c(rep('Control', nrow(par.man.gene.control)
                                           rep('collapsed', nrow(par.man.gene.collapsed))),
                          rbind(par.man.gene.control, par.man.gene.collapsed))
 
-vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
+vars <- c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP")
 env.table <- metadata[ , vars]
 mantel_gene <- par.man.tibble.gene %>% 
   mutate(r = cut(r, breaks = c(-Inf, 0.2, 0.4, Inf), 
