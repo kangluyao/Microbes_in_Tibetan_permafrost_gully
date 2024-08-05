@@ -38,7 +38,7 @@ div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_rich
 div_index <- c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Soil_multidiv", "Ric_kegg")
 div_stats <- div_table %>% group_by(Group) %>%
   get_summary_stats(div_index, type = "common") %>% #or using type = "mean_sd"
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
   arrange(variable, Group)
 div_stats
 ```
@@ -69,7 +69,7 @@ for(i in 1:length(div_index)) {
   }
 }
 
-div_result_lmm <-data.frame(diversity = div_index, group1 = rep("Control", length(div_index)),
+div_result_lmm <-data.frame(diversity = div_index, group1 = rep("Uncollapsed", length(div_index)),
                             group2 = rep("Collapsed", length(div_index)), df)
 div_result_lmm
 ```
@@ -95,7 +95,7 @@ main_theme = theme_bw() +
 library(gghalves)
 div_plot <- div_table %>% select(c("Group", div_index)) %>%
   gather(diversity, value, -c("Group")) %>% 
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
   mutate(diversity = factor(diversity, levels = div_index)) %>%
   ggplot(aes(Group, value, fill = Group)) +
   geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
@@ -116,7 +116,7 @@ ggsave(file.path(save.dir, "./figs/diversity/div_four_groups_plot.pdf"),
 div_plot
 ```
 
-### Test the difference in single function between control and collapsed groups using liner models
+### Test the difference in single function between uncollapsed and collapsed groups using liner models
 ```{r}
 # determine the effect size of the permafrost thawing for the diversity indexes
 tax_index <- c("Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria", "Ascomycota",	"Basidiomycota",	"Mortierellomycota", "Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Ric_N", "Ric_P", "Ric_S")
@@ -124,7 +124,7 @@ tax_index <- c("Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmic
 div_scale <- div_table %>% 
   select(c("Group", "Gully_id", tax_index)) %>%
   mutate(across(where(is.numeric), scale)) %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
   select(where(~ !any(is.na(.))))
 
 # codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.

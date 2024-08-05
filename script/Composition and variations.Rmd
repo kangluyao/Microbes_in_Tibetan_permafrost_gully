@@ -82,12 +82,12 @@ compo_df <- rbind(otu_rel_abun_1perc_16s %>%
     dplyr::rename(c(Phylum = Class)) %>% 
     mutate(Group = rep("Animal", nrow(.)))) %>%
   dplyr::rename(c(Taxa = Phylum)) %>%
-  mutate(Type = ifelse(grepl("_C", Sample_id), "Control",
+  mutate(Type = ifelse(grepl("_C", Sample_id), "Uncollapsed",
                        ifelse(grepl("_T", Sample_id), "Collapsed", ""))) %>%
   select(-Sample_id) %>%
   group_by(Type, Group, Taxa) %>%
   summarise(across(everything(), sum)) %>%
-  mutate(Type_group = case_when(Type == "Control" ~ "a",
+  mutate(Type_group = case_when(Type == "Uncollapsed" ~ "a",
                                 Type == "Collapsed" ~ "b"))
 
 compo_df[1:5, ]
@@ -105,7 +105,7 @@ knitr::kable(sankey[1:5, ])
 links <- sankey 
 # From these flows we need to create a node data frame: it lists every entities involved in the flow
 nodes <- data.frame(
-  name = c("Control", "Collapsed", "Bacteria", "Fungi", "Protist", "Animal", 
+  name = c("Uncollapsed", "Collapsed", "Bacteria", "Fungi", "Protist", "Animal", 
            otu_rel_abun_1perc_16s$Phylum,
            otu_rel_abun_1perc_its$Phylum, otu_rel_abun_1perc_pro$Phylum,
            otu_rel_abun_1perc_anim$Class)
@@ -169,7 +169,7 @@ Unique otus profile among three layers
 library(ggvenn)
 # Make the venn plot for 16S
 x_16s = list(
-  Control = otu_table(phylo_16s) %>% data.frame() %>%
+  Uncollapsed = otu_table(phylo_16s) %>% data.frame() %>%
       mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
       filter(rowsum > 0) %>%
       rownames(),
@@ -191,7 +191,7 @@ p1 <- ggvenn(
 )
 # Make the venn plot for ITS
 x_its = list(
-  Control = otu_table(phylo_its) %>% data.frame() %>%
+  Uncollapsed = otu_table(phylo_its) %>% data.frame() %>%
       mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
       filter(rowsum > 0) %>%
       rownames(),
@@ -212,7 +212,7 @@ p2 <- ggvenn(
 )
 # Make the venn plot for protist
 x_pro = list(
-  Control = otu_table(phylo_protist) %>% data.frame() %>%
+  Uncollapsed = otu_table(phylo_protist) %>% data.frame() %>%
       mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
       filter(rowsum > 0) %>%
       rownames(),
@@ -233,7 +233,7 @@ p3 <- ggvenn(
 )
 # Make the venn plot for soil animal
 x_anim = list(
-  Control = otu_table(phylo_animal) %>% data.frame() %>%
+  Uncollapsed = otu_table(phylo_animal) %>% data.frame() %>%
       mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
       filter(rowsum > 0) %>%
       rownames(),
@@ -282,7 +282,7 @@ Visualization for the overall difference by PCoA plot.
 #16S
 ord.16s <-  cmdscale(tax_16s_dist,  k = 2, eig = T, add = T)
 pcoa_16s_plot <- data.frame(Group = metadata$Group, scores(ord.16s)) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  mutate(Group = factor(Group, levels = c('Uncollapsed', 'Collapsed'))) %>%
   ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
   geom_point(size = 1, alpha = 0.8) + 
   # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
@@ -301,7 +301,7 @@ pcoa_16s_plot <- data.frame(Group = metadata$Group, scores(ord.16s)) %>%
 #ITS
 ord.its <-  cmdscale(tax_its_dist,  k = 2, eig = T, add = T)
 pcoa_its_plot <- data.frame(Group = metadata$Group, scores(ord.its)) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  mutate(Group = factor(Group, levels = c('Uncollapsed', 'Collapsed'))) %>%
   ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
   geom_point(size = 1, alpha = 0.8) + 
   # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
@@ -320,7 +320,7 @@ pcoa_its_plot <- data.frame(Group = metadata$Group, scores(ord.its)) %>%
 #protist
 ord.pro <-  cmdscale(tax_pro_dist,  k = 2, eig = T, add = T)
 pcoa_pro_plot <- data.frame(Group = metadata$Group, scores(ord.pro)) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  mutate(Group = factor(Group, levels = c('Uncollapsed', 'Collapsed'))) %>%
   ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
   geom_point(size = 1, alpha = 0.8) + 
   # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
@@ -339,7 +339,7 @@ pcoa_pro_plot <- data.frame(Group = metadata$Group, scores(ord.pro)) %>%
 #Animal
 ord.anim <-  cmdscale(tax_anim_dist,  k = 2, eig = T, add = T)
 pcoa_anim_plot <- data.frame(Group = metadata$Group, scores(ord.anim)) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  mutate(Group = factor(Group, levels = c('Uncollapsed', 'Collapsed'))) %>%
   ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
   geom_point(size = 1, alpha = 0.8) + 
   # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
@@ -358,7 +358,7 @@ pcoa_anim_plot <- data.frame(Group = metadata$Group, scores(ord.anim)) %>%
 #Function
 ord.fun <-  cmdscale(fun_dist,  k = 2, eig = T, add = T)
 pcoa_fun_plot <- data.frame(Group = metadata$Group, scores(ord.fun)) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  mutate(Group = factor(Group, levels = c('Uncollapsed', 'Collapsed'))) %>%
   ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
   geom_point(size = 1, alpha = 0.8) + 
   # stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
@@ -410,7 +410,7 @@ marker_tab <- rbind(marker_16s, marker_its, marker_pro, marker_anim)
 
 marker_tab <- marker_tab %>%
   mutate(dif = case_when(
-                      enrich_group == "Control" ~ "(-)", 
+                      enrich_group == "Uncollapsed" ~ "(-)", 
                       enrich_group == "Collapsed" ~ "(+)"))
 marker_tab
 ```
@@ -456,40 +456,40 @@ similar_16s_data <- lapply(vars, function(x) usedist::dist_subset(tax_16s_dist, 
   data.frame() %>%
   gather("tem_group", "distance") %>%
   cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
-        Group = rep(c('Control', 'Collapsed'), each = 10, times = 6)) %>%
+        Group = rep(c('Uncollapsed', 'Collapsed'), each = 10, times = 6)) %>%
   select(-tem_group) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
-         Group = factor(Group, levels = c('Control', 'Collapsed')))
+         Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
 
 similar_its_data <- lapply(vars, function(x) usedist::dist_subset(tax_its_dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
   do.call(cbind, .) %>%
   data.frame() %>%
   gather("tem_group", "distance") %>%
   cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
-        Group = rep(c('Control', 'Collapsed'), each = 10, times = 6)) %>%
+        Group = rep(c('Uncollapsed', 'Collapsed'), each = 10, times = 6)) %>%
   select(-tem_group) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
-         Group = factor(Group, levels = c('Control', 'Collapsed')))
+         Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
 
 similar_pro_data <- lapply(vars, function(x) usedist::dist_subset(tax_pro_dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
   do.call(cbind, .) %>%
   data.frame() %>%
   gather("tem_group", "distance") %>%
   cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
-        Group = rep(c('Control', 'Collapsed'), each = 10, times = 6)) %>%
+        Group = rep(c('Uncollapsed', 'Collapsed'), each = 10, times = 6)) %>%
   select(-tem_group) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
-         Group = factor(Group, levels = c('Control', 'Collapsed')))
+         Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
 
 similar_anim_data <- lapply(vars, function(x) usedist::dist_subset(tax_anim_dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
   do.call(cbind, .) %>%
   data.frame() %>%
   gather("tem_group", "distance") %>%
   cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
-        Group = rep(c('Control', 'Collapsed'), each = 10, times = 6)) %>%
+        Group = rep(c('Uncollapsed', 'Collapsed'), each = 10, times = 6)) %>%
   select(-tem_group) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
-         Group = factor(Group, levels = c('Control', 'Collapsed')))
+         Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
 similar_data <- data.frame(Group = similar_16s_data$Group,
                             Gully_id = similar_16s_data$Gully_id, 
                             distance_16s = similar_16s_data$distance,
@@ -501,11 +501,11 @@ similar_data <- data.frame(Group = similar_16s_data$Group,
 distance_index <- c("distance_16s", "distance_its", "distance_pro", "distance_anima")
 distance_stats <- similar_data %>% group_by(Group) %>%
   get_summary_stats(distance_index, type = "common") %>% #or using type = "mean_sd"
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
   arrange(variable, Group)
 distance_stats
 ```
-### Test the difference in beta distance between control and collapsed groups using liner models
+### Test the difference in beta distance between uncollapsed and collapsed groups using liner models
 ```{r}
 library(lme4)
 library(lmerTest)
@@ -513,7 +513,7 @@ library(lmerTest)
 dist_scale <- similar_data %>% 
   select(c("Group", "Gully_id", distance_index)) %>%
   mutate(across(where(is.numeric), scale)) %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
   select(where(~ !any(is.na(.))))
 
 # codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
@@ -640,7 +640,7 @@ for(i in 1:length(distance_index)) {
 }
 
 dist_result_lmm <-data.frame(dist_index = distance_index, 
-                             group1 = rep("Control", length(distance_index)),
+                             group1 = rep("Uncollapsed", length(distance_index)),
                              group2 = rep("Collapsed", length(distance_index)), df)
 dist_result_lmm
 ```
@@ -656,7 +656,7 @@ sig.dist.labs <- data.frame(Group = distance_stats$Group,
 library(gghalves)
 dist_plot <- similar_data %>% select(c("Group", distance_index)) %>%
   gather(dist_index, value, -c("Group")) %>% 
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
   mutate(dist_index = factor(dist_index, levels = distance_index)) %>%
   ggplot(aes(Group, value, fill = Group)) +
   geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
