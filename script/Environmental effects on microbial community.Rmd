@@ -10,7 +10,7 @@ vignette: >
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
-```{r setup, include = F}
+```{r, setup, include = F}
 knitr::opts_chunk$set(
   collapse = T, echo = T, comment = "#>", message = F, warning = F,
 	fig.align = "center", fig.width= 4.5, fig.height = 3, dpi = 150)
@@ -378,42 +378,6 @@ tree_anim <- phy_tree(phylo_animal)
 ```
 
 
-```{r}
-setwd(save.dir)
-library(iCAMP)
-set.seed(123)
-icamp_16s <- icamp.big(comm = comm_16s, tree = tree_16s, pd.wd = paste0(save.dir,"tables/null_model/16s_all"), 
-                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
-                       rand = 1000, nworker = 8)
-head(icamp_16s$CbMPDiCBraya)
-# write.csv(icamp_16s$CbMPDiCBraya,
-#           file.path(save.dir, './tables/null_model/16s_all/iCAMP.process.CbMPDiCBraya.csv'))
-
-set.seed(123)
-icamp_its <- icamp.big(comm = comm_its, tree = tree_its, pd.wd = paste0(save.dir,"tables/null_model/its_all"), 
-                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
-                       rand = 1000, nworker = 8)
-head(icamp_its$CbMPDiCBraya)
-# write.csv(icamp_its$CbMPDiCBraya,
-#           file.path(save.dir, './tables/null_model/its_all/iCAMP.process.CbMPDiCBraya.csv'))
-
-set.seed(123)
-icamp_pro <- icamp.big(comm = comm_pro, tree = tree_pro, pd.wd = paste0(save.dir,"tables/null_model/pro_all"), 
-                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
-                       rand = 1000, nworker = 8)
-head(icamp_pro$CbMPDiCBraya)
-# write.csv(icamp_pro$CbMPDiCBraya,
-#           file.path(save.dir, './tables/null_model/pro_all/iCAMP.process.CbMPDiCBraya.csv'))
-
-set.seed(123)
-icamp_anim <- icamp.big(comm = comm_anim, tree = tree_anim, pd.wd = paste0(save.dir,"tables/null_model/anim_all"), 
-                       ses.cut = 1.96, rc.cut = 0.95, bin.size.limit = 24, 
-                       rand = 1000, nworker = 8)
-head(icamp_anim$CbMPDiCBraya)
-# write.csv(icamp_anim$CbMPDiCBraya,
-#           file.path(save.dir, './tables/null_model/anim_all/iCAMP.process.CbMPDiCBraya.csv'))
-```
-
 ## Read the null model tables
 ```{r}
 icamp_16s <- read.csv(file.path(save.dir, './tables/null_model/16s_all/iCAMP.process.CbMPDiCBraya.csv'), row.names = 1, header = T, stringsAsFactors = F)
@@ -540,11 +504,6 @@ process_among_group <- null.df %>%
 # ggsave(file.path(save.dir, './figs/null_model/process_among_layers.pdf'), process_among_layers, width = 8, height = 3)
 process_among_group
 ```
-
-
-
-
-
 
 
 

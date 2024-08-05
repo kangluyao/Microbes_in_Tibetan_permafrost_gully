@@ -10,7 +10,7 @@ vignette: >
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
-```{r setup, include = F}
+```{r, setup, include = F}
 knitr::opts_chunk$set(
   collapse = T, echo = T, comment = "#>", message = F, warning = F,
 	fig.align = "center", fig.width= 4.5, fig.height = 3, dpi = 150)
