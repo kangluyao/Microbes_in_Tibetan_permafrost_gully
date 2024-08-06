@@ -360,6 +360,15 @@ p_gene <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spearman")
 p_gene
 ```
 
+## variation partition analysis
+```{r}
+
+```
+
+
+
+
+
 Using the Null model to infer the ecological processes underlying the community assembly.
 ```{r}
 save.dir = "E:/thermokarst_gully/result/"
@@ -395,7 +404,7 @@ null.df.arrange <- function(df) {
   select(-c(1,2)) %>%
   mutate(Group = rep("Uncollapsed", nrow(.))),
   df %>%
-  filter(grepl("_T", sample1) & grepl("_C", sample2)) %>%
+    filter(grepl("_T", sample1) & grepl("_T", sample2)) %>%
   pivot_longer(cols = -c(1, 2), names_to = "process", values_to = "rel_impor") %>%
   select(-c(1,2)) %>%
   mutate(Group = rep("Collapsed", nrow(.))))
@@ -413,7 +422,12 @@ null.df <- rbind(data.frame(Taxa = rep("Bacteria", nrow(null.df.16s)), null.df.1
                  data.frame(Taxa = rep("Fungi", nrow(null.df.its)), null.df.its),
                  data.frame(Taxa = rep("Protist", nrow(null.df.pro)), null.df.pro),
                  data.frame(Taxa = rep("Animal", nrow(null.df.anim)), null.df.anim)) %>%
-  mutate(process = stringr::str_replace_all(process, rep_str1))
+  mutate(process = stringr::str_replace_all(process, rep_str1)) %>%
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
+  mutate(Taxa = factor(Taxa, levels = c("Bacteria", "Fungi", "Protist", "Animal"))) %>%
+  mutate(process = factor(process, levels = c("Heterogeneous Selection", "Homogeneous Selection",
+                                              "Dispersal Limitation", "Homogenizing Dispersal",
+                                              "Drift and Others")))
 ```
 
 ```{r, fig.align='center', fig.width=8.9, fig.height=8.9}
@@ -442,8 +456,6 @@ my_comparisons_process <- list( c("Heterogeneous Selection", "Homogeneous Select
                               c('Dispersal Limitation', 'Drift and Others'),
                               c('Homogenizing Dispersal', 'Drift and Others'))
 process_within_group <- null.df %>%
-  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
-  mutate(Taxa = factor(Taxa, levels = c("Bacteria", "Fungi", "Protist", "Animal"))) %>%
   ggplot(aes(process, rel_impor * 100, fill = process)) +
   geom_half_violin(position = position_nudge(x = 0.2), side = "r", width = 0.8, color = NA) +
   geom_boxplot(width = 0.3, size = 0.75, outlier.color = NA) +
@@ -469,15 +481,36 @@ process_within_group <- null.df %>%
         legend.position = "none")
 process_within_group
 ```
-
+为了出图
+```{r, fig.align='center', fig.width=8.9, fig.height=8.9}
+process_within_group_1 <- null.df %>%
+  ggplot(aes(process, rel_impor * 100, fill = process)) +
+  geom_half_violin(position = position_nudge(x = 0.2), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.3, size = 0.75, outlier.color = NA) +
+  # geom_jitter(aes(fill = process), shape = 21, size = 1.5, width = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  scale_x_discrete(labels = rep_str2) + 
+  facet_grid(Taxa ~ Group, scales = 'free') +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00", "#1F77B4", "#AEC7E8", "#FF7F0E", "#FFBB78")) +
+  theme_bw() +
+  theme(axis.title = element_text(colour = "black", size = 14),
+        axis.text.x = element_text(colour = "black", size = 12, 
+                                   angle = 45, hjust = 1, vjust = 1),
+        axis.text.y = element_text(colour = "black", size = 12),
+        strip.text = element_text(colour = "black", size = 12),
+        legend.key.size = unit(1,"line"),
+        panel.grid = element_blank(),
+        panel.spacing = unit(0, "lines"),
+        legend.position = "none")
+process_within_group_1
+```
 
 ```{r, fig.align='center', fig.width=8.9, fig.height=8.9}
 #boxplot
 library(ggpubr)
 my_comparisons_group <- list(c('Uncollapsed', 'Collapsed'))
 process_among_group <- null.df %>%
-   mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
-  mutate(Taxa = factor(Taxa, levels = c("Bacteria", "Fungi", "Protist", "Animal"))) %>%
   ggplot(aes(Group, rel_impor * 100)) +
   geom_half_violin(position = position_nudge(x = 0.2), side = "r", width = 0.8, color = NA) +
   geom_boxplot(width = 0.3, size = 0.75, outlier.color = NA) +
@@ -506,7 +539,17 @@ process_among_group
 ```
 
 
+### Determine the effect size of the permafrost collapsed on the ecological processes using wilcox test
+```{r}
+wilcox_eff_df <- null.df %>%
+  group_by(Taxa, process) %>% 
+  wilcox_effsize(rel_impor ~ Group, paired = F) %>%
+  arrange(factor(process, levels = c("Heterogeneous Selection", "Homogeneous Selection",
+                                              "Dispersal Limitation", "Homogenizing Dispersal",
+                                              "Drift and Others"))) %>%
+  arrange(factor(Taxa, levels = c("Bacteria", "Fungi", "Protist", "Animal")))
 
+```
 
 
 
