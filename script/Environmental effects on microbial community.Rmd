@@ -541,16 +541,61 @@ process_among_group
 
 ### Determine the effect size of the permafrost collapsed on the ecological processes using wilcox test
 ```{r}
+null.df %>%
+  group_by(Taxa, process, Group) %>%
+  get_summary_stats(rel_impor, type = "mean_sd") %>%
+  print(n = 40)
+
 wilcox_eff_df <- null.df %>%
   group_by(Taxa, process) %>% 
-  wilcox_effsize(rel_impor ~ Group, paired = F) %>%
+  wilcox_effsize(rel_impor ~ Group, ref.group = "Uncollapsed", ci = T) %>%
   arrange(factor(process, levels = c("Heterogeneous Selection", "Homogeneous Selection",
                                               "Dispersal Limitation", "Homogenizing Dispersal",
                                               "Drift and Others"))) %>%
   arrange(factor(Taxa, levels = c("Bacteria", "Fungi", "Protist", "Animal")))
 
+#add a coefficients and significance to indicate the positive and negative variations according to the increasing/decreasing relative importance determined by the wilcox test
+wilcox_eff_df <- wilcox_eff_df %>% 
+  mutate(coeff = c(1, -1, 1, -1, -1, 1, -1, 1, -1, -1, 1, 1, 1, -1, -1, 1, 1, 1, -1, -1)) %>%
+  mutate(sig = c("**", "***", "***", "***", "***",
+                 "***", "***", "***", "***", "***",
+                 "", "***", "***", "***", "***",
+                 "***", "***", "***", "", "***"))
+wilcox_eff_df
 ```
 
+```{r, fig.align='center', fig.width=8.9, fig.height=2.5}
+wilcox_eff_plot <- wilcox_eff_df %>%
+  select(Taxa, process, effsize, conf.low, conf.high, coeff, sig) %>%
+  mutate(effsize = effsize * coeff) %>%
+  mutate(conf.low = conf.low * coeff) %>%
+  mutate(conf.high = conf.high * coeff) %>%
+  as.data.frame() %>%
+  ggplot(aes(x = process, y = effsize, colour = process)) +
+  geom_hline(aes(yintercept = 0), size = 0.7,  colour = "gray2")+
+  geom_point(size = 1) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), 
+                width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
+  geom_text(aes(label = sig, x = process, y = (effsize/abs(effsize))*(abs(conf.high)*1.35)),
+            position = position_dodge(0.1), vjust = 0.55) +
+  labs(x = NULL, y = "Wilcox effect size") +
+  facet_grid( ~ Taxa, scales = 'free') +
+  scale_color_manual(values=c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00", "#1F77B4")) +
+  scale_y_continuous(expand = c(0, 0), limit = c(-1, 1)) +
+  theme_bw() + coord_flip() + scale_x_discrete(position = "bottom") +
+  theme(legend.position = "none", 
+        panel.grid=element_blank(), 
+        axis.title = element_text(color = 'black', size = 6),
+        axis.ticks.length = unit(0.1, "lines"), axis.ticks = element_line(color = 'black', size = 0.3),
+        axis.line = element_line(colour = "black", size = 0.1), 
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6, hjust = 1),
+        legend.title = element_text(size = 7),
+        legend.text = element_text(size = 6),
+        legend.key.size = unit(0.2, 'cm'),
+        legend.background = element_rect(colour = "white"))
+wilcox_eff_plot
+```
 
 
 
