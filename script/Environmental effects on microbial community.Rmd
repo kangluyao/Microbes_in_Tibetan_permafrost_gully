@@ -228,7 +228,7 @@ p_uncollapsed <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spe
   geom_couple(aes(colour = p.value, size = r), 
               data = mantel_uncollapsed, 
               curvature = nice_curvature()) +
-  scale_size_manual(values = c(0.5, 1.5, 3)) +
+  scale_size_manual(values = c(0.3, 1, 1.75)) +
   scale_colour_manual(values = c("#e95f5c", "#79ceb8", '#3C5488FF', 'grey')) +
   # scale_x_discrete(labels = rep_str) +
   # scale_y_discrete(labels = rep_str) +
@@ -246,7 +246,7 @@ p_uncollapsed <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spe
         legend.text = element_text(size = 6),
         legend.key.size = unit(0.8, "lines"))
 
-# ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_revision12.pdf'), p, width = 8.9, height = 4.5, units = "in")
+ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_uncollapsed.pdf'), p_uncollapsed, width = 5, height = 2.5, units = "in")
 p_uncollapsed
 ```
 
@@ -264,7 +264,7 @@ p_collapsed <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spear
   geom_couple(aes(colour = p.value, size = r), 
               data = mantel_collapsed, 
               curvature = nice_curvature()) +
-  scale_size_manual(values = c(0.5, 1.5, 3)) +
+  scale_size_manual(values = c(0.3, 1, 1.75)) +
   scale_colour_manual(values = c("#e95f5c", "#79ceb8", '#3C5488FF', 'grey')) +
   # scale_x_discrete(labels = rep_str) +
   # scale_y_discrete(labels = rep_str) +
@@ -276,14 +276,13 @@ p_collapsed <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spear
                                order = 1),
          fill = guide_colorbar(title = expression(paste("Spearman's ", rho), order = 3))) +
   theme(panel.grid=element_blank(), 
-        axis.text.y = element_text(colour = 'black', size = 6),
-        axis.text.x = element_text(colour = 'black', size = 6, hjust = 1),
-        legend.title = element_text(size = 6), 
-        legend.text = element_text(size = 6),
+        axis.text.y = element_text(colour = 'black', size = 5),
+        axis.text.x = element_text(colour = 'black', size = 5, hjust = 1),
+        legend.title = element_text(size = 5), 
+        legend.text = element_text(size = 5),
         legend.key.size = unit(0.8, "lines"))
 
-
-# ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_revision12.pdf'), p, width = 8.9, height = 4.5, units = "in")
+ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_collapsed.pdf'), p_collapsed, width = 5, height = 2.5, units = "in")
 p_collapsed
 ```
 
@@ -432,10 +431,6 @@ null.df <- rbind(data.frame(Taxa = rep("Bacteria", nrow(null.df.16s)), null.df.1
 
 ```{r, fig.align='center', fig.width=8.9, fig.height=8.9}
 # plot
-legend_label_rep <- c("DL: Dispersal Limitation", "DR: Drift and Others",
-            "HoS: Homogeneous Selection", "HD: Homogenizing Dispersal",
-            "HeS: Heterogeneous Selection")
-
 rep_str2 <- list("Dispersal Limitation" = "DL",
             "Drift and Others" = "DR",
             "Homogeneous Selection" = "HoS",
