@@ -116,7 +116,7 @@ ggsave(file.path(save.dir, "./figs/diversity/div_four_groups_plot.pdf"),
 div_plot
 ```
 
-### Test the difference in single function between uncollapsed and collapsed groups using liner models
+### Test the difference in subtaxa between uncollapsed and collapsed groups using liner models
 ```{r}
 # determine the effect size of the permafrost thawing for the diversity indexes
 tax_index <- c("Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria", "Ascomycota",	"Basidiomycota",	"Mortierellomycota", "Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Ric_N", "Ric_P", "Ric_S")

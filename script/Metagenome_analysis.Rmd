@@ -34,7 +34,7 @@ pacman::p_load(phyloseq, picante, microbiome, readxl, tidyverse, ggpubr, ggplot2
 
 ## reading input files
 ```{r}
-source("script/read_data_rdp.R")
+source("script/read_data_all.R")
 # tree.file <- file.path(wd_fun, 'binning_70/result/gtdb_tree/bacteria/tax.unrooted.tree')
 abundance_tab.file <- file.path(wd_fun, "/MAGs/bin_abundance_table.tab")
 tax.file <- file.path(wd_fun, "/MAGs/annotation.txt")
@@ -219,7 +219,7 @@ dat3_ordered <- dat3[num.mags.df$Function, ]
 sub_anno <- num.mags.df %>% select(Category, Function) %>% column_to_rownames(var = "Function") 
 
 # 3) plot heatmap with no clusters
-pheatmap(dat2_ordered, 
+pheatmap(dat3_ordered, 
          cluster_rows = F,
          cluster_cols = F,
          gaps_row = c(8, 11, 16, 19, 25, 27, 28, 33, 35, 38, 39, 42, 50),
@@ -334,9 +334,9 @@ table_collap$Category <- as.factor(table_collap$Category)
 
 ```{r}
 # reformate the data
-table_all <- rbind(cbind(Group = rep("Control", nrow(table_ctrl)), table_ctrl),
+table_all <- rbind(cbind(Group = rep("Uncollapsed", nrow(table_ctrl)), table_ctrl),
                    cbind(Group = rep("Collapsed", nrow(table_collap)), table_collap)) %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed")))
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed")))
 
 taxa_names <- table_all %>% select(Taxa, Freq) %>%
   group_by(Taxa) %>%
@@ -369,7 +369,7 @@ nodes <- data.frame(
     unique()
 )
 nodes <- data.frame(
-  name = c("Control", "Collapsed", taxa_names,
+  name = c("Uncollapsed", "Collapsed", taxa_names,
            sort(grep('C-', unique(table_all$Reaction), value = T), decreasing = F),
            sort(grep('N-', unique(table_all$Reaction), value = T), decreasing = F),
            sort(grep('S-S', unique(table_all$Reaction), value = T), decreasing = F),

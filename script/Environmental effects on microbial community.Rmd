@@ -29,9 +29,108 @@ div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_rich
              sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
 ```
 
+Test the difference in the environmental variables between the uncollapsed and collapsed sites
 ```{r}
-env_vars <- c("Plant_richness", "pH", "Soil_moisture", "Clay_Silt", "WHC", "AGB", "BGB",
-              "NH4_N", "NO3_N", "AP", "SOC")
+env_vars <- c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC",
+              "NH4_N", "NO3_N", "AP")
+env_stats <- metadata %>% group_by(Group) %>%
+  get_summary_stats(env_vars, type = "common") %>% #or using type = "mean_sd"
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
+  arrange(variable, Group)
+env_stats
+```
+
+```{r}
+library(lme4)
+library(lmerTest)
+lmm_env_modes <- lapply(env_vars, function(x) {
+  lmer(substitute(i ~ Group + (1|Gully_id), list(i = as.name(x))), data = metadata)})
+summary.model <- function(model){
+  F.value <- anova(model)$'F value'
+  p.value <- anova(model)$'Pr(>F)'
+  p.stars <- function(p.values) {
+    unclass(symnum(p.values, corr = FALSE, 
+                   na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1),
+                   symbols = c("***", "**", "*", "ns")))}
+  sig <- p.stars(p.value)
+  results<-data.frame(F.value, p.value, sig)
+  return(results)
+}
+df <- NULL
+for(i in 1:length(env_vars)) {
+  tmp <- summary.model(lmm_env_modes[[i]])
+  if (is.null(df)){
+    df <- tmp
+  } else {
+    df <- rbind(df, tmp)
+  }
+}
+
+env_result_lmm <-data.frame(Variables = env_vars, group1 = rep("Uncollapsed", length(env_vars)),
+                            group2 = rep("Collapsed", length(env_vars)), df)
+env_result_lmm
+```
+
+```{r, fig.align='center', fig.height=5, fig.width=6.5}
+# Add the p-value manually
+env_stats <- data.frame(env_stats,
+                       sig.lab = c("a", "a", "a", "b", "a", "b", 
+                                   "a", "a", "a", "b", "a", "b",
+                                   "a", "b", "a", "b", "a", "a",
+                                   "b", "a", "a", "a"))
+# Create a bar plot
+env_plot <- env_stats %>% 
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
+  mutate(variable = factor(variable, levels = env_vars)) %>%
+  ggplot(aes(Group, mean, fill = Group)) +
+  geom_bar(position = position_dodge(0.8), stat = 'identity', 
+           colour = 'black', width = 0.6, )+
+  geom_errorbar(aes(ymin = mean, ymax = mean + se), width = .2) +
+  # geom_text(aes(y = 1.05*(mean + se), label = sig.lab), 
+  #           position = position_dodge(width = .75), size = 2.5, vjust = 0.01) + # add lowercase letters to indicate the significance
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~variable, scales = "free", ncol = 4, strip.position = "left", labeller = facet_labeller) +
+  theme_classic() + 
+  theme(legend.position = "none",
+        strip.placement = "outside",
+        strip.background = element_rect(colour = NA),
+        strip.text = element_text(colour = 'black', size = 6, margin = margin()),
+        axis.title = element_text(color = 'black',size = 6),
+        axis.text = element_text(colour = 'black', size = 5),
+        axis.line = element_line(size = 0.4),
+        axis.ticks = element_line(color = "black", linewidth = 0.4),
+        legend.title = element_text(colour = 'black', size = 6),
+        legend.text = element_text(colour = 'black', size = 5),
+        legend.key.size = unit(0.5, 'cm'))
+
+lines <- tibble(variable = factor(c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
+                x = c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+                xend = c(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2),
+                y = c(17, 270, 550, 8, 220, 72, 260, 185, 19, 40, 2.4),
+                yend = c(17, 270, 550, 8, 220, 72, 260, 185, 19, 40, 2.4)
+)
+stars <- tibble(variable = factor(c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
+                x = c(1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5),
+                y = c(18, 280, 565, 8.5, 230, 76, 275, 195, 20, 42, 2.5),
+                labels = env_result_lmm$sig
+)
+
+env_plot <- env_plot +
+  # geom_segment(data = lines, aes(x = x, xend = xend, y = y, yend = yend), inherit.aes = FALSE) + # add a sigment to denote the comparison between groups
+  geom_text(data = stars, aes(x = x, y = y, label = labels), inherit.aes = F)
+
+# save the plot
+ggsave(file.path(save.dir, "./figs/env_effect/env_comparison_plot.pdf"),
+       env_plot, width = 145, height = 90, units = "mm")
+env_plot
+```
+
+
+```{r}
+env_vars <- c("Plant_richness", "pH", "Soil_moisture", "Clay_Silt", "WHC", "AGB", "BGB", "SOC",
+              "NH4_N", "NO3_N", "AP")
 div_vars <- c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Ric_kegg")
 
 df_all <- data.frame(metadata[, c("Group", "Gully_id", env_vars)],
@@ -108,7 +207,7 @@ lmm.matrix_all
 heatmap_lmm_plot <- ggplot(aes(x = Env, y = Diversity, fill = coefficents), data = lmm.matrix_all )+
   geom_tile() + scale_fill_gradient2(low = "#2C7BB6", mid = "white", high = "#D7191C")+
   geom_text(aes(label = Sig), color="black", size = 3.5)+
-  labs(y = NULL, x = 'Multifunctionality', fill = 'Standardized coefficients') +
+  labs(y = NULL, x = 'Variables', fill = 'Standardized coefficients') +
   scale_y_discrete(position = "right") +
   facet_wrap(~Group, ncol = 2) +
   theme(panel.background = element_rect(fill = 'white', colour ='black'),

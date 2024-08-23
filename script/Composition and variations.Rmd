@@ -39,7 +39,7 @@ subextract_fun <- function(phylo, taxa_level, perc) {
     mutate(MRA = rowMeans(select(., colnames(ra.tab)))) %>%
     filter(MRA >= perc) %>%
     arrange(desc(MRA)) %>%
-    select(., -c('MRA')) %>%
+    select(., -c('MRA')) # %>%
     # bind_rows(summarise_all(., ~if(is.numeric(.)) 1-sum(.) else "Others"))
   return(otu_final_tab)
 }
@@ -66,8 +66,70 @@ otu_rel_abun_1perc_pro <- subextract_fun(phylo_protist, "Phylum", 0.01) %>%
 # extrac the Animal phyla with the relative abundance higher than 1%
 otu_rel_abun_1perc_anim <- subextract_fun(phylo_animal, "Class", 0.01) %>%
   filter(!Class %in% c("Unassigned"))
+```
 
-#Combine all data
+Compute summary statistics for the relative abundance of all taxa.
+```{r}
+## arrange the data for the lmm test
+otu_rel_abun_1perc_all <- bind_rows(otu_rel_abun_1perc_16s, otu_rel_abun_1perc_its,
+                                otu_rel_abun_1perc_pro, 
+                                otu_rel_abun_1perc_anim %>%  dplyr::rename(Phylum = Class)) %>%
+  as.tibble() %>% column_to_rownames("Phylum") %>% t() %>% 
+  as.data.frame() %>% rownames_to_column(var = "Sample_id") %>%
+  mutate(Group = c(case_when(grepl("_C", Sample_id) ~ "Uncollapsed",
+                             grepl("_T", Sample_id) ~ "Collapsed")),
+         Gully_id = c(case_when(grepl("G1", Sample_id) ~ "G1",
+                                grepl("G2", Sample_id) ~ "G2",
+                                grepl("G3", Sample_id) ~ "G3",
+                                grepl("G4", Sample_id) ~ "G4",
+                                grepl("G5", Sample_id) ~ "G5",
+                                grepl("G6", Sample_id) ~ "G6")))
+
+tax_name <- colnames(otu_rel_abun_1perc_all)[-c(1, 29, 30)] #remove the "Sample_id", "Group", "Gully_id"
+tax_stats <- otu_rel_abun_1perc_all %>% group_by(Group) %>%
+  get_summary_stats(tax_name , type = "common") %>% 
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
+  arrange(variable, Group) %>%
+  select(Group, variable, n, mean, sd, se)
+tax_stats
+```
+Test the difference of each dominant taxa between the uncollapsed and collapsed sample using lmm analysis.
+```{r}
+## lmm test
+library(lme4)
+library(lmerTest)
+lmm_tax_modes <- lapply(tax_name, function(x) {
+  lmer(substitute(i ~ Group + (1|Gully_id), list(i = as.name(x))), data = otu_rel_abun_1perc_all)})
+summary.model <- function(model){
+  F.value <- anova(model)$'F value'
+  p.value <- anova(model)$'Pr(>F)'
+  p.stars <- function(p.values) {
+    unclass(symnum(p.values, corr = FALSE, 
+                   na = FALSE, cutpoints = c(0,0.001, 0.01, 0.05, 0.1, 1),
+                   symbols = c("***", "**", "*", ".", " ")))}
+  sig <- p.stars(p.value)
+  results<-data.frame(F.value, p.value, sig)
+  return(results)
+}
+df <- NULL
+for(i in 1:length(tax_name)) {
+  tmp <- summary.model(lmm_tax_modes[[i]])
+  if (is.null(df)){
+    df <- tmp
+  } else {
+    df <- rbind(df, tmp)
+  }
+}
+
+tax_result_lmm <-data.frame(Variables = tax_name, group1 = rep("Uncollapsed", length(tax_name)),
+                            group2 = rep("Collapsed", length(tax_name)), df)
+tax_result_lmm
+```
+
+
+Arrange the data for sankey plot 
+```{r}
+# Combine all data
 compo_df <- rbind(otu_rel_abun_1perc_16s %>%
   pivot_longer(-Phylum, names_to = "Sample_id", values_to = "Rela_abun") %>%
     mutate(Group = rep("Bacteria", nrow(.))),
@@ -89,12 +151,7 @@ compo_df <- rbind(otu_rel_abun_1perc_16s %>%
   summarise(across(everything(), sum)) %>%
   mutate(Type_group = case_when(Type == "Uncollapsed" ~ "a",
                                 Type == "Collapsed" ~ "b"))
-
-compo_df[1:5, ]
-```
-
-Arrange the data for sankey plot 
-```{r}
+# prepare the table for sankey plot
 sankey <- data.table::rbindlist(list(compo_df[c("Type", "Group", "Rela_abun")],
                                      compo_df[c("Group", "Taxa", "Rela_abun")]))
 
@@ -153,8 +210,8 @@ sankey_plot <- sankeyNetwork(Links = links_datset, Nodes = nodes,
                    sinksRight = F)
 # save the widget
 # recommend htmlwidgets
-library(htmlwidgets)
-saveWidget(sankey_plot, file = paste0(save.dir, "/figs/composition/composition_sankey_plot.html"))
+# library(htmlwidgets)
+# saveWidget(sankey_plot, file = paste0(save.dir, "/figs/composition/composition_sankey_plot.html"))
 # library(webshot)
 # install phantom:
 # webshot::install_phantomjs()
