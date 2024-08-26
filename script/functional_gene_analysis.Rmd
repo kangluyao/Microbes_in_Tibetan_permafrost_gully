@@ -28,7 +28,7 @@ save.dir <- file.path(getwd(),"result")
 
 Loading packages
 ```{r}
-pacman::p_load(tidyverse, ggrepel, EnhancedVolcano, edgeR, DESeq2)
+pacman::p_load(tidyverse, ggrepel, EnhancedVolcano, edgeR, DESeq2, ggplot2)
 ```
 
 Data input
@@ -62,7 +62,7 @@ main_theme = theme_bw() +
         axis.text.x = element_text(colour = 'black', size = 6),
         legend.position = "none")
 pcoa_fun_p1 <- data.frame(Group = metadata$Group, scores(ord.fun)) %>%
-  mutate(Group = factor(Group, levels = c('Control', 'Collapsed'))) %>%
+  mutate(Group = factor(Group, levels = c('Uncollapsed', 'Collapsed'))) %>%
   ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
   geom_point(size = 1, alpha = 0.8) + 
   stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, show.legend = FALSE, level = 0.95) +
@@ -100,10 +100,10 @@ similar_fun_data <- lapply(vars, function(x) usedist::dist_subset(fun_dist, grep
   data.frame() %>%
   gather("tem_group", "distance") %>%
   cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
-        Group = rep(c('Control', 'Collapsed'), each = 10, times = 6)) %>%
+        Group = rep(c('Uncollapsed', 'Collapsed'), each = 10, times = 6)) %>%
   select(-tem_group) %>%
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
-         Group = factor(Group, levels = c('Control', 'Collapsed')))
+         Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
 ```
 
 ```{r, fig.align='center', fig.height=3.5, fig.width=3.5}
@@ -112,7 +112,7 @@ library(lmerTest)
 # determine the effect size of the permafrost thawing for the diversity indexes
 dist_scale <- similar_fun_data %>% 
   mutate(across(where(is.numeric), scale)) %>%
-  mutate(Group = factor(Group, levels = c("Control", "Collapsed"))) %>%
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
   select(where(~ !any(is.na(.))))
 
 
@@ -204,7 +204,7 @@ d <- estimateCommonDisp(d)
 d <- estimateTagwiseDisp(d)
 
 # Testing for differential gene expression
-et <- exactTest(object = d, pair = c("Control","Collapsed"))
+et <- exactTest(object = d, pair = c("Uncollapsed","Collapsed"))
 # topTags() function is useful to extract the table with adjusted p values (FDR).
 top_degs <- topTags(object = et, n = "Inf")
 top_degs
@@ -257,13 +257,13 @@ volca_plot_edger
 ```{r, fig.align='center', fig.width=5.5, fig.height=6}
 group_df <- metadata
 rownames(group_df) <- metadata$Sample_name # make sure the colnames of count table match the rownames of group_df.
-group_df$Group <- factor(group_df$Group, levels = c("Control", "Collapsed"))
+group_df$Group <- factor(group_df$Group, levels = c("Uncollapsed", "Collapsed"))
 KEGG_dds <- DESeqDataSetFromMatrix(countData = round(ko_count_table + 1), 
                                    colData = group_df, design = ~ Group)
 KEGG_deseq <- DESeq(KEGG_dds)
-KEGG_res <- results(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Control'),
+KEGG_res <- results(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Uncollapsed'),
                     independentFiltering=TRUE, alpha=0.01, pAdjustMethod="BH", parallel=TRUE)
-KEGG_res <- lfcShrink(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Control'), res = KEGG_res, type = 'normal')
+KEGG_res <- lfcShrink(KEGG_deseq, contrast = c("Group", 'Collapsed', 'Uncollapsed'), res = KEGG_res, type = 'normal')
 KEGG_res$padj[is.na(KEGG_res$padj)] = 1
 KEGG_significant = rownames(KEGG_res)[(KEGG_res$padj < 0.05) & (KEGG_res$log2FoldChange > 1)]
 write.csv(as.data.frame(KEGG_res), file = file.path(save.dir, "tables/kegg/kegg_Collapsed_vs_control_deseq.csv"))
@@ -411,9 +411,14 @@ kegg_heatmap
 ```
 ```{r, fig.align='center', fig.width=8.9, fig.height=6}
 library(cowplot)
-left_col <- plot_grid(pcoa_fun_plot, volca_plot_edger, labels = c('a', 'b'), label_size = 8, ncol = 1, align = "v")
+# left_plot <- ggdraw(align = "v") +
+#   draw_plot(pcoa_fun_plot, x = 0, y = 0.6, width = 1, height = 0.4) +
+#   draw_plot(fun_dist_comparison, x = 0, y = 0.4, width = 1, height = 0.2) +
+#   draw_plot(volca_plot_edger, x = 0, y = 0, width = 1, height = 0.4)
+#   draw_plot_label(label = c("a", "b", "c"), size = 8, x = c(0, 0, 0), y = c(1, 0.6, 0.4))
+left_col <- plot_grid(pcoa_fun_plot, fun_dist_comparison, volca_plot_edger, labels = c('a', 'b', "c"), label_size = 8, ncol = 1, align = "v", rel_heights = c(4, 2, 4))
 func_plot <- plot_grid(left_col, kegg_heatmap, labels = c('', 'c'), label_size = 8,rel_widths = c(1, 2.2), ncol = 2)
-ggsave(file.path(save.dir, "/figs/kegg/func_plot.pdf"),
+ggsave(file.path(save.dir, "/figs/kegg/func_plot11.pdf"),
        func_plot, width = 8, height = 5, units = "in")
 func_plot
 ```

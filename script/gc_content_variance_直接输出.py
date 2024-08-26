@@ -2,7 +2,6 @@ from Bio import SeqIO
 from Bio.SeqUtils import gc_fraction
 import os
 import numpy as np
-import argparse
 
 def calculate_gc(fasta_file):
     """Calculate GC content for each sequence in a FASTA file."""
@@ -40,11 +39,8 @@ def main(directory, output_file):
     print(f"Results written to {output_file}")
 
 if __name__ == "__main__":
-    # Set up argument parsing
-    parser = argparse.ArgumentParser(description="Calculate GC content and variance for metagenomic data.")
-    parser.add_argument('-d', '--directory', required=True, help="Directory containing the FASTA files.")
-    parser.add_argument('-o', '--output', required=True, help="Output text file path.")
-    args = parser.parse_args()
-
-    # Run the main function with the provided arguments
-    main(args.directory, args.output)
+    # Specify the directory containing your metagenomic FASTA files
+    directory = "/data01/kangluyao/thermokarst_gully/temp/qc/merged"
+    # Specify the output file path
+    output_file = "gc_content_results.txt"
+    main(directory, output_file)
