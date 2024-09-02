@@ -111,8 +111,8 @@ div_plot <- div_table %>% select(c("Group", div_index)) %>%
   theme(legend.position = "none")
 
 # save the plot
-ggsave(file.path(save.dir, "./figs/diversity/div_four_groups_plot.pdf"),
-       div_plot, width = 5, height = 3, units = "in")
+# ggsave(file.path(save.dir, "./figs/diversity/div_four_groups_plot.pdf"),
+#        div_plot, width = 5, height = 3, units = "in")
 div_plot
 ```
 

@@ -122,8 +122,8 @@ env_plot <- env_plot +
   geom_text(data = stars, aes(x = x, y = y, label = labels), inherit.aes = F)
 
 # save the plot
-ggsave(file.path(save.dir, "./figs/env_effect/env_comparison_plot.pdf"),
-       env_plot, width = 145, height = 90, units = "mm")
+# ggsave(file.path(save.dir, "./figs/env_effect/env_comparison_plot.pdf"),
+#        env_plot, width = 145, height = 90, units = "mm")
 env_plot
 ```
 
@@ -199,7 +199,7 @@ lmm.matrix_all <- rbind(data.frame(Group = rep("Uncollapsed", nrow(lmm.matrix_un
                                    lmm.matrix_collapsed)) %>%
   mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
   mutate(Diversity = factor(Diversity, levels = div_vars))
-lmm.matrix_all                      
+lmm.matrix_all                     
 ```
 
 ```{r, fig.align='center', fig.width=5.5, fig.height=2.5}
@@ -345,7 +345,7 @@ p_uncollapsed <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spe
         legend.text = element_text(size = 6),
         legend.key.size = unit(0.8, "lines"))
 
-ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_uncollapsed.pdf'), p_uncollapsed, width = 5, height = 2.5, units = "in")
+# ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_uncollapsed.pdf'), p_uncollapsed, width = 5, height = 2.5, units = "in")
 p_uncollapsed
 ```
 
@@ -381,7 +381,7 @@ p_collapsed <-  qcorrplot(correlate(env.table, engine = "Hmisc", method = "spear
         legend.text = element_text(size = 5),
         legend.key.size = unit(0.8, "lines"))
 
-ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_collapsed.pdf'), p_collapsed, width = 5, height = 2.5, units = "in")
+# ggsave(file.path(save.dir, './figs/env_effect/partail_matel_plot_for_collapsed.pdf'), p_collapsed, width = 5, height = 2.5, units = "in")
 p_collapsed
 ```
 
@@ -657,6 +657,7 @@ wilcox_eff_df <- wilcox_eff_df %>%
                  "***", "***", "***", "***", "***",
                  "", "***", "***", "***", "***",
                  "***", "***", "***", "", "***"))
+write.csv(wilcox_eff_df, file.path(save.dir, './tables/null_model/wilcox_effectsize.csv'))
 wilcox_eff_df
 ```
 
