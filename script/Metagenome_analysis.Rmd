@@ -297,8 +297,8 @@ if (!dir.exists(sankey.plots.folder)) {
 Input files
 
 ```{r}
-ctrl_input_table <- file.path(wd_fun, "metabolic/control/METABOLIC_Figures_Input/Metabolic_Sankey_diagram_input.txt")
-collap_input_table <- file.path(wd_fun, "metabolic/collapsed/METABOLIC_Figures_Input/Metabolic_Sankey_diagram_input.txt")
+ctrl_input_table <- file.path(wd_fun, "metabolic/control/METABOLIC_Figures_Input/Metabolic_Sankey_diagram_input1.txt")
+collap_input_table <- file.path(wd_fun, "metabolic/collapsed/METABOLIC_Figures_Input/Metabolic_Sankey_diagram_input1.txt")
 ```
 
 Loading packages
@@ -311,10 +311,8 @@ Generate a snakey plot with reactions as node, and edges are MAGs, and are color
 
 ```{r}
 # Load the energy flow diagram input ---------------------------
-table_ctrl <- read.table(ctrl_input_table, header = F, sep = "\t")
-colnames(table_ctrl) <- c("Taxa", "Reaction", "Freq")
-table_collap <- read.table(collap_input_table, header = F, sep = "\t")
-colnames(table_collap) <- c("Taxa", "Reaction", "Freq")
+table_ctrl <- read.table(ctrl_input_table, header = T, sep = "\t")
+table_collap <- read.table(collap_input_table, header = T, sep = "\t")
 ```
 
 ```{r}
@@ -458,8 +456,8 @@ P <- sankeyNetwork(Links = links, Nodes = nodes, Source = "IDsource", Target = "
                    sinksRight = F)
 # save the widget
 # 推荐使用htmlwidgets
-# library(htmlwidgets)
-# saveWidget(p, file = paste0(sankey.plots.folder, "/sankey_plot.html"))
+library(htmlwidgets)
+saveWidget(P, file = paste0(sankey.plots.folder, "/sankey_plot.html"))
 # library(webshot)
 # install phantom:
 # webshot::install_phantomjs()
