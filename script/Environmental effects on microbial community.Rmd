@@ -88,7 +88,7 @@ env_plot <- env_stats %>%
   geom_errorbar(aes(ymin = mean, ymax = mean + se), width = .2) +
   # geom_text(aes(y = 1.05*(mean + se), label = sig.lab), 
   #           position = position_dodge(width = .75), size = 2.5, vjust = 0.01) + # add lowercase letters to indicate the significance
-  scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
   labs(x = NULL, y = NULL) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   facet_wrap(~variable, scales = "free", ncol = 4, strip.position = "left", labeller = facet_labeller) +
@@ -112,19 +112,90 @@ lines <- tibble(variable = factor(c("Plant_richness", "AGB", "BGB", "pH", "Soil_
                 yend = c(17, 270, 550, 8, 220, 72, 260, 185, 19, 40, 2.4)
 )
 stars <- tibble(variable = factor(c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
-                x = c(1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5),
-                y = c(18, 280, 565, 8.5, 230, 76, 275, 195, 20, 42, 2.5),
+                x = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
+                y = c(0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95),
                 labels = env_result_lmm$sig
 )
 
 env_plot <- env_plot +
   # geom_segment(data = lines, aes(x = x, xend = xend, y = y, yend = yend), inherit.aes = FALSE) + # add a sigment to denote the comparison between groups
-  geom_text(data = stars, aes(x = x, y = y, label = labels), inherit.aes = F)
+  ggpp::geom_text_npc(data = stars, aes(npcx = x, npcy = y, label = labels), inherit.aes = F)
 
 # save the plot
 # ggsave(file.path(save.dir, "./figs/env_effect/env_comparison_plot.pdf"),
 #        env_plot, width = 145, height = 90, units = "mm")
 env_plot
+```
+Explore the effect of permafrost collapse on the environmental heterogeneity.
+```{r}
+#environmental table
+env_df <- metadata %>% select(env_vars)
+env.dist <- vegdist(scale(env_df), 'euclidean', na.rm = T)
+# difference in environmental variance among uncollapsed and collapsed sample at plot level
+vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
+# extract the values within site (at plot level) of uncollapsed and collapsed samples, respectively.
+env_dis_plot_level <- lapply(vars, function(x) usedist::dist_subset(env.dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
+  do.call(cbind, .) %>%
+  data.frame() %>%
+  gather("tem_group", "distance") %>%
+  cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
+        Group = rep(c('Uncollapsed', 'Collapsed'), each = 10, times = 6)) %>%
+  select(-tem_group) %>%
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
+         Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
+# extract the values among sites (at regional level) of uncollapsed and collapsed samples, respectively.
+# env_dis_region_level <- lapply(vars, function(x) usedist::dist_subset(env.dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
+#   do.call(cbind, .) %>%
+#   data.frame() %>%
+#   gather("tem_group", "distance") %>%
+#   cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
+#         Group = rep(c('Uncollapsed', 'Collapsed'), each = 10, times = 6)) %>%
+#   select(-tem_group) %>%
+#   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
+#          Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
+```
+
+Linear mixed model test the difference of environmental heterogeneity among uncollapsed and collapsed samples
+```{r}
+library(lme4)
+library(lmerTest)
+summary.model <- function(model){
+  F.value <- anova(model)$`F value`
+  p.value <- anova(model)$'Pr(>F)'
+  p.stars <- function(p.values) {
+    unclass(symnum(p.values, corr = FALSE, 
+                   na = FALSE, cutpoints = c(0,0.001, 0.01, 0.05, 1),
+                   symbols = c("***", "**", "*", "ns")))}
+  sig <- p.stars(p.value)
+  results<-data.frame(F.value, p.value, sig)
+  return(results)
+}
+env.dist_mode <- lmer(distance ~ Group + (1|Gully_id), data = env_dis_plot_level)
+env_lmm_model_results <- summary.model(env.dist_mode)
+env_lmm_model_results
+```
+
+```{r, fig.align='center',fig.height=2, fig.height=2}
+# Create a box plot
+library(gghalves)
+env_dist_plot <- env_dis_plot_level %>% 
+  mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
+  ggplot(aes(Group, distance, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
+  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
+  geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) + 
+  ggpp::geom_text_npc(aes(npcx = 0.5, npcy = 0.95, label = "**")) +
+  # geom_text(aes(x = 1.5, y = Inf, label = "**"), inherit.aes = F) +
+  labs(x = NULL, y = "Environmental heterogeneity") +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  main_theme +
+  theme(legend.position = "none")
+
+# save the plot
+# ggsave(file.path(save.dir, "./figs/env_effect/environmental_heterogeneity_plot.pdf"),
+#        env_dist_plot, width = 45, height = 45, units = "mm")
+env_dist_plot
 ```
 
 
