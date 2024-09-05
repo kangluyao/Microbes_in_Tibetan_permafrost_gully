@@ -72,12 +72,23 @@ env_result_lmm
 ```
 
 ```{r, fig.align='center', fig.height=5, fig.width=6.5}
-# Add the p-value manually
-env_stats <- data.frame(env_stats,
-                       sig.lab = c("a", "a", "a", "b", "a", "b", 
-                                   "a", "a", "a", "b", "a", "b",
-                                   "a", "b", "a", "b", "a", "a",
-                                   "b", "a", "a", "a"))
+rep_str1 = list("Plant_richness" = "Plant richness",
+            "AGB" = expression(paste("AGB ", "(g/", "m"^2, ")")),
+            "BGB" = expression(paste("BGB ", "(g/", "m"^2, ")")),
+            "pH" = "pH",
+            "Soil_moisture" = "Moisture (%)",
+            "Clay_Silt" = "Clay+Silt (%)",
+            "WHC" = "WHC (%)", 
+            "SOC" = "SOC (g/kg)",
+            "NH4_N" = expression(paste("NH"[4]^"+", "-N", " (mg/kg)")),
+            "NO3_N" = expression(paste("NO"[3]^"-", "-N", " (mg/kg)")),
+            "AP" = "AP (mg/kg)"
+)
+# write a function to change the facet labels
+facet_labeller <- function(variable,value){
+  return(rep_str1[value])
+}
+
 # Create a bar plot
 env_plot <- env_stats %>% 
   mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
@@ -110,22 +121,27 @@ lines <- tibble(variable = factor(c("Plant_richness", "AGB", "BGB", "pH", "Soil_
                 xend = c(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2),
                 y = c(17, 270, 550, 8, 220, 72, 260, 185, 19, 40, 2.4),
                 yend = c(17, 270, 550, 8, 220, 72, 260, 185, 19, 40, 2.4)
-)
+                )
 stars <- tibble(variable = factor(c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
-                x = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
-                y = c(0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95),
-                labels = env_result_lmm$sig
-)
+                x1 = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
+                y1 = c(0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95),
+                sig.labels = env_result_lmm$sig,
+                x2 = c(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
+                y2 = c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+                panel.labels = letters[as.numeric(variable)]
+                )
 
 env_plot <- env_plot +
   # geom_segment(data = lines, aes(x = x, xend = xend, y = y, yend = yend), inherit.aes = FALSE) + # add a sigment to denote the comparison between groups
-  ggpp::geom_text_npc(data = stars, aes(npcx = x, npcy = y, label = labels), inherit.aes = F)
+  ggpp::geom_text_npc(data = stars, aes(npcx = x1, npcy = y1, label = sig.labels), inherit.aes = F) +
+  ggpp::geom_text_npc(data = stars, aes(npcx = x2, npcy = y2, label = panel.labels), inherit.aes = F)
 
 # save the plot
 # ggsave(file.path(save.dir, "./figs/env_effect/env_comparison_plot.pdf"),
 #        env_plot, width = 145, height = 90, units = "mm")
 env_plot
 ```
+
 Explore the effect of permafrost collapse on the environmental heterogeneity.
 ```{r}
 #environmental table
@@ -608,10 +624,6 @@ rep_str2 <- list("Dispersal Limitation" = "DL",
             "Heterogeneous Selection" = "HeS"
 )
 
-# write a function to change the facet labels
-facet_labeller <- function(variable,value){
-  return(rep_str2[value])
-}
 #load the packages
 pacman::p_load(ggplot2, ggpubr, gghalves)
 my_comparisons_process <- list( c("Heterogeneous Selection", "Homogeneous Selection"), 
