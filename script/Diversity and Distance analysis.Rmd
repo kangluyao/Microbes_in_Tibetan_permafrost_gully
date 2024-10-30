@@ -29,13 +29,16 @@ Data input
 ```{r, message=FALSE}
 #Read in data
 source("script/read_data_all.R")
-div_table <- read.table(file = "E:/thermokarst_gully/data/multifun/multifun_richness_table_all.csv",
-             sep = ',',  header = T, row.names = 1, stringsAsFactors = F)
+div.file <- "E:/thermokarst_gully/data/multifun/multifun_richness_table_all.txt"
+div_table <-  read.table(div.file, header = TRUE, sep = "\t", row.names = 1,
+                  as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
+                  check.names = FALSE)
 ```
 
 ## Descriptive statistics for all diversity indexes
 ```{r}
-div_index <- c("Ric_16s", "Ric_its", "Ric_pro", "Ric_anim", "Soil_multidiv", "Ric_kegg")
+div_index <- c("Bacterial richness",	"Fungal richness",	"Protist richness",	"Animal richness",	
+               "Soil multidiversity", "Gene numbers")
 div_stats <- div_table %>% group_by(Group) %>%
   get_summary_stats(div_index, type = "common") %>% #or using type = "mean_sd"
   mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
@@ -74,11 +77,15 @@ div_result_lmm <-data.frame(diversity = div_index, group1 = rep("Uncollapsed", l
 div_result_lmm
 ```
 ```{r, fig.align='center', fig.height=4, fig.width=7}
-# Add the p-value manually
-sig.div.labs <- data.frame(Group = div_stats$Group, 
-                       diversity = div_stats$variable,
-                       y.pos = div_stats$max *1.05,
-                       sig.lab = c("a", "b", "a", "b", "a", "b", "a", "b", "a", "b", "b", "a"))
+# Add the significant symbols manually
+sig.div.labs <- tibble(diversity = factor(div_index, levels = div_index),
+                x1 = rep(0.5, length(div_index)),
+                y1 = rep(0.95, length(div_index)),
+                sig.labels = div_result_lmm$sig,
+                x2 = rep(0.1, length(div_index)),
+                y2 = rep(1, length(div_index)),
+                panel.labels = letters[as.numeric(diversity)])
+
 # Create a box plot
 main_theme = theme_bw() + 
   theme(panel.grid = element_blank(),
@@ -102,8 +109,7 @@ div_plot <- div_table %>% select(c("Group", div_index)) %>%
   geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
   geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
-  geom_text(data = sig.div.labs, aes(y = y.pos, label = sig.lab), 
-                  position = position_dodge(width = .75), size = 3.5) +
+  ggpp::geom_text_npc(data = sig.div.labs, aes(npcx = x1, npcy = y1, label = sig.labels), inherit.aes = F) +
   labs(x = NULL, y = NULL) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   facet_wrap(~diversity, scales = "free_y", ncol = 3) +
@@ -111,15 +117,15 @@ div_plot <- div_table %>% select(c("Group", div_index)) %>%
   theme(legend.position = "none")
 
 # save the plot
-# ggsave(file.path(save.dir, "./figs/diversity/div_four_groups_plot.pdf"),
-#        div_plot, width = 5, height = 3, units = "in")
+ggsave(file.path(save.dir, "./figs/diversity/div_four_groups_plot.pdf"),
+       div_plot, width = 4.5, height = 3, units = "in")
 div_plot
 ```
 
 ### Test the difference in subtaxa between uncollapsed and collapsed groups using liner models
 ```{r}
 # determine the effect size of the permafrost thawing for the diversity indexes
-tax_index <- c("Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria", "Ascomycota",	"Basidiomycota",	"Mortierellomycota", "Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Ric_N", "Ric_P", "Ric_S")
+tax_index <- c("Actinobacteria",	"Alphaproteobacteria",	"Acidobacteria",	"Firmicutes",	"Betaproteobacteria", "Planctomycetes",	"Gammaproteobacteria",	"Bacteroidetes",	"Deltaproteobacteria", "Ascomycota",	"Basidiomycota",	"Mortierellomycota", "Cercozoa",	"Conosa",	"Ciliophora",	"Chlorophyta",	"Apicomplexa",	"Ochrophyta",	"Pseudofungi",	"Lobosa",	"Sagenista",	"Opalozoa",	"Nematoda",	"Rotifera",	"Arthropoda",	"Annelida",	"Tardigrada", "Carbohydrate metabolism", "Nitrogen metabolism",	"Phosphorus metabolism",	"Sulfur metabolism")
 
 div_scale <- div_table %>% 
   select(c("Group", "Gully_id", tax_index)) %>%
@@ -183,11 +189,11 @@ single_div_comparison <- div_S1 %>%
   scale_color_manual(values=c("#79ceb8", "grey", "#e95f5c")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   coord_flip() + scale_x_discrete(position = "top") +
-  annotate("rect", xmin = 0.5, xmax = 3.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#ffdb00") +
-  annotate("rect", xmin = 3.5, xmax = 8.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#f19837") +
-  annotate("rect", xmin = 8.5, xmax = 18.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#e56eee") +
-  annotate("rect", xmin = 18.5, xmax = 21.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#5fb236") +
-  annotate("rect", xmin = 21.5, xmax = 30.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#1ca9c9") +
+  annotate("rect", xmin = 0.5, xmax = 4.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#ffdb00") +
+  annotate("rect", xmin = 4.5, xmax = 9.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#f19837") +
+  annotate("rect", xmin = 9.5, xmax = 19.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#e56eee") +
+  annotate("rect", xmin = 19.5, xmax = 22.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#5fb236") +
+  annotate("rect", xmin = 22.5, xmax = 31.5, ymin = -2, ymax = 2, alpha = 0.1, fill = "#1ca9c9") +
   main_theme +
   theme(legend.position = "none",
         strip.background = element_rect(fill = c("#FFF6E1")),
@@ -198,9 +204,29 @@ single_div_comparison <- div_S1 %>%
 #   dir.create(file.path(save.dir, "figs/env/"))
 # }
 ggsave(file.path(save.dir, "./figs/diversity/single_div_comparison.pdf"),
-       single_div_comparison, width = 2.5, height = 5.5, units = "in")
+       single_div_comparison, width = 2.5, height = 5.25, units = "in")
 single_div_comparison
 ```
 
 
+```{r}
+# read data
+ko_description <- 'E:/thermokarst_gully/data/metagenome/KO_description.txt'
+ko_9_levels_file <- 'E:/thermokarst_gully/data/metagenome/ko_9_levels.txt'
+
+ko_9_levels <- read.table(ko_9_levels_file, header = TRUE, sep = "\t", 
+                  as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
+                  check.names = FALSE)
+
+# Filter the L2 == "Metabolism" rows and merge the KO table
+ko_metabolism_df <- ko_9_levels %>% filter(L1 == "Metabolism") %>% inner_join(ko_tpm_table %>% rownames_to_column("KO"), c("KO" = "KO")) %>% select(L2, all_of(metadata$Sample_name))
+
+ko_metabolism_df %>% group_by(L2) %>% colSums(. != 0)
+
+
+ko_metabolism_df %>%
+  group_by(L2) %>%
+  summarise(across(metadata$Sample_name, ~ sum(.x != 0))) %>%
+  write.csv(., file = "E:/thermokarst_gully/data/multifun/kegg_L1_KO.csv")
+```
 

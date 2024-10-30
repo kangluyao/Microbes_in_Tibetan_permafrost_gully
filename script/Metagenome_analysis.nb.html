@@ -11,7 +11,7 @@
 
 <meta name="author" content="Luyao Kang" />
 
-<meta name="date" content="2024-09-02" />
+<meta name="date" content="2024-10-17" />
 
 <title>Metagenome_analysis</title>
 
@@ -3318,7 +3318,7 @@ display: none;
 
 <h1 class="title toc-ignore">Metagenome_analysis</h1>
 <h4 class="author">Luyao Kang</h4>
-<h4 class="date">2024-09-02</h4>
+<h4 class="date">2024-10-17</h4>
 
 </div>
 
@@ -3383,112 +3383,9 @@ save.dir &lt;- file.path(getwd(),&quot;result&quot;)</code></pre>
 <h2>reading input files</h2>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc291cmNlKFwic2NyaXB0L3JlYWRfZGF0YV9hbGwuUlwiKVxuYGBgIn0= -->
-<pre class="r"><code>source(&quot;script/read_data_all.R&quot;)</code></pre>
-<!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiTG9hZGluZyByZXF1aXJlZCBwYWNrYWdlOiBCaW9jR2VuZXJpY3NcblxuQXR0YWNoaW5nIHBhY2thZ2U6IOKAmEJpb2NHZW5lcmljc+KAmVxuXG5UaGUgZm9sbG93aW5nIG9iamVjdHMgYXJlIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6bHVicmlkYXRl4oCZOlxuXG4gICAgaW50ZXJzZWN0LCBzZXRkaWZmLCB1bmlvblxuXG5UaGUgZm9sbG93aW5nIG9iamVjdHMgYXJlIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6ZHBseXLigJk6XG5cbiAgICBjb21iaW5lLCBpbnRlcnNlY3QsIHNldGRpZmYsIHVuaW9uXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0cyBhcmUgbWFza2VkIGZyb20g4oCYcGFja2FnZTpzdGF0c+KAmTpcblxuICAgIElRUiwgbWFkLCBzZCwgdmFyLCB4dGFic1xuXG5UaGUgZm9sbG93aW5nIG9iamVjdHMgYXJlIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6YmFzZeKAmTpcblxuICAgIGFueUR1cGxpY2F0ZWQsIGFwZXJtLCBhcHBlbmQsIGFzLmRhdGEuZnJhbWUsIGJhc2VuYW1lLCBjYmluZCwgY29sbmFtZXMsIGRpcm5hbWUsIGRvLmNhbGwsIGR1cGxpY2F0ZWQsXG4gICAgZXZhbCwgZXZhbHEsIEZpbHRlciwgRmluZCwgZ2V0LCBncmVwLCBncmVwbCwgaW50ZXJzZWN0LCBpcy51bnNvcnRlZCwgbGFwcGx5LCBNYXAsIG1hcHBseSwgbWF0Y2gsIG1nZXQsXG4gICAgb3JkZXIsIHBhc3RlLCBwbWF4LCBwbWF4LmludCwgcG1pbiwgcG1pbi5pbnQsIFBvc2l0aW9uLCByYW5rLCByYmluZCwgUmVkdWNlLCByb3duYW1lcywgc2FwcGx5LCBzZXRkaWZmLFxuICAgIHRhYmxlLCB0YXBwbHksIHVuaW9uLCB1bmlxdWUsIHVuc3BsaXQsIHdoaWNoLm1heCwgd2hpY2gubWluXG5cbkxvYWRpbmcgcmVxdWlyZWQgcGFja2FnZTogUzRWZWN0b3JzXG5Mb2FkaW5nIHJlcXVpcmVkIHBhY2thZ2U6IHN0YXRzNFxuXG5BdHRhY2hpbmcgcGFja2FnZTog4oCYUzRWZWN0b3Jz4oCZXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0cyBhcmUgbWFza2VkIGZyb20g4oCYcGFja2FnZTpsdWJyaWRhdGXigJk6XG5cbiAgICBzZWNvbmQsIHNlY29uZDwtXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0cyBhcmUgbWFza2VkIGZyb20g4oCYcGFja2FnZTpkcGx5cuKAmTpcblxuICAgIGZpcnN0LCByZW5hbWVcblxuVGhlIGZvbGxvd2luZyBvYmplY3QgaXMgbWFza2VkIGZyb20g4oCYcGFja2FnZTp0aWR5cuKAmTpcblxuICAgIGV4cGFuZFxuXG5UaGUgZm9sbG93aW5nIG9iamVjdCBpcyBtYXNrZWQgZnJvbSDigJhwYWNrYWdlOnV0aWxz4oCZOlxuXG4gICAgZmluZE1hdGNoZXNcblxuVGhlIGZvbGxvd2luZyBvYmplY3RzIGFyZSBtYXNrZWQgZnJvbSDigJhwYWNrYWdlOmJhc2XigJk6XG5cbiAgICBleHBhbmQuZ3JpZCwgSSwgdW5uYW1lXG5cbkxvYWRpbmcgcmVxdWlyZWQgcGFja2FnZTogSVJhbmdlc1xuXG5BdHRhY2hpbmcgcGFja2FnZTog4oCYSVJhbmdlc+KAmVxuXG5UaGUgZm9sbG93aW5nIG9iamVjdCBpcyBtYXNrZWQgZnJvbSDigJhwYWNrYWdlOmx1YnJpZGF0ZeKAmTpcblxuICAgICV3aXRoaW4lXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0cyBhcmUgbWFza2VkIGZyb20g4oCYcGFja2FnZTpkcGx5cuKAmTpcblxuICAgIGNvbGxhcHNlLCBkZXNjLCBzbGljZVxuXG5UaGUgZm9sbG93aW5nIG9iamVjdCBpcyBtYXNrZWQgZnJvbSDigJhwYWNrYWdlOnB1cnJy4oCZOlxuXG4gICAgcmVkdWNlXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0IGlzIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6bWljcm9iaW9tZeKAmTpcblxuICAgIGNvdmVyYWdlXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0IGlzIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6bmxtZeKAmTpcblxuICAgIGNvbGxhcHNlXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0IGlzIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6cGh5bG9zZXHigJk6XG5cbiAgICBkaXN0YW5jZVxuXG5UaGUgZm9sbG93aW5nIG9iamVjdCBpcyBtYXNrZWQgZnJvbSDigJhwYWNrYWdlOmdyRGV2aWNlc+KAmTpcblxuICAgIHdpbmRvd3NcblxuTG9hZGluZyByZXF1aXJlZCBwYWNrYWdlOiBYVmVjdG9yXG5cbkF0dGFjaGluZyBwYWNrYWdlOiDigJhYVmVjdG9y4oCZXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0IGlzIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6cHVycnLigJk6XG5cbiAgICBjb21wYWN0XG5cbkxvYWRpbmcgcmVxdWlyZWQgcGFja2FnZTogR2Vub21lSW5mb0RiXG5cbkF0dGFjaGluZyBwYWNrYWdlOiDigJhCaW9zdHJpbmdz4oCZXG5cblRoZSBmb2xsb3dpbmcgb2JqZWN0IGlzIG1hc2tlZCBmcm9tIOKAmHBhY2thZ2U6YXBl4oCZOlxuXG4gICAgY29tcGxlbWVudFxuXG5UaGUgZm9sbG93aW5nIG9iamVjdCBpcyBtYXNrZWQgZnJvbSDigJhwYWNrYWdlOmJhc2XigJk6XG5cbiAgICBzdHJzcGxpdFxuIn0= -->
-<pre><code>Loading required package: BiocGenerics
-
-Attaching package: ‘BiocGenerics’
-
-The following objects are masked from ‘package:lubridate’:
-
-    intersect, setdiff, union
-
-The following objects are masked from ‘package:dplyr’:
-
-    combine, intersect, setdiff, union
-
-The following objects are masked from ‘package:stats’:
-
-    IQR, mad, sd, var, xtabs
-
-The following objects are masked from ‘package:base’:
-
-    anyDuplicated, aperm, append, as.data.frame, basename, cbind, colnames, dirname, do.call, duplicated,
-    eval, evalq, Filter, Find, get, grep, grepl, intersect, is.unsorted, lapply, Map, mapply, match, mget,
-    order, paste, pmax, pmax.int, pmin, pmin.int, Position, rank, rbind, Reduce, rownames, sapply, setdiff,
-    table, tapply, union, unique, unsplit, which.max, which.min
-
-Loading required package: S4Vectors
-Loading required package: stats4
-
-Attaching package: ‘S4Vectors’
-
-The following objects are masked from ‘package:lubridate’:
-
-    second, second&lt;-
-
-The following objects are masked from ‘package:dplyr’:
-
-    first, rename
-
-The following object is masked from ‘package:tidyr’:
-
-    expand
-
-The following object is masked from ‘package:utils’:
-
-    findMatches
-
-The following objects are masked from ‘package:base’:
-
-    expand.grid, I, unname
-
-Loading required package: IRanges
-
-Attaching package: ‘IRanges’
-
-The following object is masked from ‘package:lubridate’:
-
-    %within%
-
-The following objects are masked from ‘package:dplyr’:
-
-    collapse, desc, slice
-
-The following object is masked from ‘package:purrr’:
-
-    reduce
-
-The following object is masked from ‘package:microbiome’:
-
-    coverage
-
-The following object is masked from ‘package:nlme’:
-
-    collapse
-
-The following object is masked from ‘package:phyloseq’:
-
-    distance
-
-The following object is masked from ‘package:grDevices’:
-
-    windows
-
-Loading required package: XVector
-
-Attaching package: ‘XVector’
-
-The following object is masked from ‘package:purrr’:
-
-    compact
-
-Loading required package: GenomeInfoDb
-
-Attaching package: ‘Biostrings’
-
-The following object is masked from ‘package:ape’:
-
-    complement
-
-The following object is masked from ‘package:base’:
-
-    strsplit</code></pre>
-<!-- rnb-output-end -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyB0cmVlLmZpbGUgPC0gZmlsZS5wYXRoKHdkX2Z1biwgJ2Jpbm5pbmdfNzAvcmVzdWx0L2d0ZGJfdHJlZS9iYWN0ZXJpYS90YXgudW5yb290ZWQudHJlZScpXG5hYnVuZGFuY2VfdGFiLmZpbGUgPC0gZmlsZS5wYXRoKHdkX2Z1biwgXCIvTUFHcy9iaW5fYWJ1bmRhbmNlX3RhYmxlLnRhYlwiKVxudGF4LmZpbGUgPC0gZmlsZS5wYXRoKHdkX2Z1biwgXCIvTUFHcy9hbm5vdGF0aW9uLnR4dFwiKVxuIyBiaW4gZ2Vub21lIGluZm9ybWF0aW9uXG5iaW5faW5mb3JfZmlsZSA8LSBmaWxlLnBhdGgod2RfZnVuLCBcIk1BR3MvV2lkYi5jc3ZcIilcbm1ldGFib2xpY19vdXRwdXRfZmlsZSA8LSBmaWxlLnBhdGgod2RfZnVuLCBcIk1BR3MvTUVUQUJPTElDX3Jlc3VsdC5jc3ZcIilcbiMgdHJlZSA8LSByZWFkLnRyZWUodHJlZS5maWxlKVxuYWJ1bmRhbmNlX3RhYiA8LSByZWFkX2RlbGltKGFidW5kYW5jZV90YWIuZmlsZSwgY29sX25hbWVzID0gVClcbmBgYCJ9 -->
-<pre class="r"><code># tree.file &lt;- file.path(wd_fun, &#39;binning_70/result/gtdb_tree/bacteria/tax.unrooted.tree&#39;)
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc291cmNlKFwic2NyaXB0L3JlYWRfZGF0YV9hbGwuUlwiKVxuIyB0cmVlLmZpbGUgPC0gZmlsZS5wYXRoKHdkX2Z1biwgJ2Jpbm5pbmdfNzAvcmVzdWx0L2d0ZGJfdHJlZS9iYWN0ZXJpYS90YXgudW5yb290ZWQudHJlZScpXG5hYnVuZGFuY2VfdGFiLmZpbGUgPC0gZmlsZS5wYXRoKHdkX2Z1biwgXCIvTUFHcy9iaW5fYWJ1bmRhbmNlX3RhYmxlLnRhYlwiKVxudGF4LmZpbGUgPC0gZmlsZS5wYXRoKHdkX2Z1biwgXCIvTUFHcy9hbm5vdGF0aW9uLnR4dFwiKVxuIyBiaW4gZ2Vub21lIGluZm9ybWF0aW9uXG5iaW5faW5mb3JfZmlsZSA8LSBmaWxlLnBhdGgod2RfZnVuLCBcIk1BR3MvV2lkYi5jc3ZcIilcbm1ldGFib2xpY19vdXRwdXRfZmlsZSA8LSBmaWxlLnBhdGgod2RfZnVuLCBcIk1BR3MvTUVUQUJPTElDX3Jlc3VsdC5jc3ZcIilcbiMgdHJlZSA8LSByZWFkLnRyZWUodHJlZS5maWxlKVxuYWJ1bmRhbmNlX3RhYiA8LSByZWFkX2RlbGltKGFidW5kYW5jZV90YWIuZmlsZSwgY29sX25hbWVzID0gVClcbmBgYCJ9 -->
+<pre class="r"><code>source(&quot;script/read_data_all.R&quot;)
+# tree.file &lt;- file.path(wd_fun, &#39;binning_70/result/gtdb_tree/bacteria/tax.unrooted.tree&#39;)
 abundance_tab.file &lt;- file.path(wd_fun, &quot;/MAGs/bin_abundance_table.tab&quot;)
 tax.file &lt;- file.path(wd_fun, &quot;/MAGs/annotation.txt&quot;)
 # bin genome information
@@ -3497,12 +3394,12 @@ metabolic_output_file &lt;- file.path(wd_fun, &quot;MAGs/METABOLIC_result.csv&qu
 # tree &lt;- read.tree(tree.file)
 abundance_tab &lt;- read_delim(abundance_tab.file, col_names = T)</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiUm93czogMzMwIENvbHVtbnM6IDYxXG7ilIDilIAgQ29sdW1uIHNwZWNpZmljYXRpb24g4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSAXG5EZWxpbWl0ZXI6IFwiXFx0XCJcbmNociAgKDEpOiBHZW5vbWljIGJpbnNcbmRibCAoNjApOiBHMl9DMiwgRzJfQzMsIEcyX0MxLCBHNl9DMywgRzFfVDQsIEcyX0M0LCBHMl9DNSwgRzJfVDMsIEcyX1QyLCBHNV9DNSwgRzVfQzQsIEc1X1QyLCBHNV9UMywgRzJfVDUsIEc1X1QxLCBHM19UMi4uLlxuXG7ihLkgVXNlIGBzcGVjKClgIHRvIHJldHJpZXZlIHRoZSBmdWxsIGNvbHVtbiBzcGVjaWZpY2F0aW9uIGZvciB0aGlzIGRhdGEuXG7ihLkgU3BlY2lmeSB0aGUgY29sdW1uIHR5cGVzIG9yIHNldCBgc2hvd19jb2xfdHlwZXMgPSBGQUxTRWAgdG8gcXVpZXQgdGhpcyBtZXNzYWdlLlxuIn0= -->
+<!-- rnb-output-begin eyJkYXRhIjoiUm93czogMzMwIENvbHVtbnM6IDYxXG7ilIDilIAgQ29sdW1uIHNwZWNpZmljYXRpb24g4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSAXG5EZWxpbWl0ZXI6IFwiXFx0XCJcbmNociAgKDEpOiBHZW5vbWljIGJpbnNcbmRibCAoNjApOiBHMl9DMiwgRzJfQzMsIEcyX0MxLCBHNl9DMywgRzFfVDQsIEcyX0M0LCBHMl9DNSwgRzJfVDMsIEcyX1QyLCBHNV9DNSwgRzVfQzQsIEc1X1QyLCBHNV9UMywgRzJfVDUsIEc1X1QxLCBHM19UMiwgRzZfQzQsIEc2X1Q0LCBHNl9UMywgLi4uXG5cbuKEuSBVc2UgYHNwZWMoKWAgdG8gcmV0cmlldmUgdGhlIGZ1bGwgY29sdW1uIHNwZWNpZmljYXRpb24gZm9yIHRoaXMgZGF0YS5cbuKEuSBTcGVjaWZ5IHRoZSBjb2x1bW4gdHlwZXMgb3Igc2V0IGBzaG93X2NvbF90eXBlcyA9IEZBTFNFYCB0byBxdWlldCB0aGlzIG1lc3NhZ2UuXG4ifQ== -->
 <pre><code>Rows: 330 Columns: 61
-── Column specification ────────────────────────────────────────────────────────────────────────────────────────────────────
+── Column specification ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 Delimiter: &quot;\t&quot;
 chr  (1): Genomic bins
-dbl (60): G2_C2, G2_C3, G2_C1, G6_C3, G1_T4, G2_C4, G2_C5, G2_T3, G2_T2, G5_C5, G5_C4, G5_T2, G5_T3, G2_T5, G5_T1, G3_T2...
+dbl (60): G2_C2, G2_C3, G2_C1, G6_C3, G1_T4, G2_C4, G2_C5, G2_T3, G2_T2, G5_C5, G5_C4, G5_T2, G5_T3, G2_T5, G5_T1, G3_T2, G6_C4, G6_T4, G6_T3, ...
 
 ℹ Use `spec()` to retrieve the full column specification for this data.
 ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
@@ -3511,9 +3408,9 @@ dbl (60): G2_C2, G2_C3, G2_C1, G6_C3, G1_T4, G2_C4, G2_C5, G2_T3, G2_T2, G5_C5, 
 <pre class="r"><code>colnames(abundance_tab)[1] &lt;- &#39;ID&#39;
 tax_bin &lt;- read_delim(tax.file, col_names = T)</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoiUm93czogMzMwIENvbHVtbnM6IDE1XG7ilIDilIAgQ29sdW1uIHNwZWNpZmljYXRpb24g4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSAXG5EZWxpbWl0ZXI6IFwiXFx0XCJcbmNociAoOCk6IElELCBEb21haW4sIFBoeWx1bSwgQ2xhc3MsIE9yZGVyLCBGYW1pbHksIEdlbnVzLCBTcGVjaWVzXG5kYmwgKDcpOiBzY29yZSwgY29tcGxldGVuZXNzLCBjb250YW1pbmF0aW9uLCBzdHJhaW5faGV0ZXJvZ2VuZWl0eSwgc2l6ZSwgTjUwLCBjbHVzdGVyX21lbWJlcnNcblxu4oS5IFVzZSBgc3BlYygpYCB0byByZXRyaWV2ZSB0aGUgZnVsbCBjb2x1bW4gc3BlY2lmaWNhdGlvbiBmb3IgdGhpcyBkYXRhLlxu4oS5IFNwZWNpZnkgdGhlIGNvbHVtbiB0eXBlcyBvciBzZXQgYHNob3dfY29sX3R5cGVzID0gRkFMU0VgIHRvIHF1aWV0IHRoaXMgbWVzc2FnZS5cbiJ9 -->
+<!-- rnb-output-begin eyJkYXRhIjoiUm93czogMzMwIENvbHVtbnM6IDE1XG7ilIDilIAgQ29sdW1uIHNwZWNpZmljYXRpb24g4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSAXG5EZWxpbWl0ZXI6IFwiXFx0XCJcbmNociAoOCk6IElELCBEb21haW4sIFBoeWx1bSwgQ2xhc3MsIE9yZGVyLCBGYW1pbHksIEdlbnVzLCBTcGVjaWVzXG5kYmwgKDcpOiBzY29yZSwgY29tcGxldGVuZXNzLCBjb250YW1pbmF0aW9uLCBzdHJhaW5faGV0ZXJvZ2VuZWl0eSwgc2l6ZSwgTjUwLCBjbHVzdGVyX21lbWJlcnNcblxu4oS5IFVzZSBgc3BlYygpYCB0byByZXRyaWV2ZSB0aGUgZnVsbCBjb2x1bW4gc3BlY2lmaWNhdGlvbiBmb3IgdGhpcyBkYXRhLlxu4oS5IFNwZWNpZnkgdGhlIGNvbHVtbiB0eXBlcyBvciBzZXQgYHNob3dfY29sX3R5cGVzID0gRkFMU0VgIHRvIHF1aWV0IHRoaXMgbWVzc2FnZS5cbiJ9 -->
 <pre><code>Rows: 330 Columns: 15
-── Column specification ────────────────────────────────────────────────────────────────────────────────────────────────────
+── Column specification ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 Delimiter: &quot;\t&quot;
 chr (8): ID, Domain, Phylum, Class, Order, Family, Genus, Species
 dbl (7): score, completeness, contamination, strain_heterogeneity, size, N50, cluster_members
