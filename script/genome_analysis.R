@@ -13,6 +13,17 @@ abun <- read.table(abun.file, header = TRUE, sep = "\t", row.names = 1,
                 as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
                 check.names = FALSE)[-1, ]
 
+dat2 <- abun %>% 
+  mutate(Control = rowMeans(select(., grep('_C', colnames(abun), value = T)))) %>%
+  mutate(Collapsed = rowMeans(select(., grep('_T', colnames(abun), value = T)))) %>%
+  rownames_to_column("ID") %>%
+  select(c(ID, Control, Collapsed)) %>%
+  pivot_longer(cols = -c(ID), names_to = "Group", values_to = 'rel_abun') %>%
+  mutate(Group = factor(Group, levels = c('Control', 'Collapsed')))
+# write the table for itol annotation
+write.csv(dat2, "E:/thermokarst_gully/result/MAGs/itol/abundance_annotation_coverm.csv")
+
+
 #ZP plot
 main_theme = theme_bw() + 
   theme(panel.grid = element_blank(),
@@ -77,7 +88,7 @@ for(i in 1:length(net_hubs)) {
   }
 }
 
-mags_result_lmm <-data.frame(Variables = net_hubs, group1 = rep("Uncollapsed", length(net_hubs)),
+mags_result_lmm <- data.frame(Variables = net_hubs, group1 = rep("Uncollapsed", length(net_hubs)),
                             group2 = rep("Collapsed", length(net_hubs)), df)
 mags_result_lmm
   
@@ -119,9 +130,8 @@ mags_abun_plot
 
 
 source("e:/thermokarst_gully/script/read_data_all.R")
-wd_fun <- file.path(getwd(),"data/metagenome")
 # bin genome information
-metabolic_output_file <- file.path(wd_fun, "MAGs/METABOLIC_result.csv")
+metabolic_output_file <- file.path(wd, "METABOLIC_result.csv")
 metabolic_tab <- read.csv(metabolic_output_file) %>%
   select(c('Category', 'Function', grep('Hmm.presence', colnames(.))))
 
@@ -381,8 +391,8 @@ core_mags_abun <- abun[net_hubs, ] %>% t() %>% as.data.frame() %>% rownames_to_c
   group_by(Gully_id, Group) %>%
   get_summary_stats(c(net_hubs, Total), type = "common") #or using type = "mean_sd"
   
-write.csv(core_mags_abun, "./core_mags_abun_total.csv")
-write.csv(flux_ave.site_df, "./flux_ave.site_df.csv")
+# write.csv(core_mags_abun, "./core_mags_abun_total.csv")
+# write.csv(flux_ave.site_df, "./flux_ave.site_df.csv")
 
 
 mags_flux.file <- "core_mags_abun_total.txt"
@@ -391,7 +401,7 @@ mags_flux <- read.table(mags_flux.file, header = TRUE, sep = "\t", row.names = 1
            check.names = FALSE) %>% dplyr::select(Gully_id, Group, variable, mean, se) %>%
   pivot_wider(names_from = variable, values_from = c(mean, se))
 
-write.csv(mags_flux, "./mags_flux_plot.csv")
+# write.csv(mags_flux, "./mags_flux_plot.csv")
 
 
 library(tidyverse)
@@ -406,7 +416,7 @@ flux_plot_df <- read.table(flux_plot_file, header = TRUE, sep = "\t", row.names 
 
 #plot
 library(ggplot2) # Create Elegant Data Visualisations Using the Grammar of Graphics
-library(ggpubr) # 'ggplot2' Based Publication Ready Plots
+library(ggpubr) # ggplot2 Based Publication Ready Plots
 library(ggpmisc) # Miscellaneous Extensions to 'ggplot2'
 colnames(flux_plot_df) <- make.names(colnames(flux_plot_df), unique = TRUE)
 flux_plot_df %>% filter(Flux_type %in% c("CH4", "CO2")) %>%
@@ -470,3 +480,136 @@ predictGrowth(genes,
               mode = "metagenome_v2", 
               depth_of_coverage = depth_of_coverage)
 
+
+
+####################################
+####################################
+####################################
+library(gRodon)
+library(Biostrings)
+
+# Specify the directory containing the .ffn files
+input_directory <- "E:/thermokarst_gully/data/metagenome/MAGs/prokka_ffn/"
+output_file <- "E:/thermokarst_gully/data/metagenome/MAGs/growth_rate_results.csv"
+
+# Get a list of all .ffn files in the directory
+fnn_files <- list.files(input_directory, pattern = "\\.ffn$", full.names = TRUE)
+
+# Initialize an empty data frame to store the results
+results <- data.frame(
+  File = character(),
+  CUBHE = numeric(),
+  GC = numeric(),
+  GCdiv = numeric(),
+  ConsistencyHE = numeric(),
+  CUB = numeric(),
+  CPB = numeric(),
+  FilteredSequences = numeric(),
+  nHE = numeric(),
+  dCUB = numeric(),
+  d = numeric(),
+  LowerCI = numeric(),
+  UpperCI = numeric(),
+  stringsAsFactors = FALSE
+)
+
+# Loop through each .ffn file and calculate the metrics
+for (file in ffn_files) {
+  cat("Processing:", file, "\n")
+  tryCatch({
+    # Read the DNA sequences
+    genes <- readDNAStringSet(file)
+    
+    # Identify highly expressed genes (ribosomal proteins)
+    highly_expressed <- grepl("ribosomal protein", names(genes), ignore.case = TRUE)
+    
+    # Predict the growth metrics
+    growth_rate <- predictGrowth(genes, highly_expressed, mode = "partial")
+    
+    # Append the metrics to the results data frame
+    results <- rbind(results, data.frame(
+      File = basename(file),
+      CUBHE = growth_rate$CUBHE,
+      GC = growth_rate$GC,
+      GCdiv = growth_rate$GCdiv,
+      ConsistencyHE = growth_rate$ConsistencyHE,
+      CUB = growth_rate$CUB,
+      CPB = growth_rate$CPB,
+      FilteredSequences = growth_rate$FilteredSequences,
+      nHE = growth_rate$nHE,
+      dCUB = growth_rate$dCUB,
+      d = growth_rate$d,
+      LowerCI = growth_rate$LowerCI,
+      UpperCI = growth_rate$UpperCI
+    ))
+  }, error = function(e) {
+    cat("Error processing", file, ":", e$message, "\n")
+  })
+}
+
+# Write the results to a CSV file
+write.csv(results, file = output_file, row.names = FALSE)
+
+cat("Processing complete. Results saved to:", output_file, "\n")
+
+
+
+##########################################
+############################################
+# Set the genomes_dir directory
+genomes_dir <- "/data01/kangluyao/thermokarst_gully/binning/prokka_fna"
+genomes_files = list.files(genomes_dir, full.names = T, recursive = T, pattern = ".fna$")
+out_dir = "/data01/kangluyao/thermokarst_gully/binning/microtraits"
+
+#Determine the number of "cores"
+message("Number of cores:", parallel::detectCores(), "\n")
+
+
+#Here, we use ~70% of the available cores to process 100 genomes:
+library("tictoc")
+tictoc::tic.clearlog()
+
+microtrait_results = extract.traits.parallel(genomes_files, out_dir = dirname(genomes_files), ncores = 30)
+
+#Pull the paths to the corresponding "rds" files as follows:
+rds_files = unlist(parallel::mclapply(microtrait_results, "[[", "rds_file", mc.cores = 30))
+
+#Building trait matrices from microTrait outputs
+genomeset_results = make.genomeset.results(rds_files = rds_files,
+                                           ids = sub(".microtrait.rds", "", basename(rds_files)),
+                                           ncores = 30)
+                                             
+
+
+
+
+
+
+library(parallel)
+
+library(tictoc)
+
+library(microtrait)
+
+
+
+message("Running on: ", system("cat /proc/cpuinfo | grep "model name" | uniq | sed 's/.*: //'", intern = TRUE), "\n")
+
+message("Number of cores:", detectCores(), "\n")
+
+tictoc::tic.clearlog()
+tictoc::tic(paste0("Running microtrait for ", length(genomes_files)))
+
+microtrait_results <- mclapply(1:length(genomes_files), function(i) {
+  r = extract.traits(genomes_files[i], out_dir = "/data01/kangluyao/thermokarst_gully/binning/microtraits")
+  saveRDS(r, file = file.path("/data01/kangluyao/thermokarst_gully/binning/microtraits/rds", 
+                              paste0(fs::path_file(genomes_files[i]), ".microtrait.rds.1")))
+  r
+}, mc.cores = 30)
+
+tictoc::toc(log = "TRUE")
+
+rds_files = unlist(parallel::mclapply(genomeset_results, "[[", "rds_file", mc.cores = 30))
+genomeset_results = make.genomeset.results(rds_files = rds_files,
+                                           ids = sub(".microtrait.rds", "", basename(rds_files)),
+                                           ncores = 1)

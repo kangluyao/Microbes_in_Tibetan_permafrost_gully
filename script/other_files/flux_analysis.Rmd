@@ -1,4 +1,4 @@
----
+ ---
 title: "Flux analysis"
 author: "Luyao Kang"
 date: "`r Sys.Date()`"
@@ -213,6 +213,8 @@ data.frame(env_S1)
 
 Effect size plot
 ```{r, fig.align='center', fig.width=3.5, fig.height=4.5}
+fun_index <- c("Plant_shannon",	"Plant_richness",	"AGB",	"BGB",	"BG",	"NAG",	"LAP",	"PPO",	"H2O2",	
+               "WHC",	"Soil_respiration",	"NH4_N",	"NO3_N",	"AP",	"SOC",	"plant_pathogen_control")
 # rep_str = c("Plant_richness" = "Plant Richness",
 #             "Plant_shannon" = "Plant Shannon",
 #             "Soil_moisture" = "Soil moisture",
@@ -225,8 +227,9 @@ diff_in_env_plot <- env_S1 %>%
   t() %>%
   as.data.frame() %>%
   tibble::rownames_to_column(., "variables") %>%
+  filter(variables %in% fun_index) %>%
   mutate(sig = as.vector(unlist(lapply(Group.P, p.stars)))) %>%
-  mutate(variables = factor(variables, levels = colnames(metadata)[-c(1:4)])) %>%
+  mutate(variables = factor(variables, levels = fun_index)) %>%
   ggplot(aes(x = variables, y = GroupCollapsed.mean, color = variables)) +
   geom_hline(aes(yintercept =0), size=0.7,  colour="gray2")+
   geom_point(size = 3) +
@@ -239,12 +242,14 @@ diff_in_env_plot <- env_S1 %>%
   # scale_color_manual(values=c("#D55E00","#446DA9","#446DA9","#446DA9","#446DA9","#D55E00","#D55E00")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
-  annotate("rect", xmin = 0, xmax = 2.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#ff6666") +
-  annotate("rect", xmin = 2.5, xmax = 3.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#f19837") +
-  annotate("rect", xmin = 3.5, xmax = 8.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#e56eee") +
-  annotate("rect", xmin = 8.5, xmax = 10.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#5fb236") +
+  annotate("rect", xmin = 0, xmax = 4.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#ff6666") +
+  annotate("rect", xmin = 4.5, xmax = 9.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#f19837") +
+  annotate("rect", xmin = 9.5, xmax = 10.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#e56eee") +
+  annotate("rect", xmin = 10.5, xmax = 11.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#5fb236") +
+  annotate("rect", xmin = 11.5, xmax = 14.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#035096") +
+  annotate("rect", xmin = 14.5, xmax = 15.5, ymin = -2, ymax = 2, alpha = 0.2, fill = "#00bfff") +
   main_theme +
-  theme(strip.background = element_rect(fill = c("#FFF6E1")))
+  theme(strip.background = element_rect(fill = c("#FFF6E1")), legend.position = "none")
 if (!dir.exists(file.path(save.dir, "figs/env/"))) {
   dir.create(file.path(save.dir, "figs/env/"))
 }

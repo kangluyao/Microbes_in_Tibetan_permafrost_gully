@@ -129,9 +129,6 @@ wd_fun <- file.path(getwd(),"data/metagenome")
 # if (!dir.exists(wd_fun)) {
 #   dir.create(wd_fun)
 # }
-ko_tpm_table <- read.delim(file.path(wd_fun, "./eggnog.KEGG_ko.TPM.spf"), 
+ko_tpm_table <- read.delim(file.path(wd_fun, "./eggnog.KEGG_ko.raw.txt"), 
                            header = T, row.names = 1, sep = "\t")
-ko_count_table <- read.delim(file.path(wd_fun, "./eggnog.KEGG_ko.raw.txt"), 
-                             header = T, row.names = 1, sep = "\t")
 ko_tpm_table <- ko_tpm_table[, metadata$Sample_name[metadata$Sample_name %in% colnames(ko_tpm_table)]]
-ko_count_table <- ko_count_table[, metadata$Sample_name[metadata$Sample_name %in% colnames(ko_count_table)]]

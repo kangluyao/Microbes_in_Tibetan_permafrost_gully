@@ -519,17 +519,14 @@ spec_gen_animal <- spec.gen(phylo_animal@otu_table %>% t(),
 spec_gen_16s <- read.table(file.path(save.dir, "/tables/spe_gen/spec_gen_16s_95.csv"), sep = ",", header = T)
 spec_id_16s <- spec_gen_16s %>% filter(sign == "SPECIALIST") %>% pull(OTU)
 gen_id_16s <- spec_gen_16s %>% filter(sign == "GENERALIST") %>% pull(OTU)
-neu_id_16s <- spec_gen_16s %>% filter(sign == "NON SIGNIFICANT") %>% pull(OTU)
 
 spec_16s_comm <- phylo_16s@otu_table[rownames(phylo_16s@otu_table) %in% spec_id_16s, ]
 gen_16s_comm <- phylo_16s@otu_table[rownames(phylo_16s@otu_table) %in% gen_id_16s, ]
-neu_16s_comm <- phylo_16s@otu_table[rownames(phylo_16s@otu_table) %in% neu_id_16s, ]
 
 library(vegan)
 #determine the dissimilarity matrix based on the bray-curties distance
 tax_spec_16s_dist <-vegdist(t(spec_16s_comm), "bray")
 tax_gen_16s_dist <-vegdist(t(gen_16s_comm), "bray")
-tax_neu_16s_dist <-vegdist(t(neu_16s_comm), "bray")
 
 # difference in taxonomic variance among Group
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
@@ -566,8 +563,7 @@ similar_neu_16s_data <- lapply(vars, function(x) usedist::dist_subset(tax_neu_16
 similar_16s_data <- data.frame(Group = similar_spec_16s_data$Group,
                            Gully_id = similar_spec_16s_data$Gully_id, 
                            distance_16s_spec = similar_spec_16s_data$distance,
-                           distance_16s_gen = similar_gen_16s_data$distance,
-                           distance_16s_neu = similar_neu_16s_data$distance)
+                           distance_16s_gen = similar_gen_16s_data$distance)
 ```
 
 **Fungi**
@@ -576,17 +572,14 @@ similar_16s_data <- data.frame(Group = similar_spec_16s_data$Group,
 spec_gen_its <- read.table(file.path(save.dir, "/tables/spe_gen/spec_gen_its_95.csv"), sep = ",", header = T)
 spec_id_its <- spec_gen_its %>% filter(sign == "SPECIALIST") %>% pull(OTU)
 gen_id_its <- spec_gen_its %>% filter(sign == "GENERALIST") %>% pull(OTU)
-neu_id_its <- spec_gen_its %>% filter(sign == "NON SIGNIFICANT") %>% pull(OTU)
 
 spec_its_comm <- phylo_its@otu_table[rownames(phylo_its@otu_table) %in% spec_id_its, ]
 gen_its_comm <- phylo_its@otu_table[rownames(phylo_its@otu_table) %in% gen_id_its, ]
-neu_its_comm <- phylo_its@otu_table[rownames(phylo_its@otu_table) %in% neu_id_its, ]
 
 library(vegan)
 #determine the dissimilarity matrix based on the bray-curties distance
 tax_spec_its_dist <-vegdist(t(spec_its_comm), "bray")
 tax_gen_its_dist <-vegdist(t(gen_its_comm), "bray")
-tax_neu_its_dist <-vegdist(t(neu_its_comm), "bray")
 
 # difference in taxonomic variance among Group
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
@@ -623,8 +616,7 @@ similar_neu_its_data <- lapply(vars, function(x) usedist::dist_subset(tax_neu_it
 similar_its_data <- data.frame(Group = similar_spec_its_data$Group,
                                Gully_id = similar_spec_its_data$Gully_id, 
                                distance_its_spec = similar_spec_its_data$distance,
-                               distance_its_gen = similar_gen_its_data$distance,
-                               distance_its_neu = similar_neu_its_data$distance)
+                               distance_its_gen = similar_gen_its_data$distance)
 ```
 
 **Protist**
@@ -633,18 +625,15 @@ similar_its_data <- data.frame(Group = similar_spec_its_data$Group,
 spec_gen_pro <- read.table(file.path(save.dir, "/tables/spe_gen/spec_gen_pro_95.csv"), sep = ",", header = T)
 spec_id_pro <- spec_gen_pro %>% filter(sign == "SPECIALIST") %>% pull(OTU)
 gen_id_pro <- spec_gen_pro %>% filter(sign == "GENERALIST") %>% pull(OTU)
-neu_id_pro <- spec_gen_pro %>% filter(sign == "NON SIGNIFICANT") %>% pull(OTU)
 
 spec_pro_comm <- phylo_protist@otu_table[rownames(phylo_protist@otu_table) %in% spec_id_pro, ]
 gen_pro_comm <- phylo_protist@otu_table[rownames(phylo_protist@otu_table) %in% gen_id_pro, ]
-neu_pro_comm <- phylo_protist@otu_table[rownames(phylo_protist@otu_table) %in% neu_id_pro, ]
 
 
 library(vegan)
 #determine the dissimilarity matrix based on the bray-curties distance
 tax_spec_pro_dist <-vegdist(t(spec_pro_comm), "bray")
 tax_gen_pro_dist <-vegdist(t(gen_pro_comm), "bray")
-tax_neu_pro_dist <-vegdist(t(neu_pro_comm), "bray")
 
 # difference in taxonomic variance among Group
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
@@ -669,21 +658,10 @@ similar_gen_protist_data <- lapply(vars, function(x) usedist::dist_subset(tax_ge
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
          Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
 
-similar_neu_protist_data <- lapply(vars, function(x) usedist::dist_subset(tax_neu_pro_dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
-  do.call(cbind, .) %>%
-  data.frame() %>%
-  gather("tem_group", "distance") %>%
-  cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
-        Group = rep(c('Uncollapsed', 'Collapsed'), each = 10, times = 6)) %>%
-  select(-tem_group) %>%
-  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
-         Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
-
 similar_protist_data <- data.frame(Group = similar_spec_protist_data$Group,
                                Gully_id = similar_spec_protist_data$Gully_id, 
                                distance_pro_spec = similar_spec_protist_data$distance,
-                               distance_pro_gen = similar_gen_protist_data$distance,
-                               distance_pro_neu = similar_neu_protist_data$distance)
+                               distance_pro_gen = similar_gen_protist_data$distance)
 
 ```
 
@@ -693,18 +671,15 @@ similar_protist_data <- data.frame(Group = similar_spec_protist_data$Group,
 spec_gen_anim <- read.table(file.path(save.dir, "/tables/spe_gen/spec_gen_animal_95.csv"), sep = ",", header = T)
 spec_id_anim <- spec_gen_anim %>% filter(sign == "SPECIALIST") %>% pull(OTU)
 gen_id_anim <- spec_gen_anim %>% filter(sign == "GENERALIST") %>% pull(OTU)
-neu_id_anim <- spec_gen_anim %>% filter(sign == "NON SIGNIFICANT") %>% pull(OTU)
 
 spec_anim_comm <- phylo_animal@otu_table[rownames(phylo_animal@otu_table) %in% spec_id_anim, ]
 gen_anim_comm <- phylo_animal@otu_table[rownames(phylo_animal@otu_table) %in% gen_id_anim, ]
-neu_anim_comm <- phylo_animal@otu_table[rownames(phylo_animal@otu_table) %in% neu_id_anim, ]
 
 
 library(vegan)
 #determine the dissimilarity matrix based on the bray-curties distance
 tax_spec_anim_dist <-vegdist(t(spec_anim_comm), "bray")
 tax_gen_anim_dist <-vegdist(t(gen_anim_comm), "bray")
-tax_neu_anim_dist <-vegdist(t(neu_anim_comm), "bray")
 
 # difference in taxonomic variance among Group
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
@@ -729,21 +704,10 @@ similar_gen_anim_data <- lapply(vars, function(x) usedist::dist_subset(tax_gen_a
   mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
          Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
 
-similar_neu_anim_data <- lapply(vars, function(x) usedist::dist_subset(tax_neu_anim_dist, grep(x, metadata$Sample_name, value = TRUE))) %>%
-  do.call(cbind, .) %>%
-  data.frame() %>%
-  gather("tem_group", "distance") %>%
-  cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
-        Group = rep(c('Uncollapsed', 'Collapsed'), each = 10, times = 6)) %>%
-  select(-tem_group) %>%
-  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
-         Group = factor(Group, levels = c('Uncollapsed', 'Collapsed')))
-
 similar_anim_data <- data.frame(Group = similar_spec_anim_data$Group,
                                    Gully_id = similar_spec_anim_data$Gully_id, 
                                    distance_anim_spec = similar_spec_anim_data$distance,
-                                   distance_anim_gen = similar_gen_anim_data$distance,
-                                   distance_anim_neu = similar_neu_anim_data$distance)
+                                   distance_anim_gen = similar_gen_anim_data$distance)
 ```
 
 
@@ -752,10 +716,10 @@ similar_all_data <- data.frame(similar_data, similar_16s_data[, c(3:5)],
                                similar_its_data[, c(3:5)],
                                similar_protist_data[, c(3:5)],
                                similar_anim_data[, c(3:5)])
-distance_index <- c("distance_16s", "distance_16s_gen", "distance_16s_spec", "distance_16s_neu",
-                    "distance_its", "distance_its_gen", "distance_its_spec", "distance_its_neu",
-                    "distance_pro", "distance_pro_gen", "distance_pro_spec", "distance_pro_neu",
-                    "distance_anim", "distance_anim_gen", "distance_anim_spec", "distance_anim_neu")
+distance_index <- c("distance_16s", "distance_16s_gen", "distance_16s_spec", 
+                    "distance_its", "distance_its_gen", "distance_its_spec", 
+                    "distance_pro", "distance_pro_gen", "distance_pro_spec", 
+                    "distance_anim", "distance_anim_gen", "distance_anim_spec")
 distance_stats <- similar_all_data %>% group_by(Group) %>%
   get_summary_stats(distance_index, type = "common") %>% #or using type = "mean_sd"
   mutate(Group = factor(Group, levels = c("Uncollapsed", "Collapsed"))) %>%
@@ -809,19 +773,15 @@ data.frame(dist_S1)
 rep_str = c("distance_16s" = "Overall species",
             "distance_16s_gen" = "Generalists",
             "distance_16s_spec" = "Specialists",
-            "distance_16s_neu" = "Opportunists",
             "distance_its" = "Overall species",
             "distance_its_gen" = "Generalists",
             "distance_its_spec" = "Specialists",
-            "distance_its_neu" = "Opportunists",
             "distance_pro" = "Overall species",
             "distance_pro_gen" = "Generalists",
             "distance_pro_spec" = "Specialists",
-            "distance_pro_neu" = "Opportunists",
             "distance_anim" = "Overall species",
             "distance_anim_gen" = "Generalists",
-            "distance_anim_spec" = "Specialists",
-            "distance_anim_neu" = "Opportunists"
+            "distance_anim_spec" = "Specialists"
 )
 
 main_theme = theme_bw() + 
