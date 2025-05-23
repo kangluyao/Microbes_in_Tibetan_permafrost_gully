@@ -15,7 +15,7 @@ wd="E:/thermokarst_gully/data/ITS"
 com.file="otutab.txt"
 
 # the phylogenetic tree file
-tree.file="otus.nwk"
+tree.file="tedtree.txt"
 
 # the classification (taxonomy) information
 clas.file="taxonomy.txt"
@@ -28,7 +28,7 @@ env.file="env.txt"
 # if you do not have env file or the env may not represent niche, skip step 7 and 8, but check the alternative way to determine binning setting, e.g. bin.size.limit.
 
 # the folder to save the output. please change to a new folder even if you are just testing the example data.
-save.wd="E:/thermokarst_gully/result/tables/null_model/its_all_2"
+save.wd="E:/thermokarst_gully/result2/tables/null_model/its"
 if(!dir.exists(save.wd)){dir.create(save.wd)}
 
 # 2 # key parameter setting
@@ -188,7 +188,8 @@ write.csv(icbin$Bin.TopClass,file = paste0(prefix,".Bin_TopTaxon.csv"),row.names
 # 11 # Bootstrapping test
 # please specify which column in the treatment information table.
 i=1
-treat.use=treat[,i,drop=FALSE]
+treat.use=data.frame(Group=factor(treat$Group,levels = c("Collapsed","Uncollapsed")))
+rownames(treat.use)=rownames(treat)
 icamp.result=icres$CbMPDiCBraya
 icboot=iCAMP::icamp.boot(icamp.result = icamp.result,treat = treat.use,rand.time = rand.time,
                          compare = TRUE,silent = FALSE,between.group = TRUE,ST.estimation = TRUE)
