@@ -133,8 +133,8 @@ data.frame(div_S1)
 
 p.stars <- function(p.values) {
   unclass(symnum(p.values, corr = FALSE, 
-                 na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
-                 symbols = c("***", "**", "*", ".", " ")))}
+                 na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1),
+                 symbols = c("***", "**", "*", "")))}
 # Create a plot
 main_theme = theme_bw() + 
   theme(panel.grid = element_blank(),
@@ -167,10 +167,10 @@ all_tax_div_comparison <- div_S1 %>%
             position = position_dodge(0.1), vjust = 0.55) +
   labs(x = NULL, y = "Effect size") +
   scale_color_manual(values=c("#79ceb8", "grey", "#e95f5c")) +
-  scale_y_continuous(expand = c(0, 0), limit = c(-2.2, 2.2)) +
+  scale_y_continuous(expand = c(0, 0), limit = c(-2.5, 2.5)) +
   coord_flip() + scale_x_discrete(position = "top") +
-  annotate("rect", xmin = 0.5, xmax = 9.5, ymin = -2.2, ymax = 2.2, alpha = 0.1, fill = "#e56eee") +
-  annotate("rect", xmin = 9.5, xmax = 24.5, ymin = -2.2, ymax = 2.2, alpha = 0.1, fill = "#5fb236") +
+  annotate("rect", xmin = 0.5, xmax = 9.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#e56eee") +
+  annotate("rect", xmin = 9.5, xmax = 24.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#5fb236") +
   main_theme +
   theme(legend.position = "none",
         strip.background = element_rect(fill = c("#FFF6E1")),

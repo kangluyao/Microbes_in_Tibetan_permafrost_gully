@@ -8,7 +8,9 @@ pacman::p_load(phyloseq, ape, vegan, Biostrings, microbiome, tidytable, tidyvers
 source("script/read_data.R")
 
 # Test the difference in the environmental variables between the uncollapsed and collapsed sites
-env_vars <- c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC",
+# env_vars <- c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC",
+#               "NH4_N", "NO3_N", "AP")
+env_vars <- c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "SOC",
               "NH4_N", "NO3_N", "AP")
 env_stats <- metadata %>% group_by(Group) %>%
   get_summary_stats(env_vars, type = "common") %>% #or using type = "mean_sd"
@@ -80,45 +82,56 @@ env_plot <- env_stats %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
   labs(x = NULL, y = NULL) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  facet_wrap(~variable, scales = "free", ncol = 4, strip.position = "left", labeller = facet_labeller) +
+  facet_wrap(~variable, scales = "free", ncol = 3, strip.position = "left", labeller = facet_labeller) +
   theme_classic() + 
   theme(legend.position = "none",
         strip.placement = "outside",
         strip.background = element_rect(colour = NA),
         strip.text = element_text(colour = 'black', size = 6, margin = margin()),
         axis.title = element_text(color = 'black',size = 6),
-        axis.text = element_text(colour = 'black', size = 5),
+        axis.text = element_text(colour = 'black', size = 6),
         axis.line = element_line(size = 0.4),
         axis.ticks = element_line(color = "black", linewidth = 0.4),
         legend.title = element_text(colour = 'black', size = 6),
-        legend.text = element_text(colour = 'black', size = 5),
+        legend.text = element_text(colour = 'black', size = 6),
         legend.key.size = unit(0.5, 'cm'))
 
-lines <- tibble(variable = factor(c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
-                x = c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
-                xend = c(2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2),
-                y = c(17, 270, 550, 8, 220, 72, 260, 185, 19, 40, 2.4),
-                yend = c(17, 270, 550, 8, 220, 72, 260, 185, 19, 40, 2.4)
+lines <- tibble(variable = factor(c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
+                x = c(1, 1, 1, 1, 1, 1, 1, 1, 1),
+                xend = c(2, 2, 2, 2, 2, 2, 2, 2, 2),
+                y = c(17, 270, 8, 220, 72, 185, 19, 40, 2.4),
+                yend = c(17, 270, 8, 220, 72, 185, 19, 40, 2.4)
 )
-stars <- tibble(variable = factor(c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt", "WHC", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
-                x1 = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
-                y1 = c(0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95),
+stars <- tibble(variable = factor(c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
+                x1 = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
+                y1 = c(0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95),
                 sig.labels = env_result_lmm %>% filter(fixed_factors == "Group") %>%
                   select(sig) %>% pull,
-                x2 = c(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
-                y2 = c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+                x2 = c(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
+                y2 = c(1, 1, 1, 1, 1, 1, 1, 1, 1),
                 panel.labels = letters[as.numeric(variable)]
 )
 
 env_plot <- env_plot +
   # geom_segment(data = lines, aes(x = x, xend = xend, y = y, yend = yend), inherit.aes = FALSE) + # add a sigment to denote the comparison between groups
-  ggpp::geom_text_npc(data = stars, aes(npcx = x1, npcy = y1, label = sig.labels), inherit.aes = F) +
-  ggpp::geom_text_npc(data = stars, aes(npcx = x2, npcy = y2, label = panel.labels), inherit.aes = F)
+  ggpp::geom_text_npc(data = stars, aes(npcx = x1, npcy = y1, label = sig.labels), 
+                      size = 2.5, inherit.aes = F) +
+  ggpp::geom_text_npc(data = stars, aes(npcx = x2, npcy = y2, label = panel.labels), 
+                      size = 2.5, inherit.aes = F)
 
 # save the plot
-# ggsave(file.path(save.dir, "./figs/env_effect/env_comparison_plot.pdf"),
+# ggsave(file.path(save.dir, "./figs/env_effect/env_comparison_plot1.pdf"),
 #        env_plot, width = 145, height = 90, units = "mm")
 env_plot
+
+
+
+
+
+
+
+
+
 
 # Explore the effect of permafrost collapse on the environmental heterogeneity.
 env_df <- metadata %>% select(env_vars)
@@ -200,7 +213,7 @@ env_dist_plot
 
 # Select the variables of low collinearity
 sel_variables <- c("Gully_id",	"Group", "MAP",	"Time", "Slope",	
-                   "Plant_richness", "AGB",	"BGB", "pH", "SOC", "NH4_N",	"NO3_N",	"AP")
+                   "Plant_richness", "AGB",	"pH", "SOC", "NH4_N",	"NO3_N",	"AP")
 
 # Construct a function for partial mantel test
 partial.mantel.fun <- function(phylo) {

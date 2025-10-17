@@ -1,6 +1,6 @@
 # seting work directory
 setwd('e:/thermokarst_gully')
-wd_16s <- file.path(getwd(),"data/16S/rdp")
+wd_trait <- file.path(getwd(),"data/trait/rdp")
 wd_fun <- file.path(getwd(),"data/metagenome")
 save.dir <- file.path(getwd(),"result")
 
@@ -10,6 +10,7 @@ pacman::p_load(phyloseq, ape, vegan, Biostrings,
 
 # bin genome information
 abundance_tab.file <- file.path(wd_fun, "MAGs/bin_abundance_coverm.txt")
+abundance_tab.file <- "E:/thermokarst_gully/result/MAGs/coverM_75_abundance.tsv"
 tax.file <- file.path(wd_fun, "MAGs/annotation.txt")
 mags.att.file <- file.path(wd_fun, "MAGs/MAGs_attributes.txt")
 
@@ -402,3 +403,153 @@ genomeset_results = make.genomeset.results(rds_files = rds_files,
                                            ncores = 30)
 
 
+
+
+
+# Comparing all microbial traits
+library(microtrait)
+microtrait_results <- readRDS(file.path(wd_fun, "/MAGs/microtraits/thermokarst_gully.microtraitresults.rds"))
+
+# Normalizing the traits matrices by genome length
+microtrait_results_metadata_norm = microtrait_results %>% trait.normalize(normby = "genome_length")
+
+spec_names <- data.frame(microtrait_results_metadata_norm$trait_matrixatgranularity3)$id
+trait_data <- data.frame(microtrait_results_metadata_norm$trait_matrixatgranularity3)[,-1]
+rownames(trait_data) <- spec_names
+
+# Calculate CWM for each trait and each community
+trait_data <- trait_data[rownames(abundance_tab), ]
+relative_abundance <- abundance_tab/100
+cwm_results <- data.frame(matrix(NA, nrow = ncol(relative_abundance), ncol = ncol(trait_data)))
+row.names(cwm_results) <- colnames(relative_abundance)
+colnames(cwm_results) <- colnames(trait_data)
+
+for (i in 1:ncol(trait_data)) {
+  for (j in 1:ncol(relative_abundance)) {
+    cwm_results[j, i] <- sum(relative_abundance[, j] * trait_data[, i], na.rm = TRUE)/sum(relative_abundance[, j])
+  }
+}
+
+print(cwm_results)
+
+## Test the overall difference in the community weighted mean traits.
+library(vegan)
+#determine the dissimilarity matrix based on the bray-curties distance
+cwm_results_final <- cwm_results[ ,colSums(cwm_results[])>0]
+cwm_results_final <- cwm_results_final[metadata$Sample_name, ]
+
+dim(cwm_results_final)
+# cwm_results_trans <- scale(cwm_results_final, center = TRUE, scale = T)
+cwm_results_trans <- decostand(cwm_results_final, method = "log")
+trait_cwm_dist <-vegdist(cwm_results_trans, "bray", binary = F)
+#permanova test the difference in compositional variance
+adonis2(trait_cwm_dist ~ Group, data = metadata)
+
+
+#Visualization for the overall difference by PCoA plot.
+#trait
+ord.cwm.trait <-  cmdscale(trait_cwm_dist,  k = 2, eig = T, add = T)
+pcoa_cwm_trait_plot <- data.frame(Group = metadata$Group, scores(ord.cwm.trait)) %>%
+  mutate(Group = factor(Group, levels = c('Un-collapsed', 'Collapsed'))) %>%
+  ggplot(aes(x = Dim1, y = Dim2)) + 
+  geom_point(size = 1, alpha = 0.8, shape = 21, colour = "black", aes(fill = Group)) + 
+  stat_ellipse(aes(colour = Group), alpha = 0.2, size = 1, 
+               show.legend = FALSE, level = 0.95) +
+  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  labs(x=paste("PCoA1 (", format(100 * ord.cwm.trait$eig[1] / sum(ord.cwm.trait$eig), digits = 3), "%)", sep = ""),
+       y=paste("PCoA2 (", format(100 * ord.cwm.trait$eig[2] / sum(ord.cwm.trait$eig), digits = 3), "%)", sep = "")) +
+  theme(legend.position = "none", 
+        axis.title = element_text(size = 8, colour = "black"),
+        axis.text = element_text(size = 6, colour = "black"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        panel.grid = element_blank(),
+        panel.background = element_blank(), 
+        panel.border = element_rect(fill = NA, colour = "black"))
+
+pcoa_cwm_trait_plot
+
+
+## Explore the difference in taxonomic variance between uncollapsed and collapsed soils
+vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 
+          'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
+# Assuming vars is defined somewhere earlier in your code
+distance_trait_data <- lapply(vars, function(x) 
+  usedist::dist_subset(trait_dist, 
+                       grep(x, metadata$Sample_name, value = TRUE))) %>%
+  do.call(cbind, .) %>%
+  data.frame() %>%
+  gather("tem_group", "distance") %>%
+  cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
+        Group = rep(c('Un-collapsed', 'Collapsed'), each = 10, times = 6)) %>%
+  select(-tem_group) %>%
+  mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
+         Group = factor(Group, levels = c('Un-collapsed', 'Collapsed')))
+
+# Extract the unique Gully_id and corresponding Time, Slope, MAP from metadata
+meta_unique <- metadata[, c("Gully_id", "Time", "Slope", "MAP")] %>%
+  distinct(Gully_id, Time, Slope, MAP)
+
+# merge similar_data with meta_unique
+distance_trait_df <- distance_trait_data %>%
+  left_join(meta_unique, by = "Gully_id")
+
+## Linear mixed models test the effect of permafrost thawing on microbial diversity
+library(lme4)
+library(lmerTest)
+lmm_dis_traits_mod <- lmer(distance ~ Group + Time + Slope + MAP + (1 | Gully_id),  data = distance_trait_df)
+summary.model <- function(model){
+  F.value <- anova(model)$'F value'
+  p.value <- anova(model)$'Pr(>F)'
+  p.stars <- function(p.values) {
+    unclass(symnum(p.values, corr = FALSE, 
+                   na = FALSE, cutpoints = c(0,0.001, 0.01, 0.05, 1),
+                   symbols = c("***", "**", "*", "")))}
+  sig <- p.stars(p.value)
+  results<-data.frame(F.value, p.value, sig)
+  return(results)
+}
+summary.model(lmm_dis_traits_mod)
+
+
+# Create a box plot
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 7),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 7),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.title = element_text(colour = 'black', size = 7),
+        legend.text = element_text(colour = 'black', size = 6),
+        legend.key.size = unit(0.5, 'cm'))
+library(gghalves)
+dis_trait_plot <- distance_trait_df %>% 
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
+  ggplot(aes(Group, distance, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.5, color = NA, alpha = 0.65) +
+  geom_boxplot(width = 0.35, size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(fill = Group, colour = Group), shape = 21, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  ggpp::annotate("text_npc", npcx = 0.5, npcy = 0.95, 
+                 size = 2, label = "P < 0.001") +
+  labs(x = "Group", y = "Dissimilarity in CWM traits") +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  main_theme +
+  theme(legend.position = "none")
+dis_trait_plot
+
+# Combine all plots
+library(cowplot)
+dist_gene_trait_plot <- plot_grid(pcoa_fun_plot, dis_fun_plot,
+                                  pcoa_cwm_trait_plot, dis_trait_plot,
+                                  nrow = 1, align = "hv")
+dist_gene_trait_plot
+
+ggsave(file.path("E:/thermokarst_gully/revision/result/dist_gene_trait_plot.pdf"),
+       dist_gene_trait_plot, width = 7.5, height = 2)
