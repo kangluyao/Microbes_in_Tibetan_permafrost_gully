@@ -686,4 +686,13 @@ aggre_trait_data <- ko_tpm_table %>%
   inner_join(trait_cater, by = "KO") %>%
   filter(!is.na(microtrait_trait))
 
-fwrite(aggre_trait_data, "E:/thermokarst_gully/data/metagenome/MAGs/microtraits/aggre_trait_data.csv")
+# fwrite(aggre_trait_data, "E:/thermokarst_gully/data/metagenome/MAGs/microtraits/aggre_trait_data.csv")
+aggre_trait_data <- aggre_trait_data %>%
+  column_to_rownames("KO") %>%
+  select(level1, level2, level3, 1:60) %>%
+  group_by(level1, level2, level3) %>%
+  summarise(across(everything(), sum, na.rm = TRUE), .groups = "drop") %>%
+  filter(!is.na(level2)) %>%
+  select(3:63) %>%
+  column_to_rownames("level3") %>%
+  t() %>% data.frame()
