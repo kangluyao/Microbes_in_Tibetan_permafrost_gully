@@ -687,7 +687,7 @@ aggre_trait_data <- ko_tpm_table %>%
   filter(!is.na(microtrait_trait))
 
 # fwrite(aggre_trait_data, "E:/thermokarst_gully/data/metagenome/MAGs/microtraits/aggre_trait_data.csv")
-aggre_trait_data <- aggre_trait_data %>%
+aggre_trait_group_data <- aggre_trait_data %>%
   column_to_rownames("KO") %>%
   select(level1, level2, level3, 1:60) %>%
   group_by(level1, level2, level3) %>%
@@ -696,3 +696,311 @@ aggre_trait_data <- aggre_trait_data %>%
   select(3:63) %>%
   column_to_rownames("level3") %>%
   t() %>% data.frame()
+
+# Merge the genes with the metadata
+aggre_trait_env_data <- aggre_trait_group_data %>%
+  rownames_to_column("Sample_name") %>%
+  left_join(metadata[, c("Sample_name", "Gully_id", "Group", 
+                         "MAP", "Time", "Slope")],
+            by = "Sample_name")
+# Linear mixed models test the effect of collapsed and gully_id
+gene_id_trait <- c("aromatic.acid.transport",
+                   "biopolymer.transport", "carbohydrate.transport", 
+                   "carboxylate.transport", "free.amino.acids.transport",
+                   "ion.transport", "lipid.transport", "N.compound.transport", 
+                   "nucleic.acid.component.transport", 
+                   "organophosphorus.transport", "osmolyte.transport",
+                   "other.transport", "peptide.transport", 
+                   "S.compound.transport", "secondary.metabolite.transport", 
+                   "vitamin.transport", "complex.carbohydrate.depolymerization",
+                   "simple.compound.degradation", "C1.compounds", "N.compounds",
+                   "S.compounds", "P.compounds", "Fermentation",
+                   "aerobic.respiration", "anaerobic.respiration",
+                   "chemolithoautotrophy", "photosystem", "pigments", 
+                   "General", "high.temperature", "low.temperature",
+                   "desiccation.osmotic.salt.stress", "pH.stress",
+                   "oxidative.stress", "oxygen.limitation", "envelope.stress")
+
+gene_trait_scale <- aggre_trait_env_data %>% 
+  cbind(metadata[, c("Time", "Slope", "MAP")]) %>%
+  select(all_of(c("Group", "Gully_id",  "Time", "Slope", "MAP", gene_id_trait))) %>%
+  mutate(across(where(is.numeric), scale)) %>%
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
+  select(where(~ !any(is.na(.))))
+
+# codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
+gene_trait_S1 <- sapply(6:ncol(gene_trait_scale), function(j) {
+  if (length(unique(gene_trait_scale[, j])) < 3) {
+    result <- rep(NA, 23)
+  } else {
+    fm1 <- lmer(gene_trait_scale[, j] ~ Group + Time + Slope + MAP + (1 | Gully_id), 
+                data = gene_trait_scale)
+    
+    presult <- car::Anova(fm1, type = 2)
+    coefs <- coef(summary(fm1))[, "Estimate"]  ##four coefs
+    names(coefs) <- paste0(names(coefs), ".mean")
+    
+    SEvalues <- coef(summary(fm1))[, "Std. Error"]  ##standard errors
+    names(SEvalues) <- paste0(names(SEvalues), ".se")
+    
+    tvalues <- coef(summary(fm1))[, "t value"]  ##t values
+    names(tvalues) <- paste0(names(tvalues), ".t")
+    
+    chisqP <- c(presult[, 1], presult[, 3])
+    names(chisqP) <- c(paste0(row.names(presult), ".chisq"), paste0(row.names(presult), ".P"))
+    
+    result <- c(coefs, tvalues, SEvalues, chisqP)
+  }
+  result
+})
+colnames(gene_trait_S1)<-colnames(gene_trait_scale)[-c(1:5)]
+data.frame(gene_trait_S1)
+
+p.stars <- function(p.values) {
+  unclass(symnum(p.values, corr = FALSE, 
+                 na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1),
+                 symbols = c("***", "**", "*", "")))}
+# Create a plot
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 7),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 7),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.title = element_text(colour = 'black', size = 7),
+        legend.text = element_text(colour = 'black', size = 6),
+        legend.key.size = unit(0.5, 'cm'))
+all_gene_trait_comparison <- gene_trait_S1 %>% 
+  t() %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column(., "variables") %>% filter(variables %in% gene_id_trait) %>%
+  mutate(sig = as.vector(unlist(lapply(Group.P, p.stars)))) %>%
+  mutate(variables = factor(variables, levels = rev(gene_id_trait))) %>%
+  mutate(colour = case_when(GroupCollapsed.mean <= 0 & Group.P <= 0.05 ~ "Negative",
+                            GroupCollapsed.mean > 0 & Group.P <= 0.05 ~ "Positvie",
+                            Group.P > 0.05 ~ "Neutral")) %>%
+  ggplot(aes(x = variables, y = GroupCollapsed.mean, colour = colour)) +
+  geom_hline(aes(yintercept = 0), size = 0.375,  colour = "gray2")+
+  geom_point(size = 2) +
+  geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
+                    ymax = GroupCollapsed.mean + GroupCollapsed.se), 
+                width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
+  geom_text(aes(label = sig, x = variables, y = (GroupCollapsed.mean/abs(GroupCollapsed.mean))*(abs(GroupCollapsed.mean) + GroupCollapsed.se)*1.1),
+            position = position_dodge(0.1), vjust = 0.55) +
+  labs(x = NULL, y = "Effect size") +
+  scale_color_manual(values=c("#79ceb8", "grey", "#e95f5c")) +
+  scale_y_continuous(expand = c(0, 0), limit = c(-2.5, 2.5)) +
+  coord_flip() + scale_x_discrete(position = "top") +
+  annotate("rect", xmin = 0, xmax = 8.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#e56eee") +
+  annotate("rect", xmin = 8.5, xmax = 14.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#ffdb00") +
+  annotate("rect", xmin = 14.5, xmax = 18.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#5cc3e8") +
+  annotate("rect", xmin = 18.5, xmax = 20.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#e95f5c") +
+  annotate("rect", xmin = 20.5, xmax = 36.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#79ceb8") +
+  main_theme +
+  theme(legend.position = "none",
+        strip.background = element_rect(fill = c("#FFF6E1")),
+        # axis.text.y = element_blank()
+  )
+
+# if (!dir.exists(file.path(save.dir, "figs/env/"))) {
+#   dir.create(file.path(save.dir, "figs/env/"))
+# }
+# ggsave(file.path("E:/thermokarst_gully/result2/all_tax_div_comparison.pdf"),
+#        all_tax_div_comparison, width = 2.5, height = 5, units = "in")
+all_gene_trait_comparison
+
+
+aggre_trait_aqui <- aggre_trait_data %>%
+  filter(!is.na(level2) & level1 == "Resource Acquisition") %>%
+  select(KO, 2:61) %>%
+  column_to_rownames("KO")
+
+aggre_trait_use <- aggre_trait_data %>%
+  filter(!is.na(level2) & level1 == "Resource Use") %>%
+  select(KO, 2:61) %>%
+  column_to_rownames("KO")
+
+aggre_trait_stress <- aggre_trait_data %>%
+  filter(!is.na(level2) & level1 == "Stress Tolerance") %>%
+  select(KO, 2:61) %>%
+  column_to_rownames("KO")
+
+
+library(vegan)
+# Transform the gene abundance data
+aggre_trait_aqui_trans <- decostand(t(aggre_trait_aqui), method = "hellinger")
+aggre_trait_use_trans <- decostand(t(aggre_trait_use), method = "hellinger")
+aggre_trait_stress_trans <- decostand(t(aggre_trait_stress), method = "hellinger")
+aggre_trait_aqui_dist <-vegdist(aggre_trait_aqui_trans, "bray")
+aggre_trait_use_dist <-vegdist(aggre_trait_use_trans, "bray")
+aggre_trait_stress_dist <-vegdist(aggre_trait_stress_trans, "bray")
+
+#permanova test the difference in compositional variance
+adonis2(aggre_trait_aqui_dist ~ Group, data = metadata)
+adonis2(aggre_trait_use_dist ~ Group, data = metadata)
+adonis2(aggre_trait_stress_dist ~ Group, data = metadata)
+
+# PCoA plot
+PCoA_plot_fun <- function(dist) {
+  ord.fun <-  cmdscale(dist,  k = 2, eig = T, add = T)
+  pcoa.plot <- data.frame(Group = metadata$Group, scores(ord.fun)) %>%
+    mutate(Group = factor(Group, levels = c('Un-collapsed', 'Collapsed'))) %>%
+    ggplot(aes(x = Dim1, y = Dim2)) + 
+    geom_point(size = 1, alpha = 0.8, shape = 21, colour = "black", aes(fill = Group)) + 
+    stat_ellipse(aes(colour = Group), alpha = 0.2, size = 1, 
+                 show.legend = FALSE, level = 0.95) +
+    scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+    scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+    # scale_x_continuous(expand = c(0.03, 0.03)) +
+    # scale_y_continuous(expand = c(0.03, 0.03)) +
+    labs(x = paste("PCoA1 (", format(100 * ord.fun$eig[1] / sum(ord.fun$eig), digits = 3), "%)", sep = ""),
+         y = paste("PCoA2 (", format(100 * ord.fun$eig[2] / sum(ord.fun$eig), digits = 3), "%)", sep = "")) +
+    main_theme +
+    theme(legend.background = element_blank(),
+          legend.title = element_text(size = 6),
+          legend.text = element_text(size = 6),
+          legend.key = element_blank(),
+          legend.position = c(0.85, 0.85),
+          legend.key.size = unit(0.4, 'cm'))
+  return(pcoa.plot)
+}
+# Set the main theme for ggplot2
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 6),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 6),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.position = "none")
+# Plots
+trait_aqui.fun <- PCoA_plot_fun(aggre_trait_aqui_dist)
+trait_use.fun <- PCoA_plot_fun(aggre_trait_use_dist)
+trait_stress.fun <- PCoA_plot_fun(aggre_trait_stress_dist)
+
+
+## Explore the difference in taxonomic variance between uncollapsed and collapsed soils
+vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 
+          'G4_T', 'G5_C', 'G5_T', 'G6_C', 'G6_T')
+# Assuming vars is defined somewhere earlier in your code
+similar_deter_fun <- function(dist) {
+    similar_data <- lapply(vars, function(x) 
+    usedist::dist_subset(dist, 
+                         grep(x, metadata$Sample_name, value = TRUE))) %>%
+    do.call(cbind, .) %>%
+    data.frame() %>%
+    gather("tem_group", "distance") %>%
+    cbind(Gully_id = rep(c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH'), each = 20),
+          Group = rep(c('Un-collapsed', 'Collapsed'), each = 10, times = 6)) %>%
+    select(-tem_group) %>%
+    mutate(Gully_id = factor(Gully_id, levels = c('EB', 'ML', 'RS', 'SLH', 'HSX', 'HH')),
+           Group = factor(Group, levels = c('Un-collapsed', 'Collapsed')))
+}
+
+
+similar_aqui_data <- similar_deter_fun(aggre_trait_aqui_dist)
+similar_use_data <- similar_deter_fun(aggre_trait_use_dist)
+similar_stress_data <- similar_deter_fun(aggre_trait_stress_dist)
+  
+similar_gene_trait_data <- data.frame(Group = similar_aqui_data$Group,
+                           Gully_id = similar_aqui_data$Gully_id, 
+                           distance_aqui = similar_aqui_data$distance,
+                           distance_use = similar_use_data$distance,
+                           distance_stress = similar_stress_data$distance)
+
+
+# Extract the unique Gully_id and corresponding Time, Slope, MAP from metadata
+meta_unique <- metadata[, c("Gully_id", "Time", "Slope", "MAP")] %>%
+  distinct(Gully_id, Time, Slope, MAP)
+
+# merge similar_data with meta_unique
+similar_gene_traits_df <- similar_gene_trait_data %>%
+  left_join(meta_unique, by = "Gully_id")
+
+## Linear mixed models test the effect of permafrost thawing on microbial diversity
+dis_index <- c("distance_aqui", "distance_use", "distance_stress")
+lmm_fun <- function(vars, df) {
+  library(lme4)
+  library(lmerTest)
+  lmm_dist_modes <- lapply(vars, function(x) {
+    lmer(substitute(i ~ Group + Time + Slope + MAP + (1 | Gully_id), list(i = as.name(x))), 
+         data = df)})
+  summary.model <- function(model){
+    F.value <- anova(model)$'F value'
+    p.value <- anova(model)$'Pr(>F)'
+    p.stars <- function(p.values) {
+      unclass(symnum(p.values, corr = FALSE, 
+                     na = FALSE, cutpoints = c(0,0.001, 0.01, 0.05, 1),
+                     symbols = c("***", "**", "*", "")))}
+    sig <- p.stars(p.value)
+    results<-data.frame(F.value, p.value, sig)
+    return(results)
+  }
+  df <- NULL
+  for(i in 1:length(vars)) {
+    tmp <- summary.model(lmm_dist_modes[[i]])
+    if (is.null(df)){
+      df <- tmp
+    } else {
+      df <- rbind(df, tmp)
+    }
+  }
+  result_lmm <-data.frame(dist_index = rep(vars, each = 4), 
+                          variables = rep(c("Group", "Time", "Slope", "MAP"), 
+                                          length(vars)), df)
+  return(result_lmm)
+}
+
+lmm.results <- lmm_fun(dis_index, similar_gene_traits_df)
+lmm.results
+
+
+# Add the significant symbols manually
+sig.dis.labs <- tibble(dis_index = factor(dis_index, levels = dis_index),
+                       x1 = rep(0.5, length(dis_index)),
+                       y1 = rep(0.95, length(dis_index)),
+                       sig.labels = lmm.results %>% filter(variables == "Group") %>%
+                         select(sig) %>% pull(),
+                       x2 = rep(0.1, length(dis_index)),
+                       y2 = rep(1, length(dis_index)),
+                       panel.labels = letters[as.numeric(dis_index)])
+
+# Create a box plot
+main_theme = theme_bw() + 
+  theme(panel.grid = element_blank(),
+        panel.border = element_rect(size = 0.5),
+        strip.text = element_text(colour = 'black', size = 7),
+        strip.background = element_rect(colour = 'black', fill = 'grey'),
+        axis.title = element_text(color = 'black',size = 7),
+        axis.ticks = element_line(color = "black", linewidth = 0.5),
+        axis.text.y = element_text(colour = 'black', size = 6),
+        axis.text.x = element_text(colour = 'black', size = 6),
+        legend.title = element_text(colour = 'black', size = 7),
+        legend.text = element_text(colour = 'black', size = 6),
+        legend.key.size = unit(0.5, 'cm'))
+library(gghalves)
+dis_gene_traits_plot <- similar_gene_traits_df %>% 
+  select(c("Group", dis_index)) %>%
+  gather(dis_index, value, -c("Group")) %>% 
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
+  mutate(dis_index = factor(dis_index, 
+                            levels = c("distance_aqui", "distance_use", "distance_stress"))) %>%
+  ggplot(aes(Group, value, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.5, color = NA, alpha = 0.65) +
+  geom_boxplot(width = 0.35, size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(fill = Group, colour = Group), shape = 21, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  ggpp::geom_text_npc(data = sig.dis.labs, aes(npcx = x1, npcy = y1, label = sig.labels), inherit.aes = F) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~dis_index, scales = "free_y", ncol = 1) +
+  main_theme +
+  theme(legend.position = "none")
+dis_gene_traits_plot
