@@ -54,7 +54,7 @@ phylo_its_rare <- phyloseq(otu_its_rare, tax_its, meta_dat)
 sample_names(phylo_its) <- metadata$Sample_name
 sample_names(phylo_its_rare) <- metadata$Sample_name
 
-# read functional table
+# Reading functional gene table
 wd_fun <- file.path(getwd(),"data/metagenome")
 # if (!dir.exists(wd_fun)) {
 #   dir.create(wd_fun)
@@ -67,12 +67,10 @@ ko_tpm_table <- ko_tpm_table[, metadata$Sample_name[metadata$Sample_name %in% co
 abundance_tab.file <- "E:/thermokarst_gully/result/MAGs/coverM_75_abundance.tsv"
 tax.file <- file.path(wd_fun, "MAGs/annotation.txt")
 mags.att.file <- file.path(wd_fun, "MAGs/MAGs_attributes.txt")
-
-# Reading data
-abundance_tab <- read.delim(abundance_tab.file, header = TRUE, sep = "\t", row.names = 1,
+mags_abun_tab <- read.delim(abundance_tab.file, header = TRUE, sep = "\t", row.names = 1,
                             as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
                             check.names = FALSE)
-tax_bin <- read.delim(tax.file, header = TRUE, sep = "\t", as.is = TRUE, 
+mags_tax <- read.delim(tax.file, header = TRUE, sep = "\t", as.is = TRUE, 
                       stringsAsFactors = FALSE, comment.char = "", check.names = FALSE)
 
 mags.att <- read.delim(mags.att.file, header = TRUE, sep = "\t", row.names = 1,
