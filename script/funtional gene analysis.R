@@ -84,7 +84,6 @@ ko.venn
 library(tidyverse)
 #reading data
 ko_9_levels_file <- 'E:/thermokarst_gully/data/metagenome/ko_9_levels.txt'
-
 ko_9_levels <- fread(ko_9_levels_file, header = TRUE, stringsAsFactors = FALSE)
 
 KO_L2_df <- ko_tpm_table %>%
@@ -100,7 +99,7 @@ KO_L2_df <- ko_tpm_table %>%
 #                        check.names = FALSE)
 
 # Using dplyr to process the data
-aggre_data <- KO_L2_df %>%
+aggre_top15_data <- KO_L2_df %>%
   filter(!is.na(L2)) %>%
   group_by(L2) %>%
   summarise(across(where(is.numeric), sum)) %>%
@@ -116,14 +115,14 @@ aggre_data <- KO_L2_df %>%
   select(-RowMean)
 
 # Pull out the pathway for ordering purposes
-pathway_order <- aggre_data %>% pull(L2)
+pathway_order <- aggre_top15_data %>% pull(L2)
 
 ##Stack plot using ggplot2 
 mycolor <- c("#FF7F00", "#B3DE69", "#1F78B4", "#FB8072", "#FDB462", 
              "#80B1D3", "#BEBADA", "#c988d1", "#FCCDE5", "#A6CEE3",
             "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#FFFFB3", 
             "grey")
-pathway_plot <- aggre_data %>% 
+pathway_plot <- aggre_top15_data %>% 
   pivot_longer(-L2, names_to = 'Sample_id', values_to = 'TPM') %>%
   mutate(L2 = factor(L2, ordered = T, levels = pathway_order),
          Group = case_when(grepl("_C", Sample_id) ~ "Un-collapsed",
@@ -157,8 +156,13 @@ ko_all_plot <- ggdraw() +
 ko_all_plot
 
 # Test the effect size of permafrost collapse on the functional pathways
-pathway_scale <- aggre_data %>% filter(PathwayL2 != "") %>% 
-  column_to_rownames("PathwayL2") %>% t() %>% data.frame(check.names = F) %>%
+pathway_scale <- KO_L2_df %>%
+  filter(!is.na(L2)) %>%
+  group_by(L2) %>%
+  summarise(across(where(is.numeric), sum)) %>%
+  mutate(across(where(is.numeric), ~ . / sum(.) * 100)) %>% 
+  filter(L2 != "") %>% 
+  column_to_rownames("L2") %>% t() %>% data.frame(check.names = F) %>%
   rownames_to_column("Sample_id") %>% 
   mutate(Gully_id = sapply(stringr::str_split(Sample_id, "_",  n = 2), `[`, 1)) %>%
   mutate(Group = case_when(grepl("_C", Sample_id) ~ "Uncollapsed",
@@ -171,7 +175,7 @@ pathway_scale <- aggre_data %>% filter(PathwayL2 != "") %>%
 # codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
 pathway_S1 <- sapply(3:ncol(pathway_scale), function(j) {
   if (length(unique(pathway_scale[, j])) < 3) {
-    result <- rep(NA, 10)
+    result <- rep(NA, 40)
   } else {
     fm1 <- lmer(pathway_scale[, j] ~ Group + (1 | Gully_id), data = pathway_scale)
     
@@ -225,12 +229,12 @@ diff_in_pathway_plot <- pathway_S1 %>%
   scale_colour_manual(values=c("#79ceb8", "grey", "#e95f5c")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2.5, 2.5)) +
   theme_bw() + coord_flip() + scale_x_discrete(position = "top") +
-  annotate("rect", xmin = 0, xmax = 7.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#ff6666") +
-  annotate("rect", xmin = 7.5, xmax = 15.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#f19837") +
-  annotate("rect", xmin = 15.5, xmax = 20.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#e56eee") +
-  annotate("rect", xmin = 20.5, xmax = 23.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#5fb236") +
-  annotate("rect", xmin = 23.5, xmax = 28.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#035096") +
-  annotate("rect", xmin = 28.5, xmax = 38, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#8b008b") +
+  annotate("rect", xmin = 0, xmax = 12.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#ff6666") +
+  annotate("rect", xmin = 12.5, xmax = 22.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#f19837") +
+  annotate("rect", xmin = 22.5, xmax = 27.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#e56eee") +
+  annotate("rect", xmin = 27.5, xmax = 30.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#5fb236") +
+  annotate("rect", xmin = 30.5, xmax = 35.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#035096") +
+  annotate("rect", xmin = 35.5, xmax = 46.5, ymin = -2.5, ymax = 2.5, alpha = 0.2, fill = "#8b008b") +
   main_theme +
   theme(strip.background = element_rect(fill = c("#FFF6E1")), legend.position = "none")
 
@@ -527,8 +531,10 @@ setnames(trait_cater,
          old = c("microtrait_trait.name1", "YAS", "YAS.2", "YAS.3", "microtrait_hmm.dbxref_kegg"), 
          new = c("microtrait_trait", "level1", "level2", "level3", "KO"))
 
+
 # Extract a subset of the KO abundance table based on the KO IDs corresponding to specific traits
 aggre_trait_data <- ko_tpm_table %>%
+  # mutate(across(where(is.numeric), ~ . / sum(.) * 100)) %>% # Relative abundance
   rownames_to_column("KO") %>%
   inner_join(trait_cater, by = "KO") %>%
   filter(!is.na(microtrait_trait))
@@ -727,6 +733,10 @@ main_theme = theme_bw() +
 trait_aqui.fun <- PCoA_plot_fun(aggre_trait_aqui_dist)
 trait_use.fun <- PCoA_plot_fun(aggre_trait_use_dist)
 trait_stress.fun <- PCoA_plot_fun(aggre_trait_stress_dist)
+# Combine all PCoA plots
+PCoA_gene_all_plots <- cowplot::plot_grid(trait_aqui.fun, trait_use.fun, 
+                                            trait_stress.fun, ncol = 1)
+PCoA_gene_all_plots
 
 
 ## Explore the difference in taxonomic variance between uncollapsed and collapsed soils
@@ -850,14 +860,12 @@ dis_gene_traits_plot <- similar_gene_traits_df %>%
   theme(legend.position = "none")
 dis_gene_traits_plot
 
-
-
-
 # Combine all plots
 library(cowplot)
-dist_fun.gene_trait_plot <- plot_grid(all_gene_trait_comparison, dis_gene_traits_plot,
-                                  nrow = 1, rel_widths = c(1.7, 1))
+dist_fun.gene_trait_plot <- plot_grid(all_gene_trait_comparison, PCoA_gene_all_plots, 
+                                      dis_gene_traits_plot,
+                                  nrow = 1, rel_widths = c(2, 1, 1))
 dist_fun.gene_trait_plot
 
 ggsave(file.path("E:/thermokarst_gully/revision/result/dist_fun.gene_trait_plot.pdf"),
-       dist_fun.gene_trait_plot, width = 6, height = 6)
+       dist_fun.gene_trait_plot, width = 5, height = 6)
