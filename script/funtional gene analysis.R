@@ -521,8 +521,9 @@ my_col <- c("#E31A1C", "#893f45", "#1F78B4", "#6A3D9A", "#b31b1b", "#5d3954", "#
 eff.size_other_plot
 
 
-
-
+#####################################
+############## C-S-R  ###############
+#####################################
 # Reading the microTraits catergory table
 library(data.table)
 trait_cater <- fread("E:/thermokarst_gully/data/metagenome/MAGs/microtraits/microtraits_cate.txt", 
@@ -709,13 +710,7 @@ PCoA_plot_fun <- function(dist) {
     # scale_y_continuous(expand = c(0.03, 0.03)) +
     labs(x = paste("PCoA1 (", format(100 * ord.fun$eig[1] / sum(ord.fun$eig), digits = 3), "%)", sep = ""),
          y = paste("PCoA2 (", format(100 * ord.fun$eig[2] / sum(ord.fun$eig), digits = 3), "%)", sep = "")) +
-    main_theme +
-    theme(legend.background = element_blank(),
-          legend.title = element_text(size = 6),
-          legend.text = element_text(size = 6),
-          legend.key = element_blank(),
-          legend.position = c(0.85, 0.85),
-          legend.key.size = unit(0.4, 'cm'))
+    main_theme
   return(pcoa.plot)
 }
 # Set the main theme for ggplot2
@@ -867,5 +862,5 @@ dist_fun.gene_trait_plot <- plot_grid(all_gene_trait_comparison, PCoA_gene_all_p
                                   nrow = 1, rel_widths = c(2, 1, 1))
 dist_fun.gene_trait_plot
 
-ggsave(file.path("E:/thermokarst_gully/revision/result/dist_fun.gene_trait_plot.pdf"),
-       dist_fun.gene_trait_plot, width = 5, height = 6)
+ggsave(file.path("E:/thermokarst_gully/revision/result/dist_fun.gene_trait_plot1.pdf"),
+       dist_fun.gene_trait_plot, width = 183, height = 120, units = "mm")

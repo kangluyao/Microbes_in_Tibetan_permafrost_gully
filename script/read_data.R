@@ -5,7 +5,7 @@ wd_16s <- "E:/thermokarst_gully/data/16S/rdp"
 wd_its <- "E:/thermokarst_gully/data/ITS"
 
 # loading packages
-pacman::p_load(phyloseq, ape, Biostrings, tidytable)
+pacman::p_load(phyloseq, ape, Biostrings, tidytable, data.table)
 
 # read 16S data
 ## metadata
@@ -70,6 +70,7 @@ mags.att.file <- file.path(wd_fun, "MAGs/MAGs_attributes.txt")
 mags_abun_tab <- read.delim(abundance_tab.file, header = TRUE, sep = "\t", row.names = 1,
                             as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
                             check.names = FALSE)
+mags_abun_tab <- mags_abun_tab[, metadata$Sample_name]
 mags_tax <- read.delim(tax.file, header = TRUE, sep = "\t", as.is = TRUE, 
                       stringsAsFactors = FALSE, comment.char = "", check.names = FALSE)
 

@@ -9,13 +9,13 @@ pacman::p_load(phyloseq, ape, vegan, Biostrings,
                microbiome, tidytable, tidyverse, rstatix, networkD3)
 
 # bin genome information
-abundance_tab.file <- file.path(wd_fun, "MAGs/bin_abundance_coverm.txt")
-abundance_tab.file <- "E:/thermokarst_gully/result/MAGs/coverM_75_abundance.tsv"
+mags_abun_tab.file <- file.path(wd_fun, "MAGs/bin_abundance_coverm.txt")
+mags_abun_tab.file <- "E:/thermokarst_gully/result/MAGs/coverM_75_abundance.tsv"
 tax.file <- file.path(wd_fun, "MAGs/annotation.txt")
 mags.att.file <- file.path(wd_fun, "MAGs/MAGs_attributes.txt")
 
 # Reading data
-abundance_tab <- read.delim(abundance_tab.file, header = TRUE, sep = "\t", row.names = 1,
+mags_abun_tab <- read.delim(mags_abun_tab.file, header = TRUE, sep = "\t", row.names = 1,
                             as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
                             check.names = FALSE)[-1, ]
 tax_bin <- read.delim(tax.file, header = TRUE, sep = "\t", as.is = TRUE, 
@@ -98,7 +98,7 @@ mags_num_plot <- cowplot::plot_grid(pie_for_mag_num_phylum, mags_num_order_plot,
 #        mags_num_plot, width = 8.9, height = 4.5, units = "in")
 
 # determine the effect size of the permafrost thawing on each MAG
-mags_abun <- abundance_tab %>% t() %>% as.data.frame() %>% 
+mags_abun <- mags_abun_tab %>% t() %>% as.data.frame() %>% 
   rownames_to_column(var = "Sample_name") %>%
   mutate(Gully_id = case_when(grepl("G1", Sample_name) ~ "EB",
                               grepl("G2", Sample_name) ~ "ML",
@@ -418,8 +418,8 @@ trait_data <- data.frame(microtrait_results_metadata_norm$trait_matrixatgranular
 rownames(trait_data) <- spec_names
 
 # Calculate CWM for each trait and each community
-trait_data <- trait_data[rownames(abundance_tab), ]
-relative_abundance <- abundance_tab/100
+trait_data <- trait_data[rownames(mags_abun_tab), ]
+relative_abundance <- mags_abun_tab/100
 cwm_results <- data.frame(matrix(NA, nrow = ncol(relative_abundance), ncol = ncol(trait_data)))
 row.names(cwm_results) <- colnames(relative_abundance)
 colnames(cwm_results) <- colnames(trait_data)
@@ -551,5 +551,5 @@ dist_gene_trait_plot <- plot_grid(pcoa_fun_plot, dis_fun_plot,
                                   nrow = 1, align = "hv")
 dist_gene_trait_plot
 
-ggsave(file.path("E:/thermokarst_gully/revision/result/dist_gene_trait_plot.pdf"),
-       dist_gene_trait_plot, width = 7.5, height = 2)
+# ggsave(file.path("E:/thermokarst_gully/revision/result/dist_gene_trait_plot.pdf"),
+#        dist_gene_trait_plot, width = 7.5, height = 2)

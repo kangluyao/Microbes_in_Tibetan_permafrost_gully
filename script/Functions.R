@@ -24,13 +24,7 @@ PCoA_plot_fun <- function(dist) {
     # scale_y_continuous(expand = c(0.03, 0.03)) +
     labs(x = paste("PCoA1 (", format(100 * ord.fun$eig[1] / sum(ord.fun$eig), digits = 3), "%)", sep = ""),
          y = paste("PCoA2 (", format(100 * ord.fun$eig[2] / sum(ord.fun$eig), digits = 3), "%)", sep = "")) +
-    main_theme +
-    theme(legend.background = element_blank(),
-          legend.title = element_text(size = 6),
-          legend.text = element_text(size = 6),
-          legend.key = element_blank(),
-          legend.position = c(0.85, 0.85),
-          legend.key.size = unit(0.4, 'cm'))
+    main_theme
   return(pcoa.plot)
 }
 

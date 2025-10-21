@@ -1,10 +1,68 @@
+################################################
+######### Metagenomic assembled genomes ########
+################################################
+# bin genome information
+mag_results_trans <- decostand(t(mags_abun_tab), method = "hellinger")
+mag_dist <-vegdist(mag_results_trans, "bray")
+#permanova test the difference in compositional variance
+adonis2(mag_dist ~ Group, data = metadata)
+
+#Visualization for the overall difference by PCoA plot.
+#mag
+pcoa_mag_plot <- PCoA_plot_fun(mag_dist)
+
+pcoa_mag_plot
+
+
+## Explore the difference in MAGs taxonomic variance between uncollapsed and collapsed soils
+distance_mag_data <- similar_deter_fun(mag_dist)
+# Extract the unique Gully_id and corresponding Time, Slope, MAP from metadata
+meta_unique <- metadata[, c("Gully_id", "Time", "Slope", "MAP")] %>%
+  distinct(Gully_id, Time, Slope, MAP)
+
+# merge similar_data with meta_unique
+distance_mags_df <- distance_mag_data %>%
+  left_join(meta_unique, by = "Gully_id")
+
+## Linear mixed models test the effect of permafrost thawing on microbial diversity
+lmm_dis_mags_mod <- lmm_fun("distance", distance_mags_df)
+# Create a box plot
+library(gghalves)
+dis_mag_plot <- distance_mags_df %>% 
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
+  ggplot(aes(Group, distance, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.5, color = NA, alpha = 0.65) +
+  geom_boxplot(width = 0.35, size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(fill = Group, colour = Group), shape = 21, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  ggpp::annotate("text_npc", npcx = 0.5, npcy = 0.95, 
+                 size = 2, label = "P < 0.001") +
+  labs(x = "Group", y = "Dissimilarity in MAGs composition") +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  main_theme +
+  theme(legend.position = "none")
+dis_mag_plot
+
+
+################################################
+##### Metagenomic assembled genome traits ######
+################################################
+# Comparing all microbial traits
+library(microtrait)
+microtrait_results <- readRDS(file.path(wd_fun, "/MAGs/microtraits/thermokarst_gully.microtraitresults.rds"))
+
+# Normalizing the traits matrices by genome length
+microtrait_results_metadata_norm = microtrait_results %>% trait.normalize(normby = "genome_length")
+
 spec_names <- data.frame(microtrait_results_metadata_norm$trait_matrixatgranularity1)$id
 trait_data <- data.frame(microtrait_results_metadata_norm$trait_matrixatgranularity1)[,-1]
 rownames(trait_data) <- spec_names
 
 # Calculate CWM for each trait and each community
-trait_data <- trait_data[rownames(abundance_tab), ]
-relative_abundance <- abundance_tab/100
+trait_data <- trait_data[rownames(mags_abun_tab), ]
+relative_abundance <- mags_abun_tab/100
 cwm_results <- data.frame(matrix(NA, nrow = ncol(relative_abundance), ncol = ncol(trait_data)))
 row.names(cwm_results) <- colnames(relative_abundance)
 colnames(cwm_results) <- colnames(trait_data)
@@ -30,6 +88,43 @@ trait_dist <-vegdist(cwm_results_trans, "bray", binary = F)
 #permanova test the difference in compositional variance
 adonis2(trait_dist ~ Group, data = metadata)
 
+#Visualization for the overall difference by PCoA plot.
+pcoa_cwm_trait_plot <- PCoA_plot_fun(trait_dist)
+pcoa_cwm_trait_plot
+
+# Assuming vars is defined somewhere earlier in your code
+distance_trait_data <- similar_deter_fun(trait_dist)
+
+# Extract the unique Gully_id and corresponding Time, Slope, MAP from metadata
+meta_unique <- metadata[, c("Gully_id", "Time", "Slope", "MAP")] %>%
+  distinct(Gully_id, Time, Slope, MAP)
+
+# merge similar_data with meta_unique
+distance_trait_df <- distance_trait_data %>%
+  left_join(meta_unique, by = "Gully_id")
+
+## Linear mixed models test the effect of permafrost thawing on microbial diversity
+lmm_dis_traits_mod <- lmm_fun("distance", distance_trait_df)
+lmm_dis_traits_mod
+
+# Create a box plot
+library(gghalves)
+dis_trait_plot <- distance_trait_df %>% 
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
+  ggplot(aes(Group, distance, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.5, color = NA, alpha = 0.65) +
+  geom_boxplot(width = 0.35, size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(fill = Group, colour = Group), shape = 21, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  ggpp::annotate("text_npc", npcx = 0.5, npcy = 0.95, 
+                 size = 2, label = "P < 0.001") +
+  labs(x = "Group", y = "Dissimilarity in CWM traits") +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  main_theme +
+  theme(legend.position = "none")
+dis_trait_plot
 
 # Linear mixed models test the effect of collapsed and gully_id
 trait_id <- colnames(cwm_results)
@@ -72,19 +167,7 @@ p.stars <- function(p.values) {
                  na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1),
                  symbols = c("***", "**", "*", "")))}
 # Create a plot
-main_theme = theme_bw() + 
-  theme(panel.grid = element_blank(),
-        panel.border = element_rect(size = 0.5),
-        strip.text = element_text(colour = 'black', size = 7),
-        strip.background = element_rect(colour = 'black', fill = 'grey'),
-        axis.title = element_text(color = 'black',size = 7),
-        axis.ticks = element_line(color = "black", linewidth = 0.5),
-        axis.text.y = element_text(colour = 'black', size = 6),
-        axis.text.x = element_text(colour = 'black', size = 6),
-        legend.title = element_text(colour = 'black', size = 7),
-        legend.text = element_text(colour = 'black', size = 6),
-        legend.key.size = unit(0.5, 'cm'))
-all_trait_comparison <- trait_S1 %>% 
+each_trait_comparison <- trait_S1 %>% 
   t() %>%
   as.data.frame() %>%
   tibble::rownames_to_column(., "variables") %>% filter(variables %in% trait_id) %>%
@@ -95,13 +178,13 @@ all_trait_comparison <- trait_S1 %>%
                             Group.P > 0.05 ~ "Neutral")) %>%
   ggplot(aes(x = variables, y = GroupCollapsed.mean, colour = colour)) +
   geom_hline(aes(yintercept = 0), size = 0.375,  colour = "gray2")+
-  geom_point(size = 2) +
+  geom_point(size = 1.5) +
   geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
                     ymax = GroupCollapsed.mean + GroupCollapsed.se), 
                 width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
   geom_text(aes(label = sig, x = variables, 
                 y = (GroupCollapsed.mean/abs(GroupCollapsed.mean))*(abs(GroupCollapsed.mean) 
-                                                                    + GroupCollapsed.se)*1.1),
+                                                                    + GroupCollapsed.se)*1.25),
             position = position_dodge(0.1), vjust = 0.55) +
   labs(x = NULL, y = "Effect size") +
   scale_color_manual(values=c("#79ceb8", "grey", "#e95f5c")) +
@@ -117,10 +200,7 @@ all_trait_comparison <- trait_S1 %>%
   theme(legend.position = "none",
         strip.background = element_rect(fill = c("#FFF6E1")),
         axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
-
-# ggsave(file.path("E:/thermokarst_gully/result2/all_tax_div_comparison.pdf"),
-#        all_tax_div_comparison, width = 2.5, height = 5, units = "in")
-all_trait_comparison
+each_trait_comparison
 
 # Combine all plots
 library(cowplot)
@@ -129,13 +209,13 @@ dist_gmags_trait_plot <- plot_grid(pcoa_mag_plot, dis_mag_plot,
                                   nrow = 1, align = "hv")
 dist_gmags_trait_plot
 
-mags_plots <- plot_grid(dist_gmags_trait_plot, all_trait_comparison,
-                        nrow = 2, rel_heights = c(1, 2.2))
+mags_plots <- plot_grid(dist_gmags_trait_plot, each_trait_comparison,
+                        nrow = 2, rel_heights = c(1, 2.8))
 mags_plots
 
 # Save the combined plot
-ggsave(file.path("E:/thermokarst_gully/revision/result/mags_plots.pdf"), mags_plots,
-       width = 8.8, height = 7.5)
+# ggsave(file.path("E:/thermokarst_gully/revision/result/mags_plots.pdf"), 
+#        mags_plots, width = 183, height = 155, units = "mm")
 
 
 
@@ -154,7 +234,7 @@ trait_fd_list <- list()
 for(trait_name in colnames(trait_data)) {
   trait_fd_list[[trait_name]] <- dbFD(
     x = trait_data[, trait_name, drop = FALSE],
-    a = t(abundance_tab),
+    a = t(mags_abun_tab),
     messages = FALSE
   )
 }
