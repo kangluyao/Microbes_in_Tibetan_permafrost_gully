@@ -576,18 +576,20 @@ gene_id_trait <- c("aromatic.acid.transport",
                    "oxidative.stress", "oxygen.limitation", "envelope.stress")
 
 gene_trait_scale <- aggre_trait_env_data %>% 
-  cbind(metadata[, c("Time", "Slope", "MAP")]) %>%
   select(all_of(c("Group", "Gully_id",  "Time", "Slope", "MAP", gene_id_trait))) %>%
   mutate(across(where(is.numeric), scale)) %>%
   mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
   select(where(~ !any(is.na(.))))
 
-# codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
+# codes for calculating the effect size refer to 
+# wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
+library(lme4)
+library(car)
 gene_trait_S1 <- sapply(6:ncol(gene_trait_scale), function(j) {
-  if (length(unique(gene_trait_scale[, j])) < 3) {
+  if (length(unique(gene_trait_scale[[j]])) < 3) {
     result <- rep(NA, 23)
   } else {
-    fm1 <- lmer(gene_trait_scale[, j] ~ Group + Time + Slope + MAP + (1 | Gully_id), 
+    fm1 <- lmer(gene_trait_scale[[j]] ~ Group + Time + Slope + MAP + (1 | Gully_id), 
                 data = gene_trait_scale)
     
     presult <- car::Anova(fm1, type = 2)
@@ -610,6 +612,7 @@ gene_trait_S1 <- sapply(6:ncol(gene_trait_scale), function(j) {
 colnames(gene_trait_S1)<-colnames(gene_trait_scale)[-c(1:5)]
 data.frame(gene_trait_S1)
 
+# Add the significance symbols for p values
 p.stars <- function(p.values) {
   unclass(symnum(p.values, corr = FALSE, 
                  na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1),
@@ -665,6 +668,60 @@ all_gene_trait_comparison <- gene_trait_S1 %>%
 all_gene_trait_comparison
 
 
+# Explore the permafrost effects on the C-S-R gene groups
+aggre_trait_3groups <- aggre_trait_data %>%
+  filter(!is.na(level2)) %>%
+  select(2:61, level1) %>%
+  group_by(level1) %>%
+  summarise(across(where(is.numeric), sum)) %>%
+  column_to_rownames("level1") %>%
+  t() %>% as.data.frame() %>%
+  # Please ensure your row order same
+  cbind(metadata[, c("Gully_id", "Group", "MAP", "Time", "Slope")]) %>%
+  as.data.frame()
+
+csr_vars <- c("Resource Acquisition", "Resource Use", "Stress Tolerance")
+csr_gene.abundance_results <- lmm_fun(csr_vars, aggre_trait_3groups)           
+
+
+# Add the significant symbols manually
+sig.csr_gene.labs <- tibble(csr_vars = factor(csr_vars, levels = csr_vars),
+                       x1 = rep(0.5, length(csr_vars)),
+                       y1 = rep(0.95, length(csr_vars)),
+                       sig.labels = csr_gene.abundance_results %>% filter(variables == "Group") %>%
+                         select(sig) %>% pull(),
+                       x2 = rep(0.1, length(csr_vars)),
+                       y2 = rep(1, length(csr_vars)),
+                       panel.labels = letters[as.numeric(csr_vars)])
+
+# Create a box plot
+library(gghalves)
+csr_gene.abundance_plot <- aggre_trait_3groups %>% 
+  select(c("Group", csr_vars)) %>%
+  gather(csr_vars, value, -c("Group")) %>% 
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
+  mutate(csr_vars = factor(csr_vars, 
+                           levels = c("Resource Acquisition", 
+                                      "Resource Use", "Stress Tolerance"))) %>%
+  ggplot(aes(Group, value, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, color = NA, alpha = 0.65) +
+  geom_boxplot(width = 0.35, size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(fill = Group, colour = Group), shape = 21, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  ggpp::geom_text_npc(data = sig.csr_gene.labs, 
+                      aes(npcx = x1, npcy = y1, label = sig.labels), 
+                      inherit.aes = F) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~csr_vars, scales = "free_y", ncol = 1) +
+  main_theme +
+  theme(legend.position = "none")
+csr_gene.abundance_plot
+
+# Now exploring the permafrost collapse effects on gene compositions
 aggre_trait_aqui <- aggre_trait_data %>%
   filter(!is.na(level2) & level1 == "Resource Acquisition") %>%
   select(KO, 2:61) %>%
