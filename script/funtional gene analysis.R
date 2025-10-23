@@ -543,11 +543,9 @@ aggre_trait_data <- ko_tpm_table %>%
 # fwrite(aggre_trait_data, "E:/thermokarst_gully/data/metagenome/MAGs/microtraits/aggre_trait_data.csv")
 aggre_trait_group_data <- aggre_trait_data %>%
   column_to_rownames("KO") %>%
-  select(level1, level2, level3, 1:60) %>%
-  group_by(level1, level2, level3) %>%
-  summarise(across(everything(), sum, na.rm = TRUE), .groups = "drop") %>%
-  filter(!is.na(level2)) %>%
-  select(3:63) %>%
+  group_by(level3) %>%
+  summarise(across(where(is.numeric), sum, na.rm = TRUE)) %>%
+  filter(!is.na(level3)) %>%
   column_to_rownames("level3") %>%
   t() %>% data.frame()
 
@@ -576,10 +574,9 @@ gene_id_trait <- c("aromatic.acid.transport",
                    "oxidative.stress", "oxygen.limitation", "envelope.stress")
 
 gene_trait_scale <- aggre_trait_env_data %>% 
-  select(all_of(c("Group", "Gully_id",  "Time", "Slope", "MAP", gene_id_trait))) %>%
+  select(Group, Gully_id,  Time, Slope, MAP, gene_id_trait) %>%
   mutate(across(where(is.numeric), scale)) %>%
-  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
-  select(where(~ !any(is.na(.))))
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed")))
 
 # codes for calculating the effect size refer to 
 # wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.

@@ -1,4 +1,3 @@
-rm(list = ls())
 # Data input 
 ## Set working and saving directory
 setwd('e:/thermokarst_gully/')
@@ -202,7 +201,6 @@ env_dist_plot
 # Test the collinearity of the environmental variables using corrplot
 # Load required libraries
 library(corrplot)
-library(dplyr)
 
 # Define environmental variables
 env_vars <- c("MAT", "MAP", "Time", "Slope", "Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", 
@@ -240,21 +238,47 @@ tax_its_dist <-vegdist(tax_its_hell_trans, "bray")
 
 fun_dist <-vegdist(t(ko_tpm_table), "bray" )
 
-mag_hell_trans <- decostand(t(abundance_tab), method = "hellinger")
+mag_hell_trans <- decostand(t(mags_abun_tab), method = "hellinger")
 mag_dist <-vegdist(mag_hell_trans, "bray")
+
 cwm_results_trans <- decostand(cwm_results_final, method = "log")
 trait_dist <-vegdist(cwm_results_trans, "bray")
 
 
 
 # Determine the environmental dissimilarity matrix based on the euclidean distance
-sel.vars <- c("Plant_richness", "AGB", "pH", "SOC", "NH4_N", "NO3_N", "AP") # Select the environmental variables without collinearity
+# Select the environmental variables without collinearity
+sel.vars <- c("Plant_richness", "AGB", "pH", "SOC", "NH4_N", "NO3_N", "AP")
+gene_id_trait <- c("aromatic.acid.transport",
+                   "biopolymer.transport", "carbohydrate.transport", 
+                   "carboxylate.transport", "free.amino.acids.transport",
+                   "ion.transport", "lipid.transport", "N.compound.transport", 
+                   "nucleic.acid.component.transport", 
+                   "organophosphorus.transport", "osmolyte.transport",
+                   "other.transport", "peptide.transport", 
+                   "S.compound.transport", "secondary.metabolite.transport", 
+                   "vitamin.transport", "complex.carbohydrate.depolymerization",
+                   "simple.compound.degradation", "C1.compounds", "N.compounds",
+                   "S.compounds", "P.compounds", "Fermentation",
+                   "aerobic.respiration", "anaerobic.respiration",
+                   "chemolithoautotrophy", "photosystem", "pigments", 
+                   "General", "high.temperature", "low.temperature",
+                   "desiccation.osmotic.salt.stress", "pH.stress",
+                   "oxidative.stress", "oxygen.limitation", "envelope.stress")
 dist.env.list <- list()
 for (i in sel.vars) {
   df <- data.frame(metadata[,i])
   rownames(df) <- rownames(metadata)
   env_dist <- vegdist(scale(df), "euclidean", na.rm = T)
   dist.env.list[[i]] <- env_dist
+}
+
+dist.gene.list <- list()
+for (i in gene_id_trait) {
+  df <- data.frame(aggre_trait_group_data[,i])
+  rownames(df) <- rownames(aggre_trait_group_data)
+  gene_dist <- vegdist(scale(df), "euclidean", na.rm = T)
+  dist.gene.list[[i]] <- gene_dist
 }
 
 # Determine the taxonomic difference between the collapsed and un-collapsed areas within each site based on the bray-curties distance
@@ -290,26 +314,36 @@ for (i in sel.vars){
   dis_between_env_list[[i]] <- extract_fun(dist.env.list[[i]])
   colnames(dis_between_env_list[[i]])[2] <- i
 }
+
+dis_between_gene_list <- list()
+for (i in gene_id_trait){
+  dis_between_gene_list[[i]] <- extract_fun(dist.gene.list[[i]])
+  colnames(dis_between_gene_list[[i]])[2] <- i
+}
+
 # Merge the all data frame using cbind according to the Label column
-dis_between_env_table <- cbind(dis_between_env_list[[sel.vars[1]]], 
-                               dis_between_env_list[[sel.vars[2]]][,2],
-                               dis_between_env_list[[sel.vars[3]]][,2],
-                               dis_between_env_list[[sel.vars[4]]][,2],
-                               dis_between_env_list[[sel.vars[5]]][,2],
-                               dis_between_env_list[[sel.vars[6]]][,2],
-                               dis_between_env_list[[sel.vars[7]]][,2],
-                               distance_16s = dis_between_16s_df$Distance,
-                               distance_its = dis_between_its_df$Distance,
-                               distance_fun = dis_between_fun_df$Distance,
-                               distance_mag = dis_between_mag_df$Distance,
-                               distance_trait = dis_between_trait_df$Distance) %>%
+dis_between_all_table <- cbind(
+  dis_between_env_list[[sel.vars[1]]],
+  do.call(cbind, lapply(sel.vars[-1], function(v) 
+    dis_between_env_list[[v]][, 2, drop = FALSE])),
+  do.call(cbind, lapply(gene_id_trait, function(v) 
+    dis_between_gene_list[[v]][, 2, drop = FALSE])),
+  
+  data.frame(
+    distance_16s = dis_between_16s_df$Distance,
+    distance_its = dis_between_its_df$Distance,
+    distance_fun = dis_between_fun_df$Distance,
+    distance_mag = dis_between_mag_df$Distance,
+    distance_trait = dis_between_trait_df$Distance
+  )
+) %>%
   as.data.frame() %>%
   mutate(Gully_id = case_when(grepl("EB_", Label) ~ "EB", # add the gully id
-                           grepl("ML_", Label) ~ "ML",
-                           grepl("RS_", Label) ~ "RS",
-                           grepl("SLH_", Label) ~ "SLH",
-                           grepl("HSX_", Label) ~ "HSX",
-                           grepl("HH_", Label) ~ "HH"),
+                              grepl("ML_", Label) ~ "ML",
+                              grepl("RS_", Label) ~ "RS",
+                              grepl("SLH_", Label) ~ "SLH",
+                              grepl("HSX_", Label) ~ "HSX",
+                              grepl("HH_", Label) ~ "HH"),
          Time = case_when(Gully_id == "EB" ~ 52, # add the collapsed time
                           Gully_id == "ML" ~ 39,
                           Gully_id == "RS" ~ 54,
@@ -323,22 +357,33 @@ dis_between_env_table <- cbind(dis_between_env_list[[sel.vars[1]]],
                            Gully_id == "HSX" ~ 8.6,
                            Gully_id == "HH" ~ 3),
          MAP = case_when(Gully_id == "EB" ~ 367, # add the mean annual precipitation of the gullies
-                           Gully_id == "ML" ~ 411,
-                           Gully_id == "RS" ~ 493,
-                           Gully_id == "SLH" ~ 402,
-                           Gully_id == "HSX" ~ 353,
-                           Gully_id == "HH" ~ 436))
-
+                         Gully_id == "ML" ~ 411,
+                         Gully_id == "RS" ~ 493,
+                         Gully_id == "SLH" ~ 402,
+                         Gully_id == "HSX" ~ 353,
+                         Gully_id == "HH" ~ 436))
 # Load the required packages for modeling and plot
 library(lme4)
 library(lmerTest)
 library(ggplot2)
-library(tidyr)
-library(dplyr)
-
-# Define predictors
+# Define predictors and response variables
 predictors <- c("Plant_richness", "AGB", "pH", "SOC", "NH4_N", "NO3_N", "AP")
-
+gene_id_trait <- c("aromatic.acid.transport",
+                   "biopolymer.transport", "carbohydrate.transport", 
+                   "carboxylate.transport", "free.amino.acids.transport",
+                   "ion.transport", "lipid.transport", "N.compound.transport", 
+                   "nucleic.acid.component.transport", 
+                   "organophosphorus.transport", "osmolyte.transport",
+                   "other.transport", "peptide.transport", 
+                   "S.compound.transport", "secondary.metabolite.transport", 
+                   "vitamin.transport", "complex.carbohydrate.depolymerization",
+                   "simple.compound.degradation", "C1.compounds", "N.compounds",
+                   "S.compounds", "P.compounds", "Fermentation",
+                   "aerobic.respiration", "anaerobic.respiration",
+                   "chemolithoautotrophy", "photosystem", "pigments", 
+                   "General", "high.temperature", "low.temperature",
+                   "desiccation.osmotic.salt.stress", "pH.stress",
+                   "oxidative.stress", "oxygen.limitation", "envelope.stress")
 # Create models for both distance indices
 create_models <- function(response_var) {
   models <- lapply(predictors, function(x) {
@@ -349,6 +394,39 @@ create_models <- function(response_var) {
   return(models)
 }
 
+
+library(purrr)
+library(tibble)
+
+# Create all conbination
+response_vars <- c("distance_16s", "distance_its", "distance_fun", 
+                   "distance_mag", "distance_trait", gene_id_trait)
+model_combinations <- expand_grid(
+  response = response_vars,
+  predictor = predictors
+)
+
+# Build the models
+model_results <- model_combinations %>%
+  mutate(
+    formula = map2(predictor, response, ~reformulate(
+      termlabels = c(.x, "Time", "Slope", "MAP", "(1 | Gully_id)"),
+      response = .y
+    )),
+    model = map(formula, ~lmer(.x, data = dis_between_all_table))
+  )
+
+# Results
+model_results
+
+# 
+model_results %>%
+  filter(response == "aromatic.acid.transport", 
+         predictor == "Plant_richness") %>%
+  pull(model) %>%
+  .[[1]]
+
+
 # Get models for both distance indices
 models_16s <- create_models("distance_16s")
 models_its <- create_models("distance_its")
@@ -357,218 +435,98 @@ models_mag <- create_models("distance_mag")
 models_trait <- create_models("distance_trait")
 
 # Load additional required package for R-squared calculation
-library(MuMIn)  # For r.squaredGLMM function
-
-# Function to extract comprehensive model results including R-squared
-extract_lmm_results <- function(models, distance_type, predictors) {
-  map2_dfr(models, predictors, ~{
-    model <- .x
-    predictor <- .y
+extract_model_stats <- function(model, response, predictor, data) {
+  if(is.null(model)) {
+    return(tibble(Response = response, Predictor = predictor, 
+                  across(everything(), ~NA)))
+  }
+  
+  tryCatch({
+    # basic stastics
+    coef_table <- summary(model)$coefficients
+    pred_idx <- which(rownames(coef_table) == predictor)
     
-    # Get model summary
-    model_summary <- summary(model)
-    
-    # Extract fixed effects
-    fixed_coeff <- model_summary$coefficients
-    
-    # Extract random effects variance
-    random_var <- as.data.frame(VarCorr(model))
-    gully_var <- random_var$vcov[random_var$grp == "Gully_id"]
-    residual_var <- random_var$vcov[random_var$grp == "Residual"]
-    
-    # Calculate ICC (Intraclass Correlation Coefficient)
-    icc <- gully_var / (gully_var + residual_var)
-    
-    # Calculate R-squared values using MuMIn package
-    r_squared <- r.squaredGLMM(model)
-    marginal_r2 <- r_squared[1, "R2m"]    # R²m: variance explained by fixed effects only
-    conditional_r2 <- r_squared[1, "R2c"] # R²c: variance explained by fixed + random effects
-    
-    # Alternative manual calculation of marginal R-squared
-    # Get fitted values with only fixed effects
-    fixed_fitted <- predict(model, re.form = NA)
-    observed <- model.response(model.frame(model))
-    
-    # Manual marginal R-squared calculation
-    var_fixed <- var(fixed_fitted)
-    var_observed <- var(observed)
-    marginal_r2_manual <- var_fixed / var_observed
-    
-    # Manual conditional R-squared calculation
-    fitted_full <- fitted(model)
-    var_fitted_full <- var(fitted_full)
-    conditional_r2_manual <- var_fitted_full / var_observed
-    
-    # Extract model fit statistics
-    loglik <- logLik(model)
-    aic <- AIC(model)
-    bic <- BIC(model)
-    
-    # Get ANOVA results for the main predictor - INCLUDING DEGREES OF FREEDOM
-    anova_result <- anova(model)
-    f_value <- anova_result$`F value`[1]
-    p_value <- anova_result$`Pr(>F)`[1]
-    
-    # Extract degrees of freedom
-    num_df <- anova_result$NumDF[1]  # Numerator degrees of freedom
-    den_df <- anova_result$DenDF[1]  # Denominator degrees of freedom
-    
-    # Extract coefficients for all fixed effects
-    predictor_row <- which(rownames(fixed_coeff) == predictor)
-    
-    # Main predictor results
-    if(length(predictor_row) > 0) {
-      predictor_est <- fixed_coeff[predictor_row, "Estimate"]
-      predictor_se <- fixed_coeff[predictor_row, "Std. Error"]
-      predictor_t <- fixed_coeff[predictor_row, "t value"]
-      predictor_p <- fixed_coeff[predictor_row, "Pr(>|t|)"]
-      predictor_df <- fixed_coeff[predictor_row, "df"]  # t-test degrees of freedom
+    # fixed effects
+    if(length(pred_idx) > 0) {
+      est <- coef_table[pred_idx, "Estimate"]
+      se <- coef_table[pred_idx, "Std. Error"]
+      t_val <- coef_table[pred_idx, "t value"]
+      p_val <- coef_table[pred_idx, "Pr(>|t|)"]
+      t_df <- coef_table[pred_idx, "df"]
+      std_coef <- est * sd(data[[predictor]], na.rm = TRUE) / 
+        sd(data[[response]], na.rm = TRUE)
     } else {
-      predictor_est <- predictor_se <- predictor_t <- predictor_p <- predictor_df <- NA
+      est <- se <- t_val <- p_val <- t_df <- std_coef <- NA
     }
     
-    # Covariate results
-    time_row <- which(rownames(fixed_coeff) == "Time")
-    slope_row <- which(rownames(fixed_coeff) == "Slope") 
-    map_row <- which(rownames(fixed_coeff) == "MAP")
+    # ANOVA
+    anova_res <- anova(model)
+    f_val <- anova_res$`F value`[1]
+    f_p <- anova_res$`Pr(>F)`[1]
+    num_df <- anova_res$NumDF[1]
+    den_df <- anova_res$DenDF[1]
     
-    time_est <- if(length(time_row) > 0) fixed_coeff[time_row, "Estimate"] else NA
-    time_p <- if(length(time_row) > 0) fixed_coeff[time_row, "Pr(>|t|)"] else NA
+    # R²
+    r2 <- r.squaredGLMM(model)
     
-    slope_est <- if(length(slope_row) > 0) fixed_coeff[slope_row, "Estimate"] else NA
-    slope_p <- if(length(slope_row) > 0) fixed_coeff[slope_row, "Pr(>|t|)"] else NA
-    
-    map_est <- if(length(map_row) > 0) fixed_coeff[map_row, "Estimate"] else NA
-    map_p <- if(length(map_row) > 0) fixed_coeff[map_row, "Pr(>|t|)"] else NA
-    
-    # Calculate standardized coefficient for main predictor
-    if(!is.na(predictor_est)) {
-      pred_sd <- sd(dis_between_env_table[[predictor]], na.rm = TRUE)
-      resp_sd <- sd(dis_between_env_table[[distance_type]], na.rm = TRUE)
-      std_coeff <- predictor_est * (pred_sd / resp_sd)
-    } else {
-      std_coeff <- NA
+    # covariable
+    get_coef <- function(var) {
+      idx <- which(rownames(coef_table) == var)
+      if(length(idx) > 0) c(coef_table[idx, "Estimate"], coef_table[idx, "Pr(>|t|)"])
+      else c(NA, NA)
     }
+    time <- get_coef("Time")
+    slope <- get_coef("Slope")
+    map <- get_coef("MAP")
+    
+    # random effects
+    var_df <- as.data.frame(VarCorr(model))
+    gully_var <- var_df$vcov[var_df$grp == "Gully_id"]
+    resid_var <- var_df$vcov[var_df$grp == "Residual"]
     
     tibble(
-      Response = distance_type,
+      Response = response,
       Predictor = predictor,
-      # Main predictor
-      Estimate = predictor_est,
-      SE = predictor_se,
-      t_value = predictor_t,
-      t_df = predictor_df,  # Added t-test degrees of freedom
-      p_value = predictor_p,
-      Std_Coeff = std_coeff,
-      # ANOVA results with degrees of freedom
-      F_value = f_value,
-      NumDF = num_df,      # Added numerator degrees of freedom
-      DenDF = den_df,      # Added denominator degrees of freedom
-      F_p_value = p_value,
-      # R-squared values
-      Marginal_R2 = marginal_r2,      # R²m: fixed effects only
-      Conditional_R2 = conditional_r2, # R²c: fixed + random effects
-      Marginal_R2_manual = marginal_r2_manual,    # Manual calculation
-      Conditional_R2_manual = conditional_r2_manual, # Manual calculation
-      # Covariates
-      Time_Est = time_est,
-      Time_p = time_p,
-      Slope_Est = slope_est,
-      Slope_p = slope_p,
-      MAP_Est = map_est,
-      MAP_p = map_p,
-      # Random effects
+      Estimate = est,
+      SE = se,
+      t_value = t_val,
+      t_df = t_df,
+      p_value = p_val,
+      Std_Coeff = std_coef,
+      F_value = f_val,
+      NumDF = num_df,
+      DenDF = den_df,
+      F_p_value = f_p,
+      Marginal_R2 = r2[1, "R2m"],
+      Conditional_R2 = r2[1, "R2c"],
+      Time_Est = time[1],
+      Time_p = time[2],
+      Slope_Est = slope[1],
+      Slope_p = slope[2],
+      MAP_Est = map[1],
+      MAP_p = map[2],
       Gully_Var = gully_var,
-      Residual_Var = residual_var,
-      ICC = icc,
-      # Model fit
-      LogLik = as.numeric(loglik),
-      AIC = aic,
-      BIC = bic,
+      Residual_Var = resid_var,
+      ICC = gully_var / (gully_var + resid_var),
+      LogLik = as.numeric(logLik(model)),
+      AIC = AIC(model),
+      BIC = BIC(model),
       N_obs = nobs(model)
     )
+  }, error = function(e) {
+    tibble(Response = response, Predictor = predictor, 
+           across(everything(), ~NA))
   })
 }
 
-# Extract results for both distance indices
-results_16s <- extract_lmm_results(models_16s, "distance_16s", predictors)
-results_its <- extract_lmm_results(models_its, "distance_its", predictors)
-results_fun <- extract_lmm_results(models_fun, "distance_fun", predictors)
-results_mag <- extract_lmm_results(models_mag, "distance_mag", predictors)
-results_trait <- extract_lmm_results(models_trait, "distance_trait", predictors)
+# Extract the model results
+all_model_stats <- model_results %>%
+  mutate(stats = pmap(list(model, response, predictor), 
+                      ~extract_model_stats(..1, ..2, ..3, dis_between_all_table))) %>%
+  unnest(stats)
 
-all_results <- bind_rows(results_16s, results_its, results_fun, results_mag, results_trait)
 
-# Add formatted labels and significance
-all_results <- all_results %>%
-  mutate(
-    Response_Label = case_when(
-      Response == "distance_16s" ~ "Bacteria",
-      Response == "distance_its" ~ "Fungi",
-      Response == "distance_fun" ~ "Functional gene",
-      Response == "distance_mag" ~ "Metagenome assembled genomes",
-      Response == "distance_trait" ~ "CWM traits"
-    ),
-    Predictor_Label = case_when(
-      Predictor == "Plant_richness" ~ "Plant richness",
-      Predictor == "AGB" ~ "Aboveground biomass",
-      Predictor == "pH" ~ "Soil pH",
-      Predictor == "SOC" ~ "Soil organic carbon",
-      Predictor == "NH4_N" ~ "NH₄⁺-N",
-      Predictor == "NO3_N" ~ "NO₃⁻-N", 
-      Predictor == "AP" ~ "Available phosphorus"
-    ),
-    # Significance stars
-    Sig = case_when(
-      p_value < 0.001 ~ "***",
-      p_value < 0.01 ~ "**",
-      p_value < 0.05 ~ "*",
-      TRUE ~ ""
-    ),
-    F_Sig = case_when(
-      F_p_value < 0.001 ~ "***",
-      F_p_value < 0.01 ~ "**",
-      F_p_value < 0.05 ~ "*",
-      TRUE ~ ""
-    ),
-    # Format estimates with significance
-    Est_Formatted = paste0(sprintf("%.3f", Estimate), Sig),
-    Std_Coeff_Formatted = paste0(sprintf("%.3f", Std_Coeff), Sig),
-    # Format F-statistic with degrees of freedom
-    F_Formatted = paste0("F(", NumDF, ",", sprintf("%.1f", DenDF), ") = ", sprintf("%.2f", F_value))
-  )
-
-# Create comprehensive results table with degrees of freedom
-results_table <- all_results %>%
-  select(
-    `Response Variable` = Response_Label,
-    `Environmental Predictor` = Predictor_Label, 
-    `n` = N_obs,
-    `Estimate` = Estimate,
-    `Standardized β` = Std_Coeff,
-    `t-value` = t_value,
-    `NumDF` = NumDF, # Added numerator degrees of freedom
-    `DenDF` = DenDF,  # Added denominator degrees of freedom
-    `F-statistic` = F_value,
-    `r_squared` = `Marginal_R2`,
-    `p-value` = p_value,
-    `Significance` = Sig
-  ) %>%
-  mutate(
-    `t-value` = round(`t-value`, 2),
-    `DenDF` = round(`DenDF`, 1),
-    `Standardized β` = round(`Standardized β`, 2),
-    `F-statistic` = round(`F-statistic`, 2),
-    `p-value` = case_when(
-      `p-value` < 0.001 ~ "< 0.001",
-      TRUE ~ sprintf("%.3f", `p-value`)
-    )
-  )
-
-# Display the results table
-print(results_table)
-
-# 1. Heatmap for all predictors
+# 1.Heatmap
 rep_str2 = c("Plant_richness" = "Plant richness",
              "AGB" = "AGB",
              "pH" = "pH",
@@ -582,15 +540,15 @@ rep_str3 = c("distance_16s" = "Bacteria",
              "distance_fun" = "Functional gene",
              "distance_mag" ~ "Metagenome assembled genomes",
              "distance_trait" ~ "CWM traits")
-# Prepare the heatmap data
-all_coeff <- all_results %>%
-  select(Response, Predictor, Std_Coeff, Marginal_R2, p_value, Sig) %>%
-  mutate(Response = factor(Response, levels = c("distance_16s", "distance_its",
-                                                "distance_fun", "distance_mag", 
-                                                "distance_trait")),
-         Predictor = factor(Predictor, levels = rev(predictors)))
-
-heatmap_plot <- all_coeff %>%
+all_model_stats %>%
+  mutate(Sig = case_when(
+    p_value < 0.001 ~ "***",
+    p_value < 0.01 ~ "**",
+    p_value < 0.05 ~ "*",
+    TRUE ~ ""),
+    Predictor = factor(Predictor, levels = c("Plant_richness", "AGB", "pH",
+                                             "SOC", "NH4_N", "NO3_N", "AP")),
+    Response = factor(Response, levels = c(unique(all_model_stats$Response)))) %>% 
   ggplot(aes(Predictor, Response, fill = Std_Coeff)) +
   geom_tile(color = "white", linewidth = 0.8) +
   geom_text(aes(label = Sig), 
@@ -606,7 +564,9 @@ heatmap_plot <- all_coeff %>%
   ) +
   theme_bw() +
   main_theme +
-  theme(legend.key.size = unit(0.25, 'cm'), #change legend key size
+  theme(strip.background = element_rect(fill = c("#FFF6E1")),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5), 
+        legend.key.size = unit(0.25, 'cm'), #change legend key size
         legend.key.height = unit(0.25, 'cm'), #change legend key height
         legend.key.width = unit(0.25, 'cm'))
 
@@ -667,5 +627,112 @@ combined_plot <-  ggdraw() +
 # Display the combined plot
 combined_plot
 # Save the combined plot
-ggsave(file.path("E:/thermokarst_gully/revision/result/lmm_changes_env_microbes.pdf"), combined_plot,
-       width = 8.8, height = 6.4)
+# ggsave(file.path("E:/thermokarst_gully/revision/result/lmm_changes_env_microbes.pdf"), combined_plot,
+#        width = 8.8, height = 6.4)
+
+# Explore the environmental effects on the C-S-R gene abundance and CWM traits
+sel.vars <- c("Plant_richness", "AGB", "pH", "SOC", "NH4_N", "NO3_N", "AP")
+aggre_trait_group_env <- aggre_trait_group_data %>%
+  rownames_to_column("Sample_name") %>%
+  left_join(metadata[, c("Sample_name", "Gully_id", sel.vars)], by = "Sample_name")
+
+#linner mixed model for matrix to matrix
+lmm.mat.cal <- function(y, x, data, method){
+  y <- as.matrix(y)
+  x <- as.matrix(x)
+  df<-NULL
+  for(i in colnames(y)){
+    for(j in colnames(x)){
+      a <- y[, i, drop = F]
+      b <- x[, j, drop = F]
+      mode <- lmerTest::lmer(a ~ b + (1 | Gully_id), data, na.action=na.omit)
+      coeff <- summary(mode)$coefficients[2,1]
+      r.square <- round(MuMIn::r.squaredGLMM(mode)[1], 2)
+      AIC <- round(AIC(mode), 2)
+      p.value <- round(anova(mode)$Pr[1], 3)
+      if (coeff>0) r = sqrt(r.square)
+      else r = (-1) * sqrt(r.square)
+      tmp <- c(i, j, r, r.square, AIC, p.value)
+      if(is.null(df)){
+        df <- tmp  
+      }
+      else{
+        df <- rbind(df, tmp)
+      }    
+    }
+  }
+  df<-data.frame(row.names=NULL,df)
+  colnames(df)<-c("dependent.variables","predictor.variables","Correlation","r.square", "AIC", "Pvalue")
+  df$Pvalue<-as.numeric(as.character(df$Pvalue))
+  df$AdjPvalue<-rep(0,dim(df)[1])
+  df$Correlation<-as.numeric(as.character(df$Correlation))
+  #You can adjust the p-values for multiple comparison using Benjamini & Hochberg (1995):
+  # 1 -> donot adjust
+  # 2 -> adjust predictor.variables + Type (column on the correlation plot)
+  # 3 -> adjust dependent.variables + Type (row on the correlation plot for each type)
+  # 4 -> adjust dependent.variables (row on the correlation plot)
+  # 5 -> adjust predictor.variables (panel on the correlation plot)
+  adjustment_label<-c("NoAdj","Adjpredictor.variablesAndType","Adjdependent.variablesAndType","Adjdependent.variables","Adjpredictor.variables")
+  adjustment<-5
+  if(adjustment==1){
+    df$AdjPvalue<-df$Pvalue
+  } else if (adjustment==2){
+    for(i in unique(df$predictor.variables)){
+      for(j in unique(df$Type)){
+        sel<-df$predictor.variables==i & df$Type==j
+        df$AdjPvalue[sel]<-p.adjust(df$Pvalue[sel],method="BH")
+      }
+    }
+  } else if (adjustment==3){
+    for(i in unique(df$dependent.variables)){
+      for(j in unique(df$Type)){
+        sel<-df$dependent.variables==i & df$Type==j
+        df$AdjPvalue[sel]<-p.adjust(df$Pvalue[sel],method="BH")
+      }
+    }
+  } else if (adjustment==4){
+    for(i in unique(df$dependent.variables)){
+      sel<-df$dependent.variables==i
+      df$AdjPvalue[sel]<-p.adjust(df$Pvalue[sel],method="BH")
+    }
+  } else if (adjustment==5){
+    for(i in unique(df$predictor.variables)){
+      sel<-df$predictor.variables==i
+      df$AdjPvalue[sel]<-p.adjust(df$Pvalue[sel],method="BH")
+    }
+  }
+  #Now we generate the labels for signifant values
+  df$Significance<-cut(df$AdjPvalue, breaks=c(-Inf, 0.001, 0.01, 0.05, Inf), label=c("***", "**", "*", ""))
+  df$dependent.variables <-factor(df$dependent.variables, ordered = T, levels = rev(colnames(y)))
+  df$predictor.variables <-factor(df$predictor.variables, ordered = T, levels = colnames(x))
+  return(df)
+}
+
+# Define predictors
+predictors <- c("Plant_richness", "AGB", "pH", "SOC", "NH4_N", "NO3_N", "AP")
+gene_id_trait
+
+x <- aggre_trait_group_env[, predictors]
+y <- aggre_trait_group_env[, gene_id_trait]
+corr_results <- lmm.mat.cal(y, x, aggre_trait_group_env, "spearman")
+
+heatmap_lmm_plot <- corr_results %>%
+  ggplot(aes(predictor.variables, dependent.variables, fill = round(Correlation, 2))) +
+  geom_tile(color = "white", linewidth = 0.8) +
+  geom_text(aes(label = Significance), 
+            size = 3.5, fontface = "bold") +
+  scale_fill_gradient2(low = "#79ceb8", mid = "white", high = "#e95f5c", 
+                       name = "Standardized\nCoefficient") +
+  coord_flip() + 
+  scale_x_discrete(labels = rep_str2) +
+  # scale_y_discrete(labels = rep_str3) +
+  labs(
+    x = "Changes in environmental variables",
+    y = "Changes in microbial community composition"
+  ) +
+  main_theme +
+  theme(strip.background = element_rect(fill = c("#FFF6E1")),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5), 
+        legend.key.size = unit(0.25, 'cm'), #change legend key size
+        legend.key.height = unit(0.25, 'cm'), #change legend key height
+        legend.key.width = unit(0.25, 'cm'))

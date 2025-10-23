@@ -5,7 +5,7 @@ wd_16s <- "E:/thermokarst_gully/data/16S/rdp"
 wd_its <- "E:/thermokarst_gully/data/ITS"
 
 # loading packages
-pacman::p_load(phyloseq, ape, Biostrings, tidytable, data.table)
+pacman::p_load(phyloseq, ape, Biostrings, tidyverse)
 
 # read 16S data
 ## metadata

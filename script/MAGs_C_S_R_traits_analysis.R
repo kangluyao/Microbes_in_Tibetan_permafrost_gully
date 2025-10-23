@@ -1,6 +1,19 @@
 ################################################
 ######### Metagenomic assembled genomes ########
 ################################################
+rm(list = ls())
+# Set work directory
+setwd('e:/thermokarst_gully/')
+wd_16s <- file.path(getwd(),"data/16S/rdp")
+wd_fun <- file.path(getwd(),"data/metagenome")
+save.dir <- file.path(getwd(),"result")
+
+# Loading packages
+pacman::p_load(vegan, tidyverse, ggrepel, EnhancedVolcano, edgeR, ggplot2)
+
+# Data input
+source("script/read_data.R")
+source("script/Functions.R")
 # bin genome information
 mag_results_trans <- decostand(t(mags_abun_tab), method = "hellinger")
 mag_dist <-vegdist(mag_results_trans, "bray")
@@ -92,7 +105,7 @@ adonis2(trait_dist ~ Group, data = metadata)
 pcoa_cwm_trait_plot <- PCoA_plot_fun(trait_dist)
 pcoa_cwm_trait_plot
 
-# Assuming vars is defined somewhere earlier in your code
+# Extract the distance between un-collapsed and collapsed samples
 distance_trait_data <- similar_deter_fun(trait_dist)
 
 # Extract the unique Gully_id and corresponding Time, Slope, MAP from metadata
