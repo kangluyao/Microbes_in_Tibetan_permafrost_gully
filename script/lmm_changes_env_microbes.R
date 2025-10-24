@@ -426,14 +426,6 @@ model_results %>%
   pull(model) %>%
   .[[1]]
 
-
-# Get models for both distance indices
-models_16s <- create_models("distance_16s")
-models_its <- create_models("distance_its")
-models_fun <- create_models("distance_fun")
-models_mag <- create_models("distance_mag")
-models_trait <- create_models("distance_trait")
-
 # Load additional required package for R-squared calculation
 extract_model_stats <- function(model, response, predictor, data) {
   if(is.null(model)) {
@@ -540,7 +532,7 @@ rep_str3 = c("distance_16s" = "Bacteria",
              "distance_fun" = "Functional gene",
              "distance_mag" ~ "Metagenome assembled genomes",
              "distance_trait" ~ "CWM traits")
-all_model_stats %>%
+corr_env_micrbo_heatmap <- all_model_stats %>%
   mutate(Sig = case_when(
     p_value < 0.001 ~ "***",
     p_value < 0.01 ~ "**",
@@ -552,7 +544,7 @@ all_model_stats %>%
   ggplot(aes(Predictor, Response, fill = Std_Coeff)) +
   geom_tile(color = "white", linewidth = 0.8) +
   geom_text(aes(label = Sig), 
-            size = 3.5, fontface = "bold") +
+            size = 2, fontface = "bold") +
   scale_fill_gradient2(low = "#79ceb8", mid = "white", high = "#e95f5c", 
                        name = "Standardized\nCoefficient") +
   coord_flip() + 
@@ -569,6 +561,11 @@ all_model_stats %>%
         legend.key.size = unit(0.25, 'cm'), #change legend key size
         legend.key.height = unit(0.25, 'cm'), #change legend key height
         legend.key.width = unit(0.25, 'cm'))
+
+corr_env_micrbo_heatmap
+# Save the combined plot
+ggsave(file.path("E:/thermokarst_gully/revision/result/corr_env_micrbo_heatmap.pdf"), 
+       corr_env_micrbo_heatmap, width = 183, height = 75, units = "mm")
 
 # 2. Regression plots for significant predictors only
 # Filter significant predictors
