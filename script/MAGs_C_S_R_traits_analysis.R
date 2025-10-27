@@ -1,7 +1,6 @@
 ################################################
 ######### Metagenomic assembled genomes ########
 ################################################
-rm(list = ls())
 # Set work directory
 setwd('e:/thermokarst_gully/')
 wd_16s <- file.path(getwd(),"data/16S/rdp")
@@ -76,7 +75,8 @@ rownames(trait_data) <- spec_names
 # Calculate CWM for each trait and each community
 trait_data <- trait_data[rownames(mags_abun_tab), ]
 relative_abundance <- mags_abun_tab/100
-cwm_results <- data.frame(matrix(NA, nrow = ncol(relative_abundance), ncol = ncol(trait_data)))
+cwm_results <- data.frame(matrix(NA, nrow = ncol(relative_abundance), 
+                                 ncol = ncol(trait_data)))
 row.names(cwm_results) <- colnames(relative_abundance)
 colnames(cwm_results) <- colnames(trait_data)
 

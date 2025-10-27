@@ -4,21 +4,16 @@ library(ggplot2)
 library(dplyr)
 library(stringr)
 # Community composition
-tax_table <- tax_table %>%
-  mutate(
-    phylum = str_extract(taxonomy, "p__[^;]+"),
-    class  = str_extract(taxonomy, "c__[^;]+"),
-    taxonomy_simplified = str_c(phylum, class, sep = "; ")
-  ) %>%
-  mutate(across(c(phylum, class, taxonomy_simplified),
-                ~str_replace_all(., ".*__", "")))  # 去掉前缀
-
 singlem_phyla <- fread("E:/thermokarst_gully/data/metagenome/singlem/gully-phylum.tsv") %>%
   filter(taxonomy != "unassigned") %>%
   mutate(
     taxonomy = str_extract(taxonomy, "p__[^;]+"),
   ) %>%
   mutate(across(c(taxonomy),  ~str_replace_all(., ".*__", ""))) %>%
+  column_to_rownames("taxonomy")
+
+singlem_phyla_df <- singlem_phyla %>%
+  rownames_to_column("taxonomy") %>%
   pivot_longer(-taxonomy, names_to = "Sample", values_to = "Relative_abundance") %>%
   mutate(Group = case_when(grepl("_C", Sample) ~ "Un-collapsed",
                            grepl("_T", Sample) ~ "Collapsed"),
@@ -26,7 +21,7 @@ singlem_phyla <- fread("E:/thermokarst_gully/data/metagenome/singlem/gully-phylu
 
 # 假设 df 包含列：Sample, Group, Phylum, Relative_abundance
 # 计算每组平均相对丰度
-plot_df <- singlem_phyla %>%
+plot_df <- singlem_phyla_df %>%
   group_by(Group, taxonomy) %>%
   summarise(mean_abund = mean(Relative_abundance), .groups = "drop")
 
@@ -56,6 +51,10 @@ composition_plot <- ggplot(plot_df, aes(x = Group, y = mean_abund, fill = taxono
 ## Diversity analysis
 singlem_genu <- fread("E:/thermokarst_gully/data/metagenome/singlem/gully-genus.tsv") %>%
   filter(taxonomy != "unassigned") %>%
+  mutate(
+    taxonomy = str_extract(taxonomy, "g__[^;]+"),
+  ) %>%
+  mutate(across(c(taxonomy),  ~str_replace_all(., ".*__", ""))) %>%
   column_to_rownames("taxonomy")
 singlem_genu = as.matrix(singlem_genu)
 
@@ -158,19 +157,7 @@ adonis2(tax_singlem_dist ~ Group, data = metadata)
 
 #Visualization for the overall difference by PCoA plot.
 #singlem
-ord.singlem <-  cmdscale(tax_singlem_dist,  k = 2, eig = T, add = T)
-pcoa_singlem_plot <- data.frame(Group = metadata$Group, scores(ord.singlem)) %>%
-  mutate(Group = factor(Group, levels = c('Un-collapsed', 'Collapsed'))) %>%
-  ggplot(aes(x = Dim1, y = Dim2, shape = Group, color = Group)) + 
-  geom_point(size = 1, alpha = 0.8) + 
-  stat_ellipse(geom = "polygon", aes(fill = Group), alpha = 0.2, 
-               show.legend = FALSE, level = 0.95) +
-  scale_colour_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  labs(x=paste("PCoA1 (", format(100 * ord.singlem$eig[1] / sum(ord.singlem$eig), digits = 3), "%)", sep = ""),
-       y=paste("PCoA2 (", format(100 * ord.singlem$eig[2] / sum(ord.singlem$eig), digits = 3), "%)", sep = "")) +
-  main_theme +
-  theme(legend.position = "none")
+pcoa_singlem_plot <- PCoA_plot_fun(tax_singlem_dist)
 
 pcoa_singlem_plot
 
