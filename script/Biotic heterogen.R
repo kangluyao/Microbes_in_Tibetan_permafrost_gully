@@ -128,7 +128,8 @@ for(i in 1:length(dis_index)) {
   }
 }
 
-dis_result_lmm <-data.frame(dis_index = rep(dis_index, each = 4), group1 = rep("Un-collapsed", length(dis_index)),
+dis_result_lmm <-data.frame(dis_index = rep(dis_index, each = 4), 
+                            group1 = rep("Un-collapsed", length(dis_index)),
                             variables = rep(c("Group", "Time", "Slope", "MAP"), 2),
                             group2 = rep("Collapsed", length(dis_index)), df)
 dis_result_lmm
