@@ -58,6 +58,7 @@ singlem_genu <- fread("E:/thermokarst_gully/data/metagenome/singlem/gully-genus.
   column_to_rownames("taxonomy")
 singlem_genu = as.matrix(singlem_genu)
 
+# Determine the alpha diversity
 shannon  <- diversity(singlem_genu, index = "shannon")
 richness <- specnumber(t(singlem_genu))
 
