@@ -8,7 +8,6 @@ summary(sim_phyla)
 ## IGNORE_RDIFF_BEGIN
 summary(sim_genu)
 ## IGNORE_RDIFF_END
-
 library(ggplot2)
 library(dplyr)
 
@@ -41,23 +40,24 @@ simper_contri_plot <- ggplot(simper_df, aes(x = taxonomy)) +
     aes(y = cumsum * scale_factor), 
     group = 1, 
     color = "red", 
-    linewidth = 1
+    linewidth = 0.1
   ) +
   geom_point(
     aes(y = cumsum * scale_factor), 
     color = "red", 
-    size = 1
+    size = 0.005
   ) +
   geom_hline(
     yintercept = cutoff_pct * scale_factor, 
     linetype = "dashed", 
-    color = "red"
+    color = "red",
+    linewidth = 0.1
   ) +
   geom_vline(
     xintercept = cutoff_index, 
     linetype = "dotted", 
     color = "darkred", 
-    linewidth = 1
+    linewidth = 0.1
   ) +
   scale_y_continuous(
     name = "Individual Contribution",
@@ -67,17 +67,11 @@ simper_contri_plot <- ggplot(simper_df, aes(x = taxonomy)) +
       labels = scales::percent
     )
   ) +
-  labs(
-    title = "SIMPER Species Contribution Analysis",
-    subtitle = paste("Cutoff species (70% threshold):", cutoff_species)
-  ) +
+  labs(x = "Genera") +
   main_theme +
-  theme(plot.title = element_text(size = 6, face = "bold"),
-        plot.subtitle = element_text(size = 6),
-    axis.text.x = element_text(angle = 45, hjust = 1, size = 5),
-    axis.ticks.x = element_blank()
-  )
-
+  theme(axis.text.x = element_blank(),
+        axis.ticks.length.y = unit(.1, "cm"),
+        axis.ticks.length.x = unit(.01, "cm"))
 
 simper_contri_plot
 
@@ -139,35 +133,29 @@ single_genu_comparison <- singlem_genera_S1 %>%
   rownames_to_column("variables") %>%
   mutate(sig = as.vector(unlist(lapply(Group.P, p.stars)))) %>%
   mutate(variables = factor(variables, levels = genera_id)) %>%
-  mutate(colour = case_when(GroupCollapsed.mean <= 0 & Group.P <= 0.05 ~ "Negative",
+  mutate(eff_group = case_when(GroupCollapsed.mean <= 0 & Group.P <= 0.05 ~ "Negative",
                             GroupCollapsed.mean > 0 & Group.P <= 0.05 ~ "Positvie",
                             Group.P > 0.05 ~ "Neutral")) %>%
-  ggplot(aes(x = variables, y = GroupCollapsed.mean, colour = colour)) +
+  ggplot(aes(x = variables, y = GroupCollapsed.mean, colour = eff_group)) +
   geom_hline(aes(yintercept = 0), linewidth = 0.7,  colour = "gray2")+
-  geom_point(size = 1.5) +
+  geom_point(size = 0.75, shape = 16) +
   geom_errorbar(aes(ymin = GroupCollapsed.mean - GroupCollapsed.se, 
                     ymax = GroupCollapsed.mean + GroupCollapsed.se), 
-                width = 0, position = position_dodge(width = 0.7), cex = 0.9) +
+                width = 0, position = position_dodge(width = 0.7), cex = 0.5) +
   # geom_text(aes(label = sig, x = variables, y = (GroupCollapsed.mean/abs(GroupCollapsed.mean))*(abs(GroupCollapsed.mean) + GroupCollapsed.se)*1.2),
   #           position = position_dodge(0.1), vjust = 0.55) +
-  labs(x = NULL, y = "Effect size") +
+  labs(x = "Genera", y = "Effect size") +
   scale_color_manual(values=c("#79ceb8", "grey", "#e95f5c")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2, 2)) +
   theme_bw() + scale_x_discrete(position = "bottom") +
   main_theme + theme(legend.position = "none",
-                     axis.ticks.x = element_blank())
-
-# if (!dir.exists(file.path(save.dir, "figs/env/"))) {
-#   dir.create(file.path(save.dir, "figs/env/"))
-# }
-# ggsave(file.path(save.dir.multifunc, "./single_div_comparison.pdf"),
-#        single_dis_comparison, width = 2.7, height = 5, units = "in")
+                     axis.ticks.length.y = unit(.1, "cm"),
+                     axis.ticks.length.x = unit(.01, "cm"),
+                     axis.text.x = element_blank())
 single_genu_comparison
 
 simper_eff_plot <- cowplot::plot_grid(simper_contri_plot, single_genu_comparison,
                    ncol = 1, align = "hv")
-
-
 
 # Microbial traits
 df_cor <- singlem_genera_S1 %>%
@@ -206,7 +194,8 @@ gtdb_trait_genera_ave <- gtdb_trait %>%
   summarise(across(c(gc_percentage, genome_size, 
                      ncbi_rrna_count), mean, na.rm = TRUE)) %>%
   inner_join(df_cor, by = "gtdb_taxonomy") %>%
-  mutate(contri.group = if_else(gtdb_taxonomy %in% 
+  mutate(genome_size = genome_size/1000000,
+         contri.group = if_else(gtdb_taxonomy %in% 
                                        high_var_species, "High", "Low"),
          eff.group = if_else(GroupCollapsed.mean >= 0, "Positive", "Negative"))
 
@@ -216,70 +205,95 @@ head(gtdb_trait_genera_ave)
 traits_id <- c("gc_percentage", "genome_size", "ncbi_rrna_count")
 contri_comparisons <- list(c('High', 'Low'))
 singlem_traits_contri_comparison <- gtdb_trait_genera_ave %>% 
-  # filter(Group.P < 0.05) %>%
+  filter(Group.P < 0.05) %>%
   select(c("contri.group", all_of(traits_id))) %>%
   filter(contri.group %in% c('High', 'Low')) %>%
   gather(traits, value, -c("contri.group")) %>%
   mutate(contri.group = factor(contri.group, levels = c('High', 'Low'))) %>%
   mutate(traits = factor(traits, levels = traits_id)) %>%
-  ggplot(aes(contri.group, value, fill = contri.group)) +
-  geom_half_violin(position = position_nudge(x = 0.25), 
-                   side = "r", width = 0.6, color = NA, alpha = 0.75) +
-  # geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
-  geom_jitter(aes(fill = contri.group), size = 1.5, 
-              width = 0.15, stroke = 0, pch = 21, alpha = 0.75) +
+  ggplot(aes(contri.group, value)) +
+  geom_half_violin(aes(fill = contri.group), color = NA, 
+                   position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, alpha = 0.65) +
+  # geom_boxplot(aes(fill = contri.group), width = 0.35, 
+  #              size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(colour = contri.group), shape = 16, size = 0.5,
+              width = 0.15, alpha = 0.65) +
   stat_summary(fun = median, geom = "crossbar", 
-               width = 0.35, linewidth = 0.25) +
+               width = 0.35, linewidth = 0.15) +
   stat_compare_means(comparisons = contri_comparisons, paired = F,
                      p.adjust.method = "BH", label = "p.signif", 
-                     bracket.size = 0.5, bracket.width = 0.1,  size = 3.5,
+                     bracket.size = 0.25, bracket.width = 0.1,  size = 2,
                      tip.length = 0.00, method = "wilcox.test") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
   labs(x = NULL, y = NULL) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   facet_wrap(~traits, scales = "free_y", ncol = 6) + #
   main_theme +
   theme(legend.position = "none",
+        axis.ticks.length=unit(.1, "cm"),
         strip.text.x = element_text(margin = margin(0.05, 0, 0.05, 0, "cm")))
 singlem_traits_contri_comparison
 
 eff_comparisons <- list(c('Negative', 'Positive'))
 singlem_traits_eff_comparison <- gtdb_trait_genera_ave %>% 
-  # filter(Group.P < 0.05) %>%
-  # filter(contri.group == "High") %>%
+  filter(Group.P < 0.05) %>%
+  filter(contri.group == "High") %>%
   select(c("eff.group", all_of(traits_id))) %>%
   filter(eff.group %in% c('Negative', 'Positive')) %>%
   gather(traits, value, -c("eff.group")) %>%
   mutate(eff.group = factor(eff.group, levels = c('Negative', 'Positive'))) %>%
   mutate(traits = factor(traits, levels = traits_id)) %>%
-  ggplot(aes(eff.group, value, fill = eff.group)) +
-  geom_half_violin(position = position_nudge(x = 0.25), 
-                   side = "r", width = 0.6, color = NA, alpha = 0.75) +
-  # geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
-  geom_jitter(aes(fill = eff.group), size = 1.5, 
-              width = 0.15, stroke = 0, pch = 21, alpha = 0.75) +
+  ggplot(aes(eff.group, value)) +
+  geom_half_violin(aes(fill = eff.group), color = NA, 
+                   position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, alpha = 0.65) +
+  # geom_boxplot(aes(fill = eff.group), width = 0.35, 
+  #              size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(colour = eff.group), shape = 16, size = 0.5,
+              width = 0.15, alpha = 0.65) +
   stat_summary(fun = median, geom = "crossbar", 
-               width = 0.35, linewidth = 0.25) +
+               width = 0.35, linewidth = 0.15) +
   stat_compare_means(comparisons = eff_comparisons, paired = F,
                      p.adjust.method = "BH", label = "p.signif", 
-                     bracket.size = 0.5, bracket.width = 0.1,  size = 3.5,
+                     bracket.size = 0.25, bracket.width = 0.1,  size = 2,
                      tip.length = 0.00, method = "wilcox.test") +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
   labs(x = NULL, y = NULL) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
   facet_wrap(~traits, scales = "free_y", ncol = 6) + #
   main_theme +
   theme(legend.position = "none",
+        axis.ticks.length=unit(.1, "cm"),
         strip.text.x = element_text(margin = margin(0.05, 0, 0.05, 0, "cm")))
 
 singlem_traits_eff_comparison
 
 
+# Combine all plots
+library(cowplot)
+combined_simper_plot <-  ggdraw() +
+  draw_plot(simper_eff_plot, x = 0, y = 0, width = 2/5, height = 1) +
+  draw_plot(singlem_traits_contri_comparison, x = 2/5, y = 0.5, width = 3/5, height = 0.5) +
+  draw_plot(singlem_traits_eff_comparison, x = 2/5, y = 0, width = 3/5, height = 0.5) +
+  draw_plot_label(label = c("a", "b", "c"), size = 9,
+                  x = c(0, 2/5, 2/5), y = c(1, 1, 0.5))
+
+combined_simper_plot
+
+ggsave(file.path("e:/thermokarst_gully/revision/result/combined_simper_plot1.pdf"),
+       combined_simper_plot, width = 150, height = 80, units = "mm", dpi = 600)
+
+
+
 plot_correlation(
-  data = gtdb_trait_genera_ave, # %>% 
-    # filter(high_contribution == "True"),
-  x_var = "gc_percentage",
-  y_var = "average",
+  data = gtdb_trait_genera_ave %>%
+    filter(Group.P < 0.05) %>%
+    filter(contri.group == "High"),
+  x_var = "genome_size",
+  y_var = "GroupCollapsed.mean",
   method = "spearman")
 
 

@@ -132,11 +132,13 @@ div_plot <- div_table %>% select(c("Group", div_index)) %>%
   mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
   mutate(div_index = factor(div_index, 
                             levels = c("Richness", "Shannon", "Evenness"))) %>%
-  ggplot(aes(Group, value, fill = Group)) +
-  geom_half_violin(position = position_nudge(x = 0.25), 
-                   side = "r", width = 0.5, color = NA, alpha = 0.65) +
-  geom_boxplot(width = 0.35, size = 0.3, outlier.color = NA, alpha = 0.65,) +
-  geom_jitter(aes(fill = Group, colour = Group), shape = 21, size = 0.5,
+  ggplot(aes(Group, value)) +
+  geom_half_violin(aes(fill = Group), color = NA, 
+                   position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, alpha = 0.65) +
+  geom_boxplot(aes(fill = Group), width = 0.35, 
+               size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(colour = Group), shape = 16, size = 0.5,
               width = 0.15, alpha = 0.65) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
   ggpp::geom_text_npc(data = sig.div.labs, aes(npcx = x1, npcy = y1, 
@@ -212,11 +214,13 @@ summary.model(lmm_dis_modes )
 library(gghalves)
 dis_singlem_plot <- similar_df %>%
   mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
-  ggplot(aes(Group, distance_singlem, fill = Group)) +
-  geom_half_violin(position = position_nudge(x = 0.25), side = "r", 
-                   width = 0.5, color = NA, alpha = 0.65) +
-  geom_boxplot(width = 0.35, size = 0.3, outlier.color = NA, alpha = 0.65,) +
-  geom_jitter(aes(fill = Group, colour = Group), shape = 21, size = 0.5,
+  ggplot(aes(Group, distance_singlem)) +
+  geom_half_violin(aes(fill = Group), color = NA, 
+                   position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, alpha = 0.65) +
+  geom_boxplot(aes(fill = Group), width = 0.35, 
+               size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(colour = Group), shape = 16, size = 0.5,
               width = 0.15, alpha = 0.65) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
   ggpp::annotate("text_npc", npcx = 0.5, npcy = 0.95, 
@@ -227,7 +231,6 @@ dis_singlem_plot <- similar_df %>%
   main_theme +
   theme(legend.position = "none")
 dis_singlem_plot
-
 
 # Combine all plots
 library(cowplot)

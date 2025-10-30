@@ -20,7 +20,7 @@ treatment <- metadata$Group
 block <- metadata$Gully_id
 
 # --- 1) Beta-diversity decomposition ---
-# For abundance data (recommended)
+# For abundance data
 bpair_abund <- beta.pair.abund(comm, index.family = "bray")
 # Returned object includes:
 # bpair_abund$beta.bray       : total Bray–Curtis dissimilarity
@@ -63,9 +63,12 @@ df_disp <- data.frame(
 )
 
 # Plot dispersion (divergence) distributions
-p1 <- ggplot(df_disp, aes(x = treatment, y = disp_total)) + geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Total dispersion")
-p2 <- ggplot(df_disp, aes(x = treatment, y = disp_turn))  + geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Turnover dispersion")
-p3 <- ggplot(df_disp, aes(x = treatment, y = disp_nest))  + geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Nestedness dispersion")
+p1 <- ggplot(df_disp, aes(x = treatment, y = disp_total)) + 
+  geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Total dispersion")
+p2 <- ggplot(df_disp, aes(x = treatment, y = disp_turn)) + 
+  geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Turnover dispersion")
+p3 <- ggplot(df_disp, aes(x = treatment, y = disp_nest)) + 
+  geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Nestedness dispersion")
 print(p1); print(p2); print(p3)
 
 # --- 5) Alternative test: Linear Mixed Model (LMM) on within-block mean pairwise distances ---
@@ -103,3 +106,58 @@ comm_pa <- (comm > 0) * 1
 ind <- multipatt(comm_pa, treatment, control = how(nperm = 999))
 summary(ind)
 
+# ----- Explore the Beta-diversity decomposition of high contribution ------
+sim_key_tax <- summary(sim)$`Un-collapsed_Collapsed` %>% 
+  filter(row_number() <= which(cumsum > 0.70)[1]) %>%
+  rownames()
+key_comm <- comm[, sim_key_tax]
+# For abundance data
+key_bpair_abund <- beta.pair.abund(key_comm, index.family = "bray")
+# Returned object includes:
+# bpair_abund$beta.bray       : total Bray–Curtis dissimilarity
+# bpair_abund$beta.bray.bal   : balanced variation in abundance (turnover-like)
+# bpair_abund$beta.bray.gra   : abundance gradient (nestedness-like)
+
+# Convert to dist objects for betadisper()
+key_dist_total <- as.dist(key_bpair_abund$beta.bray)
+key_dist_turn  <- as.dist(key_bpair_abund$beta.bray.bal)
+key_dist_nest  <- as.dist(key_bpair_abund$beta.bray.gra)
+
+# --- 2) Calculate dispersion (distance to group centroid) for each treatment ---
+key_bd_total <- betadisper(key_dist_total, treatment)
+key_bd_turn  <- betadisper(key_dist_turn, treatment)
+key_bd_nest  <- betadisper(key_dist_nest, treatment)
+
+# --- 3) Permutation test with block-constrained randomization ---
+# Create permutation control object
+# Permutations are restricted within each block (so that treatment labels are shuffled only within blocks)
+ctrl_how <- how(nperm = 999, blocks = block, within = Within(type = "free"))
+
+# Run permutational tests
+key_pt_total <- permutest(key_bd_total, permutations = ctrl_how)
+key_pt_turn  <- permutest(key_bd_turn, permutations = ctrl_how)
+key_pt_nest  <- permutest(key_bd_nest, permutations = ctrl_how)
+
+# Inspect results
+key_pt_total
+key_pt_turn
+key_pt_nest
+
+# --- 4) Visualization: boxplots of sample dispersion values ---
+key_df_disp <- data.frame(
+  sample = names(key_bd_total$distances),
+  disp_total = key_bd_total$distances,
+  disp_turn  = key_bd_turn$distances,
+  disp_nest  = key_bd_nest$distances,
+  treatment = treatment,
+  block = block
+)
+
+# Plot dispersion (divergence) distributions
+p1_key <- ggplot(key_df_disp, aes(x = treatment, y = disp_total)) + 
+  geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Total dispersion")
+p2_key <- ggplot(key_df_disp, aes(x = treatment, y = disp_turn)) + 
+  geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Turnover dispersion")
+p3_key <- ggplot(key_df_disp, aes(x = treatment, y = disp_nest)) + 
+  geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Nestedness dispersion")
+print(p1_key); print(p2_key); print(p3_key)
