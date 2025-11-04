@@ -1,4 +1,3 @@
-rm(list = ls())
 # Set work directory
 setwd('e:/thermokarst_gully/')
 wd_16s <- file.path(getwd(),"data/16S/rdp")
@@ -86,10 +85,11 @@ library(tidyverse)
 ko_9_levels_file <- 'E:/thermokarst_gully/data/metagenome/ko_9_levels.txt'
 ko_9_levels <- fread(ko_9_levels_file, header = TRUE, stringsAsFactors = FALSE)
 
-KO_L2_df <- ko_tpm_table %>%
+KO_L3_df <- ko_tpm_table %>%
   rownames_to_column("KO") %>%
   left_join(ko_9_levels, by = "KO") %>%
-  select(L2, starts_with("G")) %>%
+  filter(L1 == "Metabolism") %>%
+  select(L3, starts_with("G")) %>%
   distinct()
 
 # KO_L2_file <- 'E:/thermokarst_gully/data/metagenome/KEGG.PathwayL2.raw.txt'
@@ -100,22 +100,20 @@ KO_L2_df <- ko_tpm_table %>%
 
 # Using dplyr to process the data
 aggre_top15_data <- KO_L2_df %>%
-  filter(!is.na(L2)) %>%
-  group_by(L2) %>%
+  filter(!is.na(L3)) %>%
+  group_by(L3) %>%
   summarise(across(where(is.numeric), sum)) %>%
   mutate(across(where(is.numeric), ~ . / sum(.) * 100)) %>%
   mutate(RowMean = rowMeans(across(where(is.numeric)))) %>%
-  arrange(desc(RowMean)) %>%
-  slice_head(n = 15) %>%
+  slice_max(RowMean, n = 15) %>%
   bind_rows(
     summarise(., across(where(is.numeric) & !RowMean, ~ 100 - sum(.))) %>%
       mutate(RowMean = rowMeans(across(where(is.numeric))),
-             L2 = "Others", .before = 1)
-  ) %>%
+             L3 = "Others", .before = 1)) %>%
   select(-RowMean)
 
 # Pull out the pathway for ordering purposes
-pathway_order <- aggre_top15_data %>% pull(L2)
+pathway_order <- aggre_top15_data %>% pull(L3)
 
 ##Stack plot using ggplot2 
 mycolor <- c("#FF7F00", "#B3DE69", "#1F78B4", "#FB8072", "#FDB462", 
@@ -123,15 +121,15 @@ mycolor <- c("#FF7F00", "#B3DE69", "#1F78B4", "#FB8072", "#FDB462",
             "#8DD3C7", "#B2DF8A", "#33A02C", "#FB9A99", "#FFFFB3", 
             "grey")
 pathway_plot <- aggre_top15_data %>% 
-  pivot_longer(-L2, names_to = 'Sample_id', values_to = 'TPM') %>%
-  mutate(L2 = factor(L2, ordered = T, levels = pathway_order),
+  pivot_longer(-L3, names_to = 'Sample_id', values_to = 'TPM') %>%
+  mutate(L3 = factor(L3, ordered = T, levels = pathway_order),
          Group = case_when(grepl("_C", Sample_id) ~ "Un-collapsed",
                            grepl("_T", Sample_id) ~ "Collapsed"),
          Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
   mutate(sample_id = rep(1:60, 16)) %>%
   group_by(Group, Sample_id) %>%
   mutate(prop = (TPM * 100 / sum(TPM))) %>%
-  ggplot(aes(x = sample_id, y = prop, fill = L2)) +
+  ggplot(aes(x = sample_id, y = prop, fill = L3)) +
   geom_area() +
   labs(x = 'Sample', y = 'Proportion (%)') +
   scale_fill_manual(values = mycolor) +
@@ -156,13 +154,12 @@ ko_all_plot <- ggdraw() +
 ko_all_plot
 
 # Test the effect size of permafrost collapse on the functional pathways
-pathway_scale <- KO_L2_df %>%
-  filter(!is.na(L2)) %>%
-  group_by(L2) %>%
+pathway_scale <- KO_L3_df %>%
+  filter(!is.na(L3)) %>%
+  group_by(L3) %>%
   summarise(across(where(is.numeric), sum)) %>%
-  mutate(across(where(is.numeric), ~ . / sum(.) * 100)) %>% 
-  filter(L2 != "") %>% 
-  column_to_rownames("L2") %>% t() %>% data.frame(check.names = F) %>%
+  filter(L3 != "") %>% 
+  column_to_rownames("L3") %>% t() %>% data.frame(check.names = F) %>%
   rownames_to_column("Sample_id") %>% 
   mutate(Gully_id = sapply(stringr::str_split(Sample_id, "_",  n = 2), `[`, 1)) %>%
   mutate(Group = case_when(grepl("_C", Sample_id) ~ "Uncollapsed",
@@ -200,7 +197,7 @@ colnames(pathway_S1)<-colnames(pathway_scale)[-c(1:2)]
 pathway_S1[1:6, 1:6]
 
 
-pathway_index <- unique(ko_9_levels[, c("L1", "L2")]) %>% pull(L2)
+pathway_index <- unique(ko_9_levels[, c("L2", "L3")]) %>% pull(L3)
 pathway_index <- pathway_index[pathway_index != ""]
 
 p.stars <- function(p.values) {
@@ -238,8 +235,8 @@ diff_in_pathway_plot <- pathway_S1 %>%
   main_theme +
   theme(strip.background = element_rect(fill = c("#FFF6E1")), legend.position = "none")
 
-# ggsave(file.path(save.dir, "/figs/kegg/diff_in_pathway_plot.pdf"),
-#        diff_in_pathway_plot, width = 3, height =6, units = "in")
+# ggsave(file.path("E:/thermokarst_gully/revision/result/diff_in_pathway_plot.pdf"),
+#        diff_in_pathway_plot, width = 4.5, height = 16, units = "in")
 diff_in_pathway_plot
 
 ## Select the genes involved in C, N, S, and Fe cyclings
@@ -547,7 +544,8 @@ aggre_trait_group_data <- aggre_trait_data %>%
   summarise(across(where(is.numeric), sum, na.rm = TRUE)) %>%
   filter(!is.na(level3)) %>%
   column_to_rownames("level3") %>%
-  t() %>% data.frame()
+  t() %>% data.frame() %>%
+  cbind()
 
 # Merge the genes with the metadata
 aggre_trait_env_data <- aggre_trait_group_data %>%
@@ -566,12 +564,13 @@ gene_id_trait <- c("aromatic.acid.transport",
                    "S.compound.transport", "secondary.metabolite.transport", 
                    "vitamin.transport", "complex.carbohydrate.depolymerization",
                    "simple.compound.degradation", "C1.compounds", "N.compounds",
-                   "S.compounds", "P.compounds", "Fermentation",
-                   "aerobic.respiration", "anaerobic.respiration",
-                   "chemolithoautotrophy", "photosystem", "pigments", 
+                   "S.compounds", "P.compounds", 
+                   "Fermentation", "aerobic.respiration", "anaerobic.respiration",
+                   "chemolithoautotrophy", "photosystem", "pigments",
                    "General", "high.temperature", "low.temperature",
                    "desiccation.osmotic.salt.stress", "pH.stress",
                    "oxidative.stress", "oxygen.limitation", "envelope.stress")
+
 
 gene_trait_scale <- aggre_trait_env_data %>% 
   select(Group, Gully_id,  Time, Slope, MAP, gene_id_trait) %>%
@@ -916,5 +915,5 @@ dist_fun.gene_trait_plot <- plot_grid(all_gene_trait_comparison, PCoA_gene_all_p
                                   nrow = 1, rel_widths = c(2, 1, 1))
 dist_fun.gene_trait_plot
 
-ggsave(file.path("E:/thermokarst_gully/revision/result/dist_fun.gene_trait_plot1.pdf"),
-       dist_fun.gene_trait_plot, width = 183, height = 120, units = "mm")
+# ggsave(file.path("E:/thermokarst_gully/revision/result/dist_fun.gene_trait_plot1.pdf"),
+#        dist_fun.gene_trait_plot, width = 183, height = 120, units = "mm")

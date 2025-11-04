@@ -41,6 +41,7 @@ plot_df <- plot_df %>%
 composition_plot <- ggplot(plot_df, aes(x = Group, y = mean_abund, fill = taxonomy)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +
   scale_fill_d3("category20") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
   labs(y = "Relative abundance (%)", x = NULL) +
   main_theme +
   theme(panel.grid = element_blank(),

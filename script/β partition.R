@@ -60,16 +60,43 @@ df_disp <- data.frame(
   disp_nest  = bd_nest$distances,
   treatment = treatment,
   block = block
-)
+) %>% select(disp_total, disp_turn, disp_nest, treatment) %>%
+  pivot_longer(-treatment, names_to = "disp", values_to = "value") %>%
+  mutate(treatment = factor(treatment, levels = c("Un-collapsed", "Collapsed"))) 
 
 # Plot dispersion (divergence) distributions
-p1 <- ggplot(df_disp, aes(x = treatment, y = disp_total)) + 
-  geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Total dispersion")
-p2 <- ggplot(df_disp, aes(x = treatment, y = disp_turn)) + 
-  geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Turnover dispersion")
-p3 <- ggplot(df_disp, aes(x = treatment, y = disp_nest)) + 
-  geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Nestedness dispersion")
-print(p1); print(p2); print(p3)
+library(gghalves)
+disp_index <- c("disp_total", "disp_turn", "disp_nest")
+disp_plot <- df_disp %>% 
+  mutate(disp = factor(disp, levels = disp_index)) %>%
+  ggplot(aes(treatment, value)) +
+  geom_half_violin(aes(fill = treatment), color = NA, 
+                   position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, alpha = 0.65) +
+  geom_boxplot(aes(fill = treatment), width = 0.35, 
+               size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(colour = treatment), shape = 16, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  # ggpp::geom_text_npc(data = sig.div.labs, aes(npcx = x1, npcy = y1, 
+  #                                              label = sig.labels), 
+  #                     size = 2, inherit.aes = F) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~disp, scales = "free_y", ncol = 3,
+             labeller = as_labeller(c(
+               `disp_total` = "Total dispersion",
+               `disp_turn` = "Turnover dispersion",
+               `disp_nest` = "Nestedness dispersion"
+             ))) +
+  main_theme +
+  theme(legend.position = "none")
+disp_plot
+ggsave(file.path("E:/thermokarst_gully/revision/result/disp_plot.pdf"),
+       disp_plot, width = 183, 
+       height = 45, units = "mm", dpi = 600)
+
 
 # --- 5) Alternative test: Linear Mixed Model (LMM) on within-block mean pairwise distances ---
 # Compute pairwise distances among samples within the same block and treatment
@@ -161,3 +188,4 @@ p2_key <- ggplot(key_df_disp, aes(x = treatment, y = disp_turn)) +
 p3_key <- ggplot(key_df_disp, aes(x = treatment, y = disp_nest)) + 
   geom_boxplot() + geom_jitter(width = 0.1) + ggtitle("Nestedness dispersion")
 print(p1_key); print(p2_key); print(p3_key)
+

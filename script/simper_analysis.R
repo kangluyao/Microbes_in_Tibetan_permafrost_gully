@@ -27,6 +27,7 @@ high_var_species <- c(
   cutoff_species
 )
 
+
 scale_factor <- max(simper_df$average)
 
 simper_contri_plot <- ggplot(simper_df, aes(x = taxonomy)) +
@@ -186,23 +187,32 @@ gtdb_trait <- rbind(bac_gtdb, arc_gtdb) %>%
     ncbi_rrna_count = na_if(ncbi_rrna_count, "none"), # Replace specific text
     ncbi_rrna_count = as.numeric(ncbi_rrna_count)
   ) %>% # correct the genome size and rrn copies using completeness
-  mutate(genome_size = genome_size/(checkm2_completeness/100),
+  mutate(genome_size = (genome_size/(checkm2_completeness/100))/1000000,
          ncbi_rrna_count = ncbi_rrna_count/(checkm2_completeness/100))
 
+
+rrnDB <- fread("E:/thermokarst_gully/rrnDB-5.10_pantaxa_stats_NCBI.tsv") %>%
+  rename("rrn_number" = "mean")
+rrnDB[1:6, 1:10]
+
 gtdb_trait_genera_ave <- gtdb_trait %>%
+  rename("taxid" = "ncbi_species_taxid") %>%
+  inner_join(rrnDB, by = "taxid") %>%
+  select(gtdb_taxonomy, taxid, gc_percentage, genome_size, checkm2_completeness,
+         mean) %>%
   group_by(gtdb_taxonomy) %>%
-  summarise(across(c(gc_percentage, genome_size, 
-                     ncbi_rrna_count), mean, na.rm = TRUE)) %>%
+  summarise(across(c(gc_percentage, genome_size,
+                     rrn_number), mean, na.rm = TRUE)) %>%
   inner_join(df_cor, by = "gtdb_taxonomy") %>%
-  mutate(genome_size = genome_size/1000000,
-         contri.group = if_else(gtdb_taxonomy %in% 
-                                       high_var_species, "High", "Low"),
+  mutate(contri.group = if_else(gtdb_taxonomy %in% 
+                                  high_var_species, "High", "Low"),
          eff.group = if_else(GroupCollapsed.mean >= 0, "Positive", "Negative"))
+
 
 head(gtdb_trait_genera_ave)
 
 
-traits_id <- c("gc_percentage", "genome_size", "ncbi_rrna_count")
+traits_id <- c("gc_percentage", "genome_size", "rrn_number")
 contri_comparisons <- list(c('High', 'Low'))
 singlem_traits_contri_comparison <- gtdb_trait_genera_ave %>% 
   filter(Group.P < 0.05) %>%
@@ -283,8 +293,15 @@ combined_simper_plot <-  ggdraw() +
 
 combined_simper_plot
 
-ggsave(file.path("e:/thermokarst_gully/revision/result/combined_simper_plot1.pdf"),
-       combined_simper_plot, width = 150, height = 80, units = "mm", dpi = 600)
+# ggsave(file.path("e:/thermokarst_gully/revision/result/combined_simper_plot.pdf"),
+#        combined_simper_plot, width = 150, height = 80, units = "mm", dpi = 600)
+
+
+
+
+
+
+
 
 
 

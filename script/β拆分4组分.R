@@ -229,18 +229,17 @@ top20_data <- top20_data %>%
   ungroup()
 
 # 步骤4：绘图
-ggplot(top20_data, aes(x = interaction(genera, rank(mean_contribution)), y = mean_contribution)) +
+top20_4process_plot <- ggplot(top20_data, aes(x = interaction(genera, rank(mean_contribution)), y = mean_contribution)) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
   geom_errorbar(aes(ymin = mean_contribution - se_contribution, 
                     ymax = mean_contribution + se_contribution),
-                width = 0.3, linewidth = 0.5) +
-  geom_point(size = 2.5, color = "#2C7BB6") +
+                width = 0.3, linewidth = 0.25) +
+  geom_point(size = 1, color = "#2C7BB6", shape = 16) +
   facet_wrap(~ component, scales = "free") +
   scale_x_discrete(labels = function(x) str_remove(x, "\\.[^.]*$")) +
   coord_flip() +
   labs(x = "Genera", 
-       y = "Contribution (mean ± SE)",
-       title = "Top 20 Genera by Average Contribution in Each Component") +
+       y = "Contribution (mean ± SE)") +
   main_theme +
   theme(strip.text = element_text(face = "bold", size = 6),
     axis.text = element_text(size = 6),
@@ -248,4 +247,144 @@ ggplot(top20_data, aes(x = interaction(genera, rank(mean_contribution)), y = mea
     panel.grid.minor = element_blank()
   )
 
-print(p)
+top20_4process_plot
+
+# ggsave(filename = "E:/thermokarst_gully/revision/result/top20_4process_plot.pdf",
+#        top20_4process_plot, width = 89, height = 89, units = "mm", dpi = 600)
+
+# Compare the difference in genera traits
+bac_gtdb <- fread("E:/thermokarst_gully/data/metagenome/singlem/bac120_metadata_r226.tsv") %>%
+  select(gtdb_taxonomy, ncbi_species_taxid, gc_percentage, 
+         genome_size, ncbi_rrna_count, checkm2_completeness)
+
+arc_gtdb <- fread("E:/thermokarst_gully/data/metagenome/singlem/ar53_metadata_r226.tsv") %>%
+  select(gtdb_taxonomy, ncbi_species_taxid, gc_percentage, 
+         genome_size, ncbi_rrna_count, checkm2_completeness)
+
+gtdb_trait <- rbind(bac_gtdb, arc_gtdb) %>%
+  mutate(
+    gtdb_taxonomy = str_extract(gtdb_taxonomy, "g__[^;]+"),
+  ) %>%
+  mutate(across(c(gtdb_taxonomy),  ~ str_replace_all(., ".*__", ""))) %>%
+  mutate(
+    # Replace any non-numeric entries (e.g., text like 'NA' or 'none') with R's NA
+    ncbi_rrna_count = na_if(ncbi_rrna_count, "none"), # Replace specific text
+    ncbi_rrna_count = as.numeric(ncbi_rrna_count)
+  ) %>% # correct the genome size and rrn copies using completeness
+  mutate(genome_size = genome_size/(checkm2_completeness/100),
+         ncbi_rrna_count = ncbi_rrna_count/(checkm2_completeness/100))
+
+MAGs_genera <- unique(tax_bin$Genus) %>% gsub("g__", "", .)
+singlem_genera <- unique(top20_data$genera)
+intersect(MAGs_genera, singlem_genera)
+setdiff(MAGs_genera, singlem_genera)
+setdiff(singlem_genera, MAGs_genera)
+
+
+
+gtdb_trait_top20_genera_ave <- gtdb_trait %>%
+  rename("genera" = "gtdb_taxonomy") %>%
+  group_by(genera) %>%
+  summarise(across(c(gc_percentage, genome_size, 
+                     ncbi_rrna_count), mean, na.rm = TRUE)) %>%
+  inner_join(top20_data, by = "genera") %>%
+  mutate(genome_size = genome_size/1000000)
+
+
+head(gtdb_trait_top20_genera_ave)
+
+
+traits_id <- c("gc_percentage", "genome_size", "ncbi_rrna_count")
+compo_comparisons <- list(c("Subtractive differentiation", "Subtractive homogenization"),
+                          c("Subtractive homogenization", "Additive differentiation"),
+                          c("Additive differentiation", "Additive homogenization"),
+                          c("Subtractive differentiation", "Additive differentiation"),
+                          c("Subtractive homogenization", "Additive homogenization"),
+                          c("Subtractive differentiation", "Additive homogenization"))
+singlem_traits_compo_comparison <- gtdb_trait_top20_genera_ave %>% 
+  select(c("component", all_of(traits_id))) %>%
+  pivot_longer(-component, names_to = "traits", values_to = "value") %>%
+  mutate(component = factor(component, 
+                            levels = c("Subtractive differentiation",
+                                       "Subtractive homogenization",
+                                       "Additive differentiation", 
+                                       "Additive homogenization"))) %>%
+  mutate(traits = factor(traits, levels = traits_id)) %>%
+  ggplot(aes(component, value)) +
+  geom_half_violin(aes(fill = component), color = NA, 
+                   position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, alpha = 0.65) +
+  # geom_boxplot(aes(fill = component), width = 0.35, 
+  #              size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(colour = component), shape = 16, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  stat_summary(fun = median, geom = "crossbar", 
+               width = 0.35, linewidth = 0.15) +
+  stat_compare_means(comparisons = compo_comparisons, paired = F,
+                     p.adjust.method = "BH", label = "p.signif", 
+                     bracket.size = 0.25, bracket.width = 0.1,  size = 2,
+                     tip.length = 0.00, method = "wilcox.test") +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~traits, scales = "free_y", ncol = 6) + #
+  main_theme +
+  theme(legend.position = "none",
+        axis.ticks.length=unit(.1, "cm"),
+        strip.text.x = element_text(margin = margin(0.05, 0, 0.05, 0, "cm")))
+singlem_traits_compo_comparison
+
+top20_4process_traits_plot <- plot_grid(top20_4process_plot, 
+                                        singlem_traits_compo_comparison,
+                                        ncol = 1, rel_heights = c(2,1))
+ggsave(filename = "E:/thermokarst_gully/revision/result/top20_4process_traits_plot.pdf",
+       top20_4process_traits_plot, width = 150, height = 150, units = "mm", dpi = 600)
+
+
+genera_traits_bar_plot <- gtdb_trait_top20_genera_ave %>% 
+  select(c("genera", all_of(traits_id))) %>%
+  pivot_longer(-genera, names_to = "traits", values_to = "value") %>%
+  group_by(genera, traits) %>%
+  summarise(value = mean(value, na.rm =T), .groups = "drop") %>%
+  mutate(traits = factor(traits, levels = traits_id)) %>%
+  ggplot(aes(genera, value)) +
+  geom_bar(stat = "identity", aes(fill = "#5cc3e8"), color = "black") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~traits, scales = "free_y", ncol = 6) + #
+  main_theme +
+  theme(legend.position = "none",
+        axis.ticks.length=unit(.1, "cm"),
+        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+        strip.text.x = element_text(margin = margin(0.05, 0, 0.05, 0, "cm")))
+genera_traits_bar_plot
+
+ggsave(filename = "E:/thermokarst_gully/revision/result/genera_traits_bar_plot.pdf",
+       genera_traits_bar_plot, width = 89, height = 89, units = "mm", dpi = 600)
+
+
+
+
+plot_correlation(
+  data = gtdb_trait_top20_genera_ave %>%
+    filter(component == "Subtractive homogenization"),
+  x_var = "genome_size",
+  y_var = "mean_contribution",
+  method = "spearman")
+
+plot_correlation(
+  data = gtdb_trait_top20_genera_ave %>%
+    filter(component == "Subtractive differentiation"),
+  x_var = "gc_percentage",
+  y_var = "mean_contribution",
+  method = "spearman")
+
+plot_correlation(
+  data = gtdb_trait_top20_genera_ave %>%
+    filter(component == "Subtractive differentiation"),
+  x_var = "ncbi_rrna_count",
+  y_var = "mean_contribution",
+  method = "spearman")

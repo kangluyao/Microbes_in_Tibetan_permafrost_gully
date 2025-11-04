@@ -451,7 +451,7 @@ simi_between_its.gen_df <- extract_fun(tax_gen_its_dist)
 simi_between_its.spec_df <- extract_fun(tax_spec_its_dist)
 simi_between_its.neu_df <- extract_fun(tax_neu_its_dist)
 #merge the tables
-resitance_table <- rbind(data.frame(Taxa = rep("Bacteria", 150), Group = rep("Generalists", 150),
+resistance_table <- rbind(data.frame(Taxa = rep("Bacteria", 150), Group = rep("Generalists", 150),
                                  Gully_id = rep(c("EB", "HH", "HSX", "ML", "RS", "SLH"), each =25), 
                                  simi_between_16s.gen_df),
                       data.frame(Taxa = rep("Bacteria", 150), Group = rep("Specialists", 150),
@@ -470,14 +470,14 @@ resitance_table <- rbind(data.frame(Taxa = rep("Bacteria", 150), Group = rep("Ge
                                  Gully_id = rep(c("EB", "HH", "HSX", "ML", "RS", "SLH"), each =25), 
                                  simi_between_its.neu_df))
 
-resitance_table
+resistance_table
 
 # Extract the unique Gully_id and corresponding Time, Slope, MAP from metadata
 meta_unique <- metadata[, c("Gully_id", "Time", "Slope", "MAP")] %>%
   distinct(Gully_id, Time, Slope, MAP)
 
 # merge similar_all_data with meta_unique
-resitance_df <- resitance_table %>%
+resistance_df <- resistance_table %>%
   left_join(meta_unique, by = "Gully_id")
 
 
@@ -485,9 +485,9 @@ resitance_df <- resitance_table %>%
 library(lme4)
 library(lmerTest)
 lmm_resistance_mode_bac <- lmer(Resistance ~ Group + Time + Slope + MAP + (1 | Gully_id), 
-                                data = resitance_df %>% filter(Taxa == "Bacteria"))
+                                data = resistance_df %>% filter(Taxa == "Bacteria"))
 lmm_resistance_mode_fungi <- lmer(Resistance ~ Group + Time + Slope + MAP + (1 | Gully_id), 
-                                  data = resitance_df %>% filter(Taxa == "Fungi"))
+                                  data = resistance_df %>% filter(Taxa == "Fungi"))
 
 summary.model <- function(model){
   F.value <- anova(model)$'F value'
@@ -505,7 +505,7 @@ summary.model(lmm_resistance_mode_bac)
 summary.model(lmm_resistance_mode_fungi)
 
 # Calculate the effect size
-resistance_stats <- resitance_df %>% group_by(Taxa, Group) %>%
+resistance_stats <- resistance_df %>% group_by(Taxa, Group) %>%
   get_summary_stats(Resistance, type = "common") %>% #or using type = "mean_sd"
   mutate(Taxa = factor(Taxa, levels = c("Bacteria", "Fungi"))) %>%
   mutate(Group = factor(Group, levels = rev(c("Generalists", "Specialists", "Opportunists"))))
@@ -514,7 +514,7 @@ resistance_stats <- resitance_df %>% group_by(Taxa, Group) %>%
 # plot horizontal half box plots with resistance 
 library(ggplot2)
 library(gghalves)
-resistance_comparison_plot <- resitance_df %>%
+resistance_comparison_plot <- resistance_df %>%
   mutate(Taxa = factor(Taxa, levels = c("Bacteria", "Fungi"))) %>%
   mutate(Group = factor(Group, levels = rev(c("Generalists", "Specialists", "Opportunists")))) %>%
   ggplot(aes(Group, Resistance, fill = Group)) +
