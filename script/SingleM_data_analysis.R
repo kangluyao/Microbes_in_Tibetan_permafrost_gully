@@ -21,24 +21,28 @@ singlem_phyla_df <- singlem_phyla %>%
 
 # 假设 df 包含列：Sample, Group, Phylum, Relative_abundance
 # 计算每组平均相对丰度
-plot_df <- singlem_phyla_df %>%
+singlem_phyla_group_ave_df <- singlem_phyla_df %>%
   group_by(Group, taxonomy) %>%
-  summarise(mean_abund = mean(Relative_abundance), .groups = "drop")
+  summarise(across(Relative_abundance, list(mean = ~mean(., na.rm = T), 
+                                           sd = ~sd(., na.rm = T), 
+                                           n = ~n())),
+            .groups = "drop")
 
 # 排序 & 只保留前10类群
-top_taxa <- plot_df %>% 
+top_taxa <- singlem_phyla_group_ave_df %>% 
   group_by(taxonomy) %>%
-  summarise(total = sum(mean_abund)) %>%
+  summarise(total = sum(Relative_abundance_mean)) %>%
   # arrange(desc(total)) %>%
   slice_max(total, n = 10) %>%
   pull(taxonomy)
 
-plot_df <- plot_df %>%
+plot_df <- singlem_phyla_group_ave_df %>%
   mutate(taxonomy = ifelse(taxonomy %in% top_taxa, taxonomy, "Others")) %>%
   mutate(taxonomy = factor(taxonomy, levels = c(top_taxa, "Others")))
 
 # 绘图
-composition_plot <- ggplot(plot_df, aes(x = Group, y = mean_abund, fill = taxonomy)) +
+composition_plot <- ggplot(plot_df, aes(x = Group, y = Relative_abundance_mean, 
+                                        fill = taxonomy)) +
   geom_bar(stat = "identity", position = "stack", width = 0.7) +
   scale_fill_d3("category20") +
   scale_y_continuous(expand = expansion(mult = c(0, 0))) +
@@ -49,7 +53,45 @@ composition_plot <- ggplot(plot_df, aes(x = Group, y = mean_abund, fill = taxono
         legend.title = element_blank(),
         legend.key.size = unit(0.5, 'cm'))
 
-## Diversity analysis
+# To test the significance of differences in microbial relative abundance between the two groups
+singlem_top10_phyla_scale <- data.frame(metadata[,c("Gully_id", "Group",
+                                                    "MAP", "Time", "Slope")],
+                                        t(singlem_phyla[top_taxa, ])) %>%
+  mutate(across(where(is.numeric), scale)) %>%
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed")))
+
+singlem_top10_phyla_S1 <- sapply(6:ncol(singlem_top10_phyla_scale), function(j) {
+  message("Now j=", j, " in ", ncol(singlem_top10_phyla_scale), ". ", date())
+  if (length(unique(singlem_top10_phyla_scale[, j])) < 3) {
+    result <- rep(NA, 23)
+  } else {
+    fm1 <- lmer(singlem_top10_phyla_scale[, j] ~ Group + Time + Slope + MAP + (1 | Gully_id), 
+                data = singlem_top10_phyla_scale)
+    
+    presult <- car::Anova(fm1, type = 2)
+    coefs <- coef(summary(fm1))[, "Estimate"]  ##four coefs
+    names(coefs) <- paste0(names(coefs), ".mean")
+    
+    SEvalues <- coef(summary(fm1))[, "Std. Error"]  ##standard errors
+    names(SEvalues) <- paste0(names(SEvalues), ".se")
+    
+    tvalues <- coef(summary(fm1))[, "t value"]  ##t values
+    names(tvalues) <- paste0(names(tvalues), ".t")
+    
+    chisqP <- c(presult[, 1], presult[, 3])
+    names(chisqP) <- c(paste0(row.names(presult), ".chisq"), paste0(row.names(presult), ".P"))
+    
+    result <- c(coefs, tvalues, SEvalues, chisqP)
+  }
+  result
+})
+colnames(singlem_top10_phyla_S1) <- colnames(singlem_top10_phyla_scale)[-c(1:5)]
+singlem_phyla_group_ave_df %>%
+  filter(taxonomy %in% top_taxa)
+singlem_top10_phyla_S1[c("(Intercept).mean", "GroupCollapsed.mean",
+                        "Group.chisq",  "Group.P"), ]
+
+# Read the genus table
 singlem_genu <- fread("E:/thermokarst_gully/data/metagenome/singlem/gully-genus.tsv") %>%
   filter(taxonomy != "unassigned") %>%
   mutate(
@@ -57,9 +99,109 @@ singlem_genu <- fread("E:/thermokarst_gully/data/metagenome/singlem/gully-genus.
   ) %>%
   mutate(across(c(taxonomy),  ~str_replace_all(., ".*__", ""))) %>%
   column_to_rownames("taxonomy")
-singlem_genu = as.matrix(singlem_genu)
 
+
+singlem_genu_df <- singlem_genu %>%
+  rownames_to_column("taxonomy") %>%
+  pivot_longer(-taxonomy, names_to = "Sample", values_to = "Relative_abundance") %>%
+  mutate(Group = case_when(grepl("_C", Sample) ~ "Un-collapsed",
+                           grepl("_T", Sample) ~ "Collapsed"),
+         Group = factor(Group, levels = c("Un-collapsed", "Collapsed")))
+
+# 假设 df 包含列：Sample, Group, genu, Relative_abundance
+# 计算每组平均相对丰度
+singlem_genu_group_ave_df <- singlem_genu_df %>%
+  group_by(Group, taxonomy) %>%
+  summarise(across(Relative_abundance, list(mean = ~mean(., na.rm = T), 
+                                            sd = ~sd(., na.rm = T), 
+                                            n = ~n())),
+            .groups = "drop")
+
+singlem_10genu_df_unclo <- singlem_genu_group_ave_df %>% 
+  filter(Group == "Un-collapsed") %>%
+  slice_max(Relative_abundance_mean, n = 10)
+  
+singlem_genu_df_clo <- singlem_genu_group_ave_df %>% 
+  filter(Group == "Collapsed") %>%
+  slice_max(Relative_abundance_mean, n = 10)
+
+# 排序 & 只保留前10类群
+top_genera <- singlem_genu_group_ave_df %>% 
+  group_by(taxonomy) %>%
+  summarise(total = sum(Relative_abundance_mean)) %>%
+  # arrange(desc(total)) %>%
+  slice_max(total, n = 10) %>%
+  pull(taxonomy)
+
+singlem_top10_genu_scale <- data.frame(metadata[,c("Gully_id", "Group",
+                                                    "MAP", "Time", "Slope")],
+                                        t(singlem_genu[top_genera, ])) %>%
+  mutate(across(where(is.numeric), scale)) %>%
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed")))
+
+singlem_top10_genu_S1 <- sapply(6:ncol(singlem_top10_genu_scale), function(j) {
+  message("Now j=", j, " in ", ncol(singlem_top10_genu_scale), ". ", date())
+  if (length(unique(singlem_top10_genu_scale[, j])) < 3) {
+    result <- rep(NA, 23)
+  } else {
+    fm1 <- lmer(singlem_top10_genu_scale[, j] ~ Group + Time + Slope + MAP + (1 | Gully_id), 
+                data = singlem_top10_genu_scale)
+    
+    presult <- car::Anova(fm1, type = 2)
+    coefs <- coef(summary(fm1))[, "Estimate"]  ##four coefs
+    names(coefs) <- paste0(names(coefs), ".mean")
+    
+    SEvalues <- coef(summary(fm1))[, "Std. Error"]  ##standard errors
+    names(SEvalues) <- paste0(names(SEvalues), ".se")
+    
+    tvalues <- coef(summary(fm1))[, "t value"]  ##t values
+    names(tvalues) <- paste0(names(tvalues), ".t")
+    
+    chisqP <- c(presult[, 1], presult[, 3])
+    names(chisqP) <- c(paste0(row.names(presult), ".chisq"), paste0(row.names(presult), ".P"))
+    
+    result <- c(coefs, tvalues, SEvalues, chisqP)
+  }
+  result
+})
+colnames(singlem_top10_genu_S1) <- colnames(singlem_top10_genu_scale)[-c(1:5)]
+singlem_genu_group_ave_df %>%
+  filter(taxonomy %in% top_genera)
+singlem_top10_genu_S1[c("(Intercept).mean", "GroupCollapsed.mean",
+                         "Group.chisq",  "Group.P"), ]
+
+
+# Box plot shown the difference in relative abundance of dominant genera
+dominant_genera_abun_diff_plot <- singlem_genu_df %>%
+  filter(taxonomy %in% c("Defluviicoccus", "Rhodoplanes",
+                         "Deferrimicrobium", "Fen-183", "Methyloceanibacter")) %>%
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed")),
+         taxonomy = factor(taxonomy, levels = c("Defluviicoccus", "Rhodoplanes",
+                                                "Deferrimicrobium", "Fen-183",
+                                                "Methyloceanibacter"))) %>%
+  ggplot(aes(Group, Relative_abundance, fill = Group)) +
+  geom_half_violin(position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.65, color = NA, alpha = 0.65) +
+  geom_boxplot(width = 0.3, size = 0.45, outlier.color = NA, alpha = 0.65) +
+  geom_jitter(aes(color = Group), shape = 16, size = 1, 
+              width = 0.2, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.25))) + 
+  # ggpp::geom_text_npc(aes(npcx = 0.5, npcy = 0.95, label = "**")) +
+  # geom_text(aes(x = 1.5, y = Inf, label = "**"), inherit.aes = F) +
+  labs(x = "Group", y = "Relative abundance (%)") +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~taxonomy, scales = "free", ncol = 3) +
+  main_theme +
+  theme(legend.position = "none")
+
+# ggsave("E:/thermokarst_gully/revision/result/dominant_genera_abun_diff_plot.pdf",
+#        dominant_genera_abun_diff_plot, 
+#        width = 120, height = 80, units = "mm", dpi = 600)
+
+###### Diversity analysis #######
 # Determine the alpha diversity
+singlem_genu = as.matrix(singlem_genu)
 shannon  <- diversity(singlem_genu, index = "shannon")
 richness <- specnumber(t(singlem_genu))
 
@@ -75,6 +217,13 @@ col_div_names <- c("Sample_name", 'Gully_id', 'Group',
 div_table <- cbind(metadata[, c("Sample_name", 'Gully_id', 'Group')], alpha_div) %>%
   rename_with(~ col_div_names) %>%
   mutate(Group = factor(Group, levels = c('Un-collapsed', 'Collapsed')))
+
+div_table %>%
+  group_by(Gully_id, Group) %>%
+  summarise(across(where(is.numeric), 
+                   list(mean = ~mean(., na.rm = T), 
+                        sd = ~sd(., na.rm = T), 
+                        n = ~n())))
 
 # Linear mixed models test the effect of collapsed and gully_id
 div_index <- c("Richness", "Shannon", "Evenness")
@@ -199,18 +348,8 @@ library(lme4)
 library(lmerTest)
 lmm_dis_modes <- lmer(distance_singlem ~ Group + Time + 
                         Slope + MAP + (1 | Gully_id), data = similar_df)
-summary.model <- function(model){
-  F.value <- anova(model)$'F value'
-  p.value <- anova(model)$'Pr(>F)'
-  p.stars <- function(p.values) {
-    unclass(symnum(p.values, corr = FALSE, 
-                   na = FALSE, cutpoints = c(0,0.001, 0.01, 0.05, 1),
-                   symbols = c("***", "**", "*", "")))}
-  sig <- p.stars(p.value)
-  results<-data.frame(F.value, p.value, sig)
-  return(results)
-}
-summary.model(lmm_dis_modes )
+
+car::Anova(lmm_dis_modes)
 # Create a box plot
 library(gghalves)
 dis_singlem_plot <- similar_df %>%

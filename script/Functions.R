@@ -85,14 +85,14 @@ PCoA_plot_fun <- function(dist) {
                                      color = Group, shape = Group)) +
     # stat_ellipse(aes(fill = Group), geom = "polygon", alpha = 0.1, color = NA, 
     #              type = "t", level = 0.95, linetype = 1, size = 1) +
-    # stat_ellipse(aes(colour = Group), alpha = 0.2, size = 1, 
-    #              show.legend = FALSE, level = 0.95) +
+    stat_ellipse(aes(colour = Group), alpha = 0.2, size = 1,
+                 show.legend = FALSE, level = 0.95) +
     geom_point(size = 1.5) +  
-    geom_point(data = centroids, 
-               aes(x = Dim1, y = Dim2, color = Group), 
-               size = 2, shape = 18, show.legend = F) + 
-    geom_segment(aes(xend = Dim1.centroid, yend = Dim2.centroid), 
-                 linetype = 1, size = 0.25) +
+    # geom_point(data = centroids, 
+    #            aes(x = Dim1, y = Dim2, color = Group), 
+    #            size = 2, shape = 18, show.legend = F) + 
+    # geom_segment(aes(xend = Dim1.centroid, yend = Dim2.centroid), 
+    #              linetype = 1, size = 0.25) +
     scale_color_manual(name ="Group", 
                        values = c("Un-collapsed" = "#79ceb8", 
                                   "Collapsed" = "#e95f5c"),
