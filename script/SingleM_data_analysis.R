@@ -200,6 +200,31 @@ dominant_genera_abun_diff_plot <- singlem_genu_df %>%
 #        width = 120, height = 80, units = "mm", dpi = 600)
 
 ###### Diversity analysis #######
+# Determine the number of genus with two land type
+venn_singlem_df = list(
+  Uncollapsed = singlem_genu %>% data.frame() %>%
+    mutate(rowsum = rowSums(select(., grep('_C', metadata$Sample_name, value = T)))) %>%
+    filter(rowsum > 0) %>%
+    rownames(),
+  Collapsed = singlem_genu %>% data.frame() %>%
+    mutate(rowsum = rowSums(select(., grep('_T', metadata$Sample_name, value = T)))) %>%
+    filter(rowsum > 0) %>%
+    rownames()
+)
+
+venn_singlem <- ggvenn(
+  venn_singlem_df, 
+  fill_color = c("#79ceb8", "#e95f5c"),
+  stroke_size = ,
+  stroke_color = NA,
+  set_name_size = 3,
+  text_size = 2.5,
+  show_percentage = T,
+  auto_scale = F
+)
+
+# ggsave("E:/thermokarst_gully/revision/result/venn_singlem.pdf",
+#        venn_singlem, width = 89, height = 89, units = "mm", dpi = 600)
 # Determine the alpha diversity
 singlem_genu = as.matrix(singlem_genu)
 shannon  <- diversity(singlem_genu, index = "shannon")

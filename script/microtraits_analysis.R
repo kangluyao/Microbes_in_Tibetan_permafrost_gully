@@ -198,7 +198,8 @@ library(microtrait)
 microtrait_results <- readRDS(file.path(wd_fun, "/MAGs/microtraits/thermokarst_gully.microtraitresults.rds"))
 
 # Normalizing the traits matrices by genome length
-microtrait_results_metadata_norm = microtrait_results %>% trait.normalize(normby = "genome_length")
+microtrait_results_metadata_norm = microtrait_results %>% 
+  trait.normalize(normby = "genome_length")
 
 # Inputting other traits including genome size, max growth rate, and so on
 mags_result_eff.size <- mags_result_lmm %>% rownames_to_column("Genome_id")
@@ -206,7 +207,8 @@ growth_rate_file <- "E:/thermokarst_gully/data/metagenome/MAGs/growth_rate_resul
 growth_rate <- read.table(growth_rate_file, header = TRUE, sep = ",", row.names = 1,
                           as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
                           check.names = FALSE)
-MAGs_all_aatr <- mags.att %>% left_join(growth_rate, by = "Genome_id") %>% left_join(mags_result_eff.size, by = "Genome_id") %>%
+MAGs_all_aatr <- mags.att %>% left_join(growth_rate, by = "Genome_id") %>% 
+  left_join(mags_result_eff.size, by = "Genome_id") %>%
   mutate(Genome_size = round(Genome_size/1000000, 1), `Max growth rate` = 1/d) %>%
   select(Genome_id, Genome_size, GC, `Max growth rate`, GroupCollapsed.mean, eff.group)
 

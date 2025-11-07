@@ -113,6 +113,7 @@ ecopart_multi_baselga_sp_single <- function(d1_block, d2_block) {
   return(DBeta)
 }
 
+source("https://raw.githubusercontent.com/communityecologist/ecopart/refs/heads/main/R/ecopart-multi.R")
 # ================
 # 2) Loop over blocks to compute DBeta per block, then average across blocks
 # ================
@@ -136,7 +137,7 @@ for(b in blocks) {
   if(nrow(d1_block) != nrow(d2_block)) {
     stop("Block ", b, ": unequal sample counts per treatment (need equal N per block for this implementation).")
   }
-  DB <- ecopart_multi_baselga_sp_single(d1_block, d2_block)  # 4 x S
+  DB <- ecopart.multi(d1_block, d2_block, index = "whittaker", components="four")  # 4 x S
   DBeta_blocks[[as.character(b)]] <- DB
 }
 
@@ -171,7 +172,7 @@ res_long <- res_long %>%
   ungroup()
 
 # ================
-# 4) Visualize (heatmap + top species per component)
+# 4) Visualize (top species per component)
 # ================
 library(ggplot2)
 # Top contributors per component (absolute contribution)
