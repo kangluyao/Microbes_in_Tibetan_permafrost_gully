@@ -137,7 +137,7 @@ for(b in blocks) {
   if(nrow(d1_block) != nrow(d2_block)) {
     stop("Block ", b, ": unequal sample counts per treatment (need equal N per block for this implementation).")
   }
-  DB <- ecopart.multi(d1_block, d2_block, index = "whittaker", components="four")  # 4 x S
+  DB <- ecopart.multi(d1_block, d2_block, index = "baselga", components="four")  # 4 x S
   DBeta_blocks[[as.character(b)]] <- DB
 }
 
@@ -250,6 +250,7 @@ top20_4process_plot <- ggplot(top20_data, aes(x = interaction(genera, rank(mean_
 
 top20_4process_plot
 
+
 # ggsave(filename = "E:/thermokarst_gully/revision/result/top20_4process_plot.pdf",
 #        top20_4process_plot, width = 89, height = 89, units = "mm", dpi = 600)
 
@@ -336,11 +337,19 @@ singlem_traits_compo_comparison <- gtdb_trait_top20_genera_ave %>%
         strip.text.x = element_text(margin = margin(0.05, 0, 0.05, 0, "cm")))
 singlem_traits_compo_comparison
 
+library(patchwork)
+combined_beita_par_plot <- disp_plot + 
+  top20_4process_plot +
+  plot_layout(ncol = 1, heights = c(1, 2.5))
+ggsave(filename = "E:/thermokarst_gully/revision/result/combined_beita_par_plot.pdf",
+       combined_beita_par_plot, width = 165, height = 150, units = "mm", dpi = 600)
+
+
 top20_4process_traits_plot <- plot_grid(top20_4process_plot, 
                                         singlem_traits_compo_comparison,
                                         ncol = 1, rel_heights = c(2,1))
-ggsave(filename = "E:/thermokarst_gully/revision/result/top20_4process_traits_plot.pdf",
-       top20_4process_traits_plot, width = 150, height = 150, units = "mm", dpi = 600)
+# ggsave(filename = "E:/thermokarst_gully/revision/result/top20_4process_traits_plot.pdf",
+#        top20_4process_traits_plot, width = 150, height = 150, units = "mm", dpi = 600)
 
 
 genera_traits_bar_plot <- gtdb_trait_top20_genera_ave %>% 
@@ -363,8 +372,8 @@ genera_traits_bar_plot <- gtdb_trait_top20_genera_ave %>%
         strip.text.x = element_text(margin = margin(0.05, 0, 0.05, 0, "cm")))
 genera_traits_bar_plot
 
-ggsave(filename = "E:/thermokarst_gully/revision/result/genera_traits_bar_plot.pdf",
-       genera_traits_bar_plot, width = 89, height = 89, units = "mm", dpi = 600)
+# ggsave(filename = "E:/thermokarst_gully/revision/result/genera_traits_bar_plot.pdf",
+#        genera_traits_bar_plot, width = 89, height = 89, units = "mm", dpi = 600)
 
 
 

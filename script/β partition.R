@@ -93,9 +93,9 @@ disp_plot <- df_disp %>%
   main_theme +
   theme(legend.position = "none")
 disp_plot
-ggsave(file.path("E:/thermokarst_gully/revision/result/disp_plot.pdf"),
-       disp_plot, width = 183, 
-       height = 45, units = "mm", dpi = 600)
+# ggsave(file.path("E:/thermokarst_gully/revision/result/disp_plot.pdf"),
+#        disp_plot, width = 183, 
+#        height = 45, units = "mm", dpi = 600)
 
 
 # --- 5) Alternative test: Linear Mixed Model (LMM) on within-block mean pairwise distances ---

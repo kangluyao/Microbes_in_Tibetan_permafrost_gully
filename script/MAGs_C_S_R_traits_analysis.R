@@ -37,7 +37,12 @@ distance_mags_df <- distance_mag_data %>%
   left_join(meta_unique, by = "Gully_id")
 
 ## Linear mixed models test the effect of permafrost thawing on microbial diversity
-lmm_dis_mags_mod <- lmm_fun("distance", distance_mags_df)
+library(lme4)
+library(lmerTest)
+lmm_dis_mags_mod <- lmer(distance ~ Group + Time + 
+                        Slope + MAP + (1 | Gully_id), data = distance_mags_df)
+
+car::Anova(lmm_dis_mags_mod)
 # Create a box plot
 library(gghalves)
 dis_mag_plot <- distance_mags_df %>% 
@@ -57,6 +62,83 @@ dis_mag_plot <- distance_mags_df %>%
   theme(legend.position = "none")
 dis_mag_plot
 
+# --- β dispersion ---
+MAGs_comm <- t(mags_abun_tab)
+treatment <- metadata$Group
+block <- metadata$Gully_id
+
+# --- 1) Beta-diversity decomposition ---
+# For abundance data
+bpair_mag_abund <- beta.pair.abund(MAGs_comm, index.family = "bray")
+
+# Convert to dist objects for betadisper()
+dist_mag_total <- as.dist(bpair_mag_abund$beta.bray)
+dist_mag_turn  <- as.dist(bpair_mag_abund$beta.bray.bal)
+dist_mag_nest  <- as.dist(bpair_mag_abund$beta.bray.gra)
+
+# --- 2) Calculate dispersion (distance to group centroid) for each treatment ---
+bd_mag_total <- betadisper(dist_mag_total, treatment)
+bd_mag_turn  <- betadisper(dist_mag_turn, treatment)
+bd_mag_nest  <- betadisper(dist_mag_nest, treatment)
+
+# --- 3) Permutation test with block-constrained randomization ---
+# Create permutation control object
+# Permutations are restricted within each block (so that treatment labels are shuffled only within blocks)
+ctrl_how <- how(nperm = 999, blocks = block, within = Within(type = "free"))
+
+# Run permutational tests
+pt_mag_total <- permutest(bd_mag_total, permutations = ctrl_how)
+pt_mag_turn  <- permutest(bd_mag_turn, permutations = ctrl_how)
+pt_mag_nest  <- permutest(bd_mag_nest, permutations = ctrl_how)
+
+# Inspect results
+pt_mag_total
+pt_mag_turn
+pt_mag_nest
+
+# --- 4) Visualization: boxplots of sample dispersion values ---
+df_mag_disp <- data.frame(
+  sample = names(bd_mag_total$distances),
+  disp_total = bd_mag_total$distances,
+  disp_turn  = bd_mag_turn$distances,
+  disp_nest  = bd_mag_nest$distances,
+  treatment = treatment,
+  block = block
+) %>% select(disp_total, disp_turn, disp_nest, treatment) %>%
+  pivot_longer(-treatment, names_to = "disp", values_to = "value") %>%
+  mutate(treatment = factor(treatment, levels = c("Un-collapsed", "Collapsed"))) 
+
+# Plot dispersion (divergence) distributions
+library(gghalves)
+disp_index <- c("disp_total", "disp_turn", "disp_nest")
+disp_mag_plot <- df_mag_disp %>% 
+  mutate(disp = factor(disp, levels = disp_index)) %>%
+  ggplot(aes(treatment, value)) +
+  geom_half_violin(aes(fill = treatment), color = NA, 
+                   position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, alpha = 0.65) +
+  geom_boxplot(aes(fill = treatment), width = 0.35, 
+               size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(colour = treatment), shape = 16, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  # ggpp::geom_text_npc(data = sig.div.labs, aes(npcx = x1, npcy = y1, 
+  #                                              label = sig.labels), 
+  #                     size = 2, inherit.aes = F) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~disp, scales = "free_y", ncol = 3,
+             labeller = as_labeller(c(
+               `disp_total` = "Total dispersion",
+               `disp_turn` = "Turnover dispersion",
+               `disp_nest` = "Nestedness dispersion"
+             ))) +
+  main_theme +
+  theme(legend.position = "none")
+disp_mag_plot
+# ggsave(file.path("E:/thermokarst_gully/revision/result/disp_mag_plot.pdf"),
+#        disp_mag_plot, width = 120, height = 45, units = "mm", dpi = 600)
 
 ################################################
 ##### Metagenomic assembled genome traits ######
@@ -117,8 +199,10 @@ distance_trait_df <- distance_trait_data %>%
   left_join(meta_unique, by = "Gully_id")
 
 ## Linear mixed models test the effect of permafrost thawing on microbial diversity
-lmm_dis_traits_mod <- lmm_fun("distance", distance_trait_df)
-lmm_dis_traits_mod
+lmm_dis_trait_mod <- lmer(distance ~ Group + Time + 
+                           Slope + MAP + (1 | Gully_id), data = distance_trait_df)
+
+car::Anova(lmm_dis_trait_mod)
 
 # Create a box plot
 library(gghalves)
@@ -138,6 +222,86 @@ dis_trait_plot <- distance_trait_df %>%
   main_theme +
   theme(legend.position = "none")
 dis_trait_plot
+
+# --- β dispersion ---
+trait_comm <- cwm_results_trans
+treatment <- metadata$Group
+block <- metadata$Gully_id
+
+# --- 1) Beta-diversity decomposition ---
+# For abundance data
+bpair_trait_abund <- beta.pair.abund(trait_comm, index.family = "bray")
+
+# Convert to dist objects for betadisper()
+dist_trait_total <- as.dist(bpair_trait_abund$beta.bray)
+dist_trait_turn  <- as.dist(bpair_trait_abund$beta.bray.bal)
+dist_trait_nest  <- as.dist(bpair_trait_abund$beta.bray.gra)
+
+# --- 2) Calculate dispersion (distance to group centroid) for each treatment ---
+bd_trait_total <- betadisper(dist_trait_total, treatment)
+bd_trait_turn  <- betadisper(dist_trait_turn, treatment)
+bd_trait_nest  <- betadisper(dist_trait_nest, treatment)
+
+# --- 3) Permutation test with block-constrained randomization ---
+# Create permutation control object
+# Permutations are restricted within each block (so that treatment labels are shuffled only within blocks)
+ctrl_how <- how(nperm = 999, blocks = block, within = Within(type = "free"))
+
+# Run permutational tests
+pt_trait_total <- permutest(bd_trait_total, permutations = ctrl_how)
+pt_trait_turn  <- permutest(bd_trait_turn, permutations = ctrl_how)
+pt_trait_nest  <- permutest(bd_trait_nest, permutations = ctrl_how)
+
+# Inspect results
+pt_trait_total
+pt_trait_turn
+pt_trait_nest
+
+# --- 4) Visualization: boxplots of sample dispersion values ---
+df_trait_disp <- data.frame(
+  sample = names(bd_trait_total$distances),
+  disp_total = bd_trait_total$distances,
+  disp_turn  = bd_trait_turn$distances,
+  disp_nest  = bd_trait_nest$distances,
+  treatment = treatment,
+  block = block
+) %>% select(disp_total, disp_turn, disp_nest, treatment) %>%
+  pivot_longer(-treatment, names_to = "disp", values_to = "value") %>%
+  mutate(treatment = factor(treatment, levels = c("Un-collapsed", "Collapsed"))) 
+
+# Plot dispersion (divergence) distributions
+library(gghalves)
+disp_index <- c("disp_total", "disp_turn", "disp_nest")
+disp_trait_plot <- df_trait_disp %>% 
+  mutate(disp = factor(disp, levels = disp_index)) %>%
+  ggplot(aes(treatment, value)) +
+  geom_half_violin(aes(fill = treatment), color = NA, 
+                   position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, alpha = 0.65) +
+  geom_boxplot(aes(fill = treatment), width = 0.35, 
+               size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(colour = treatment), shape = 16, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  # ggpp::geom_text_npc(data = sig.div.labs, aes(npcx = x1, npcy = y1, 
+  #                                              label = sig.labels), 
+  #                     size = 2, inherit.aes = F) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~disp, scales = "free_y", ncol = 3,
+             labeller = as_labeller(c(
+               `disp_total` = "Total dispersion",
+               `disp_turn` = "Turnover dispersion",
+               `disp_nest` = "Nestedness dispersion"
+             ))) +
+  main_theme +
+  theme(legend.position = "none")
+disp_trait_plot
+# ggsave(file.path("E:/thermokarst_gully/revision/result/disp_trait_plot.pdf"),
+#        disp_trait_plot, width = 120, height = 45, units = "mm", dpi = 600)
+
+
 
 # Linear mixed models test the effect of collapsed and gully_id
 trait_id <- colnames(cwm_results)
@@ -217,12 +381,12 @@ each_trait_comparison
 
 # Combine all plots
 library(cowplot)
-dist_gmags_trait_plot <- plot_grid(pcoa_mag_plot, dis_mag_plot,
+dist_mags_trait_plot <- plot_grid(pcoa_mag_plot, dis_mag_plot,
                                   pcoa_cwm_trait_plot, dis_trait_plot,
                                   nrow = 1, align = "hv")
-dist_gmags_trait_plot
+dist_mags_trait_plot
 
-mags_plots <- plot_grid(dist_gmags_trait_plot, each_trait_comparison,
+mags_plots <- plot_grid(dist_mags_trait_plot, each_trait_comparison,
                         nrow = 2, rel_heights = c(1, 2.8))
 mags_plots
 
