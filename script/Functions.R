@@ -67,9 +67,9 @@ main_theme = theme_bw() +
         legend.position = "none")
 # PCoA plot
 PCoA_plot_fun <- function(dist) {
-  ord.fun <-  cmdscale(tax_singlem_dist,  k = 2, eig = T, add = T)
+  ord.fun <-  cmdscale(dist,  k = 2, eig = T, add = T)
   # Permanova test the difference in compositional variance
-  perm_test <- adonis2(tax_singlem_dist ~ Group, data = metadata)
+  perm_test <- adonis2(dist ~ Group, data = metadata)
   r2 = perm_test$R2[1]
   p_value = perm_test$`Pr(>F)`[1]
   # Calculate Centroids

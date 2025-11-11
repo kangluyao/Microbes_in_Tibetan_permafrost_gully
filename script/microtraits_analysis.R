@@ -9,21 +9,21 @@ pacman::p_load(phyloseq, ape, vegan, Biostrings,
                microbiome, tidytable, tidyverse, rstatix, networkD3)
 
 # bin genome information
-mags_abun_tab.file <- file.path(wd_fun, "MAGs/bin_abundance_coverm.txt")
-mags_abun_tab.file <- "E:/thermokarst_gully/result/MAGs/coverM_75_abundance.tsv"
-tax.file <- file.path(wd_fun, "MAGs/annotation.txt")
-mags.att.file <- file.path(wd_fun, "MAGs/MAGs_attributes.txt")
+# mags_abun_tab.file <- file.path(wd_fun, "MAGs/bin_abundance_coverm.txt")
+# mags_abun_tab.file <- "E:/thermokarst_gully/result/MAGs/coverM_75_abundance.tsv"
+# tax.file <- file.path(wd_fun, "MAGs/annotation.txt")
+# mags.att.file <- file.path(wd_fun, "MAGs/MAGs_attributes.txt")
 
 # Reading data
-mags_abun_tab <- read.delim(mags_abun_tab.file, header = TRUE, sep = "\t", row.names = 1,
-                            as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
-                            check.names = FALSE)[-1, ]
-tax_bin <- read.delim(tax.file, header = TRUE, sep = "\t", as.is = TRUE, 
-                      stringsAsFactors = FALSE, comment.char = "", check.names = FALSE)
-
-mags.att <- read.delim(mags.att.file, header = TRUE, sep = "\t", row.names = 1,
-                       as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
-                       check.names = FALSE)
+# mags_abun_tab <- read.delim(mags_abun_tab.file, header = TRUE, sep = "\t", row.names = 1,
+#                             as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
+#                             check.names = FALSE)[-1, ]
+# tax_bin <- read.delim(tax.file, header = TRUE, sep = "\t", as.is = TRUE, 
+#                       stringsAsFactors = FALSE, comment.char = "", check.names = FALSE)
+# 
+# mags.att <- read.delim(mags.att.file, header = TRUE, sep = "\t", row.names = 1,
+#                        as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
+#                        check.names = FALSE)
 
 # data preparation
 mag_num_in_phylum <- data.frame(table(tax_bin[,"Phylum"]))
@@ -148,7 +148,9 @@ summary.model <- function(model){
 lmm.fun <- function(data) {
   df <- NULL
   for(i in 6:ncol(data)) {
-    fm <- lmer(data[, i] ~ Group + Time + Slope + MAP + (1 | Gully_id), data = data)
+    response <- colnames(data)[i]
+    formula <- as.formula(paste(response, "~ Group + Time + Slope + MAP + (1 | Gully_id)"))
+    fm <- lmer(formula, data = data)
     tmp <- summary.model(fm)
     if (is.null(df)){
       df <- tmp
@@ -158,20 +160,25 @@ lmm.fun <- function(data) {
   }
   rownames(df)<-colnames(data)[-c(1:5)]
   df <- df %>% data.frame(check.names = F) %>%
-    mutate(sig = p.stars(Group.P), 
-           eff.group = case_when(GroupCollapsed.mean > 0 & Group.P < 0.05 ~ "Positive",
-                                 GroupCollapsed.mean < 0 & Group.P < 0.05 ~ "Negative",
-                                 Group.P > 0.05 ~ "Neutral")) %>%
+    mutate(sig = p.stars(Group.P),
+           eff.group = case_when(GroupCollapsed.mean > 0  ~ "Positive",
+                                 GroupCollapsed.mean < 0  ~ "Negative")) %>%
     mutate(itol_label = case_when(eff.group == "Negative" ~ "TL|0|10|#79ceb8|Negative",
-                                  eff.group == "Positive" ~ "TR|0|10|#e95f5c|Positive",
-                                  eff.group == "Neutral" ~ ""))
+                                  eff.group == "Positive" ~ "TR|0|10|#e95f5c|Positive"))
+    
+    # mutate(sig = p.stars(Group.P),
+    #        eff.group = case_when(GroupCollapsed.mean > 0 & Group.P < 0.05 ~ "Positive",
+    #                              GroupCollapsed.mean < 0 & Group.P < 0.05 ~ "Negative",
+    #                              Group.P > 0.05 ~ "Neutral")) %>%
+    # mutate(itol_label = case_when(eff.group == "Negative" ~ "TL|0|10|#79ceb8|Negative",
+    #                               eff.group == "Positive" ~ "TR|0|10|#e95f5c|Positive",
+    #                               eff.group == "Neutral" ~ ""))
   return(df)
 }
 
 mags_result_lmm <- lmm.fun(mags_scale)
 # write.table(mags_result_lmm, file = "E:/thermokarst_gully/result/tables/MAGs/diff_in_mags.csv", 
 #             sep = ",", col.names = NA, qmethod = "double")
-
 
 # Exploring the composition of the MAGs within significant positive and negative groups
 mags_tax_group_df <- mags_result_lmm %>% rownames_to_column("ID") %>% 

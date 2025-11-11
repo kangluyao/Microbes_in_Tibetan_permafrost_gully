@@ -43,6 +43,7 @@ bd_nest  <- betadisper(dist_nest, treatment)
 ctrl_how <- how(nperm = 999, blocks = block, within = Within(type = "free"))
 
 # Run permutational tests
+set.seed(123)
 pt_total <- permutest(bd_total, permutations = ctrl_how)
 pt_turn  <- permutest(bd_turn, permutations = ctrl_how)
 pt_nest  <- permutest(bd_nest, permutations = ctrl_how)

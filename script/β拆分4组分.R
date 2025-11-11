@@ -250,9 +250,32 @@ top20_4process_plot <- ggplot(top20_data, aes(x = interaction(genera, rank(mean_
 
 top20_4process_plot
 
-
+library(ggpmisc)
+summary_data  %>%
+  left_join(singlem_genu_group_ave_df %>% filter(Group == "Un-collapsed") %>%
+              select(taxonomy,  Relative_abundance_mean) %>%
+              rename("genera" = "taxonomy"),
+            by = "genera") %>%
+  ggplot(aes(Relative_abundance_mean, mean_contribution)) +
+  geom_point(alpha = 0.6, size = 1.25, color = "#79ceb8") +
+  geom_smooth(method = "lm", 
+              se = TRUE, color = "black", linewidth = 0.9) +
+  stat_poly_eq(aes(label = paste(after_stat(eq.label),
+                                 after_stat(rr.label), 
+                                 after_stat(p.value.label), sep = "*\", \"*")),
+               size = 2.4) +
+  facet_grid( ~ component, scales = "free") +
+  labs(x = "Mean relative abundance",
+       y = "Contribution to beta diversity") +
+  theme_bw() +
+  main_theme +
+  theme(legend.position = "none")
+  
 # ggsave(filename = "E:/thermokarst_gully/revision/result/top20_4process_plot.pdf",
 #        top20_4process_plot, width = 89, height = 89, units = "mm", dpi = 600)
+
+
+
 
 # Compare the difference in genera traits
 bac_gtdb <- fread("E:/thermokarst_gully/data/metagenome/singlem/bac120_metadata_r226.tsv") %>%

@@ -64,6 +64,7 @@ ko_tpm_table <- read.delim(file.path(wd_fun, "./eggnog.KEGG_ko.raw.txt"),
 ko_tpm_table <- ko_tpm_table[, metadata$Sample_name[metadata$Sample_name %in% colnames(ko_tpm_table)]]
 
 # Reading genome data
+# abundance_tab.file <- file.path(wd_fun, "MAGs/bin_abundance_coverm.txt")
 abundance_tab.file <- "E:/thermokarst_gully/result/MAGs/coverM_75_abundance.tsv"
 tax.file <- file.path(wd_fun, "MAGs/annotation.txt")
 mags.att.file <- file.path(wd_fun, "MAGs/MAGs_attributes.txt")
