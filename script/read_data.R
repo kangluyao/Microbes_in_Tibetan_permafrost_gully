@@ -66,7 +66,7 @@ ko_tpm_table <- ko_tpm_table[, metadata$Sample_name[metadata$Sample_name %in% co
 # Reading genome data
 # abundance_tab.file <- file.path(wd_fun, "MAGs/bin_abundance_coverm.txt")
 abundance_tab.file <- "E:/thermokarst_gully/result/MAGs/coverM_75_abundance.tsv"
-tax.file <- file.path(wd_fun, "MAGs/annotation.txt")
+tax.file <- file.path(wd_fun, "MAGs/tax.txt")
 mags.att.file <- file.path(wd_fun, "MAGs/MAGs_attributes.txt")
 mags_abun_tab <- read.delim(abundance_tab.file, header = TRUE, sep = "\t", row.names = 1,
                             as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",

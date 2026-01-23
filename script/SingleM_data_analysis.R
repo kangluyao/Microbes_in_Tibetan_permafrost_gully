@@ -1,8 +1,13 @@
+library(tidyverse)
 library(phyloseq)
 library(vegan)
 library(ggplot2)
 library(dplyr)
 library(stringr)
+library(ggsci)
+library(data.table)
+library(gghalves)
+library(lme4)
 # Community composition
 singlem_phyla <- fread("E:/thermokarst_gully/data/metagenome/singlem/gully-phylum.tsv") %>%
   filter(taxonomy != "unassigned") %>%
@@ -212,6 +217,7 @@ venn_singlem_df = list(
     rownames()
 )
 
+library(ggvenn)
 venn_singlem <- ggvenn(
   venn_singlem_df, 
   fill_color = c("#79ceb8", "#e95f5c"),
@@ -227,7 +233,7 @@ venn_singlem <- ggvenn(
 #        venn_singlem, width = 89, height = 89, units = "mm", dpi = 600)
 # Determine the alpha diversity
 singlem_genu = as.matrix(singlem_genu)
-shannon  <- diversity(singlem_genu, index = "shannon")
+shannon  <- diversity(t(singlem_genu), index = "shannon")
 richness <- specnumber(t(singlem_genu))
 
 alpha_div <- data.frame(
@@ -298,7 +304,7 @@ sig.div.labs <- tibble(div_index = factor(div_index, levels = div_index),
                        x1 = rep(0.5, length(div_index)),
                        y1 = rep(0.95, length(div_index)),
                        sig.labels = c("P = 0.003", "P < 0.001", "P < 0.001"),
-                       panel.labels = letters[as.numeric(dis_index)])
+                       panel.labels = letters[as.numeric(div_index)])
 
 # Create a plot
 library(gghalves)
@@ -331,6 +337,7 @@ div_plot
 library(vegan)
 tax_singlem_dist <-vegdist(t(singlem_genu), "bray")
 #permanova test the difference in compositional variance
+set.seed(123)
 adonis2(tax_singlem_dist ~ Group, data = metadata)
 
 #Visualization for the overall difference by PCoA plot.
@@ -399,6 +406,7 @@ dis_singlem_plot
 
 # Combine all plots
 library(cowplot)
+
 combined_singlem_plot <-  ggdraw() +
   draw_plot(composition_plot, x = 0, y = 0, width = 2/5, height = 1) +
   draw_plot(div_plot, x = 2/5, y = 0.5, width = 3/5, height = 0.5) +
@@ -410,6 +418,6 @@ combined_singlem_plot <-  ggdraw() +
 combined_singlem_plot
 
 # save the plot
-ggsave(file.path("E:/thermokarst_gully/revision/result/combined_singlem_plot.pdf"),
-       combined_singlem_plot, width = 183, 
-       height = 90, units = "mm", dpi = 600)
+# ggsave(file.path("E:/thermokarst_gully/revision/result/combined_singlem_plot.pdf"),
+#        combined_singlem_plot, width = 183, 
+#        height = 90, units = "mm", dpi = 600)

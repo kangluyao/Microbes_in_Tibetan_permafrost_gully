@@ -13,10 +13,112 @@ pacman::p_load(vegan, tidyverse, ggrepel, EnhancedVolcano, edgeR, ggplot2)
 # Data input
 source("script/read_data.R")
 source("script/Functions.R")
+
+
+# Determine the alpha diversity
+mag_comp = as.matrix(t(mags_abun_tab))
+mag_shannon  <- diversity(mag_comp, index = "shannon")
+mag_richness <- specnumber(mag_comp)
+
+alpha_div_mag <- data.frame(
+  Richness = mag_richness, Shannon = mag_shannon) %>%
+  mutate(Evenness = Shannon / log(Richness))
+
+# Arrange the data for statistics
+col_div_names <- c("Sample_name", 'Gully_id', 'Group', 
+                   "Richness", "Shannon", "Evenness")
+div_table_mag <- cbind(metadata[, c("Sample_name", 'Gully_id', 'Group')], alpha_div_mag) %>%
+  rename_with(~ col_div_names) %>%
+  mutate(Group = factor(Group, levels = c('Un-collapsed', 'Collapsed')))
+
+div_table_mag %>%
+  group_by(Gully_id, Group) %>%
+  summarise(across(where(is.numeric), 
+                   list(mean = ~mean(., na.rm = T), 
+                        sd = ~sd(., na.rm = T), 
+                        n = ~n())))
+
+# Linear mixed models test the effect of collapsed and gully_id
+div_index <- c("Richness", "Shannon", "Evenness")
+div_scale_mag <- div_table_mag %>% 
+  cbind(metadata[, c("Time", "Slope", "MAP")]) %>%
+  select(all_of(c("Group", "Gully_id",  "Time", "Slope", "MAP", div_index))) %>%
+  mutate(across(where(is.numeric), scale)) %>%
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
+  select(where(~ !any(is.na(.))))
+
+# codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
+library(lme4)
+library(lmerTest)
+div_S1_mag <- sapply(6:ncol(div_scale_mag), function(j) {
+  if (length(unique(div_scale_mag[, j])) < 3) {
+    result <- rep(NA, 23)
+  } else {
+    fm1 <- lmer(div_scale_mag[, j] ~ Group + Time + Slope + MAP + (1 | Gully_id), data = div_scale_mag)
+    
+    presult <- car::Anova(fm1, type = 2)
+    coefs <- coef(summary(fm1))[, "Estimate"]  ##four coefs
+    names(coefs) <- paste0(names(coefs), ".mean")
+    
+    SEvalues <- coef(summary(fm1))[, "Std. Error"]  ##standard errors
+    names(SEvalues) <- paste0(names(SEvalues), ".se")
+    
+    tvalues <- coef(summary(fm1))[, "t value"]  ##t values
+    names(tvalues) <- paste0(names(tvalues), ".t")
+    
+    chisqP <- c(presult[, 1], presult[, 3])
+    names(chisqP) <- c(paste0(row.names(presult), ".chisq"), paste0(row.names(presult), ".P"))
+    
+    result <- c(coefs, tvalues, SEvalues, chisqP)
+  }
+  result
+})
+colnames(div_S1_mag)<-colnames(div_scale_mag)[-c(1:5)]
+data.frame(div_S1_mag)
+
+p.stars <- function(p.values) {
+  unclass(symnum(p.values, corr = FALSE, 
+                 na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1),
+                 symbols = c("***", "**", "*", "")))}
+
+# Add the significant symbols manually
+sig.div.labs <- tibble(div_index = factor(div_index, levels = div_index),
+                       x1 = rep(0.5, length(div_index)),
+                       y1 = rep(0.95, length(div_index)),
+                       sig.labels = c("P < 0.001", "P < 0.001", "P = 0.101"),
+                       panel.labels = letters[as.numeric(div_index)])
+
+# Create a plot
+library(gghalves)
+div_mag_plot <- div_table_mag %>% select(c("Group", div_index)) %>%
+  gather(div_index, value, -c("Group")) %>% 
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
+  mutate(div_index = factor(div_index, 
+                            levels = c("Richness", "Shannon", "Evenness"))) %>%
+  ggplot(aes(Group, value)) +
+  geom_half_violin(aes(fill = Group), color = NA, 
+                   position = position_nudge(x = 0.25), 
+                   side = "r", width = 0.5, alpha = 0.65) +
+  geom_boxplot(aes(fill = Group), width = 0.35, 
+               size = 0.3, outlier.color = NA, alpha = 0.65,) +
+  geom_jitter(aes(colour = Group), shape = 16, size = 0.5,
+              width = 0.15, alpha = 0.65) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  ggpp::geom_text_npc(data = sig.div.labs, aes(npcx = x1, npcy = y1, 
+                                               label = sig.labels), 
+                      size = 2, inherit.aes = F) +
+  labs(x = NULL, y = NULL) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~div_index, scales = "free_y", ncol = 3) +
+  main_theme +
+  theme(legend.position = "none")
+div_mag_plot
 # bin genome information
-mag_results_trans <- decostand(t(mags_abun_tab), method = "hellinger")
+mag_results_trans <- decostand(mag_comp, method = "hellinger")
 mag_dist <-vegdist(mag_results_trans, "bray")
 #permanova test the difference in compositional variance
+set.seed(123)
 adonis2(mag_dist ~ Group, data = metadata)
 
 #Visualization for the overall difference by PCoA plot.
@@ -50,7 +152,7 @@ dis_mag_plot <- distance_mags_df %>%
   ggplot(aes(Group, distance, fill = Group)) +
   geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.5, color = NA, alpha = 0.65) +
   geom_boxplot(width = 0.35, size = 0.3, outlier.color = NA, alpha = 0.65,) +
-  geom_jitter(aes(fill = Group, colour = Group), shape = 21, size = 0.5,
+  geom_jitter(aes(fill = Group, colour = Group), shape = 16, size = 0.5,
               width = 0.15, alpha = 0.65) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
   ggpp::annotate("text_npc", npcx = 0.5, npcy = 0.95, 
@@ -63,13 +165,14 @@ dis_mag_plot <- distance_mags_df %>%
 dis_mag_plot
 
 # --- β dispersion ---
-MAGs_comm <- t(mags_abun_tab)
+mag_comm <- t(mags_abun_tab)
 treatment <- metadata$Group
 block <- metadata$Gully_id
 
 # --- 1) Beta-diversity decomposition ---
 # For abundance data
-bpair_mag_abund <- beta.pair.abund(MAGs_comm, index.family = "bray")
+library(betapart)
+bpair_mag_abund <- beta.pair.abund(mag_comm, index.family = "bray")
 
 # Convert to dist objects for betadisper()
 dist_mag_total <- as.dist(bpair_mag_abund$beta.bray)
@@ -87,6 +190,7 @@ bd_mag_nest  <- betadisper(dist_mag_nest, treatment)
 ctrl_how <- how(nperm = 999, blocks = block, within = Within(type = "free"))
 
 # Run permutational tests
+set.seed(123)
 pt_mag_total <- permutest(bd_mag_total, permutations = ctrl_how)
 pt_mag_turn  <- permutest(bd_mag_turn, permutations = ctrl_how)
 pt_mag_nest  <- permutest(bd_mag_nest, permutations = ctrl_how)
@@ -148,10 +252,26 @@ library(microtrait)
 microtrait_results <- readRDS(file.path(wd_fun, "/MAGs/microtraits/thermokarst_gully.microtraitresults.rds"))
 
 # Normalizing the traits matrices by genome length
-microtrait_results_metadata_norm = microtrait_results %>% trait.normalize(normby = "genome_length")
+microtrait_results_metadata_norm = microtrait_results %>% 
+  trait.normalize(normby = "genome_length")
 
-spec_names <- data.frame(microtrait_results_metadata_norm$trait_matrixatgranularity1)$id
-trait_data <- data.frame(microtrait_results_metadata_norm$trait_matrixatgranularity1)[,-1]
+# Inputting other traits including genome size, max growth rate, and so on
+
+mags_result_eff.size <- mags_result_lmm %>% rownames_to_column("Genome_id")
+growth_rate_file <- "E:/thermokarst_gully/data/metagenome/MAGs/growth_rate_results.csv"
+growth_rate <- read.table(growth_rate_file, header = TRUE, sep = ",", row.names = 1,
+                          as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
+                          check.names = FALSE)
+MAGs_all_aatr <- mags.att %>% left_join(growth_rate, by = "Genome_id") %>% 
+  left_join(mags_result_eff.size, by = "Genome_id") %>%
+  mutate(Genome_size = round(Genome_size/1000000, 1), `Max growth rate` = 1/d) %>%
+  select(Genome_id, Genome_size, GC, `Max growth rate`)
+
+# Combining all MAGs attributes
+trait_data = microtrait::add.metadata(microtrait_results_metadata_norm, 
+                                                       MAGs_all_aatr, genome_metadata_idcol = "Genome_id")
+spec_names <- data.frame(trait_data$trait_matrixatgranularity1)$id
+trait_data <- data.frame(trait_data$trait_matrixatgranularity1, check.names=FALSE)[,-c(1,39:41)]
 rownames(trait_data) <- spec_names
 
 # Calculate CWM for each trait and each community
@@ -181,6 +301,7 @@ dim(cwm_results_final)
 cwm_results_trans <- decostand(cwm_results_final, method = "log")
 trait_dist <-vegdist(cwm_results_trans, "bray", binary = F)
 #permanova test the difference in compositional variance
+set.seed(123)
 adonis2(trait_dist ~ Group, data = metadata)
 
 #Visualization for the overall difference by PCoA plot.
@@ -209,9 +330,10 @@ library(gghalves)
 dis_trait_plot <- distance_trait_df %>% 
   mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
   ggplot(aes(Group, distance, fill = Group)) +
-  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.5, color = NA, alpha = 0.65) +
+  geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.5, 
+                   color = NA, alpha = 0.65) +
   geom_boxplot(width = 0.35, size = 0.3, outlier.color = NA, alpha = 0.65,) +
-  geom_jitter(aes(fill = Group, colour = Group), shape = 21, size = 0.5,
+  geom_jitter(aes(fill = Group, colour = Group), shape = 16, size = 0.5,
               width = 0.15, alpha = 0.65) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
   ggpp::annotate("text_npc", npcx = 0.5, npcy = 0.95, 
@@ -304,7 +426,50 @@ disp_trait_plot
 
 
 # Linear mixed models test the effect of collapsed and gully_id
-trait_id <- colnames(cwm_results)
+strategy_vars <- c("Genome_size", "Max growth rate", 
+                   "Resource Acquisition:Substrate degradation:complex carbohydrate depolymerization",
+                   "Resource Acquisition:Substrate degradation:simple compound degradation",
+                   "Resource Acquisition:Substrate uptake:carbohydrate transport",
+                   "Resource Acquisition:Substrate uptake:N compound transport",
+                   "Resource Acquisition:Substrate uptake:organophosphorus transport",
+                   "Resource Acquisition:Substrate assimilation:C1 compounds",
+                   "Resource Acquisition:Substrate assimilation:N compounds",
+                   "Resource Acquisition:Substrate assimilation:P compounds",
+                   "Resource Use:Chemotrophy:chemoorganoheterotrophy:aerobic respiration",
+                   "Resource Use:Chemotrophy:chemolithoheterotrophy:anaerobic respiration",
+                   "Resource Use:Chemotrophy:chemoorganoheterotrophy:fermentation",
+                   "Resource Use:Chemotrophy:chemolithoautotrophy",
+                   "Resource Use:Phototrophy:photosystem",
+                   "Stress Tolerance:Specific:temperature:low",
+                   "Stress Tolerance:Specific:pH stress",
+                   "Stress Tolerance:Specific:desiccation/osmotic/salt stress",
+                   "Stress Tolerance:Specific:oxidative stress",
+                   "Stress Tolerance:Specific:envelope stress")
+
+# writing a function to change the facet labels
+strategy_names <- list(
+  "Genome_size" = "Genome size (Mb)",
+  "Max growth rate" = "Max growth rate",
+  "Resource Acquisition:Substrate degradation:complex carbohydrate depolymerization" = "Complex carbohydrate depolymerization",
+  "Resource Acquisition:Substrate degradation:simple compound degradation" = "Simple compound degradation",
+  "Resource Acquisition:Substrate uptake:carbohydrate transport" = "Carbohydrate transport",
+  "Resource Acquisition:Substrate uptake:N compound transport" = "N compound transport",
+  "Resource Acquisition.Substrate uptake:organophosphorus transport" = "organophosphorus transport",
+  "Resource Acquisition:Substrate assimilation:C1 compounds" = "C1 compounds assimilation",
+  "Resource Acquisition:Substrate assimilation:N compounds" = "N compounds assimilation",
+  "Resource Acquisition.Substrate assimilation:P compounds" = "P compounds assimilation",
+  "Resource Use:Chemotrophy:chemoorganoheterotrophy:aerobic respiration" = "Aerobic respiration", 
+  "Resource Use:Chemotrophy:chemolithoheterotrophy:anaerobic respiration" = "Anaerobic respiration", 
+  "Resource Use:Chemotrophy:chemoorganoheterotrophy:fermentation" = "Fermentation",
+  "Resource Use:Chemotrophy:chemolithoautotrophy" = "Chemolithoautotrophy",
+  "Resource Use:Phototrophy:photosystem" = "Photosystem",
+  "Stress Tolerance:Specific:temperature:low" = "Low temperature stress",
+  "Stress Tolerance:Specific:pH stress" = "pH stress",
+  "Stress Tolerance:Specific:desiccation/osmotic/salt stress" = "Desiccation/osmotic/salt stress", 
+  "Stress Tolerance:Specific:oxidative stress" = "Oxidative stress",
+  "Stress Tolerance:Specific:envelope stress" = "Envelope stress")
+
+trait_id <- strategy_vars
 trait_scale <- cwm_results %>% 
   cbind(metadata[, c("Gully_id","Group", "Time", "Slope", "MAP")]) %>%
   select(all_of(c("Group", "Gully_id",  "Time", "Slope", "MAP", trait_id))) %>%
@@ -366,13 +531,11 @@ each_trait_comparison <- trait_S1 %>%
   labs(x = NULL, y = "Effect size") +
   scale_color_manual(values=c("#79ceb8", "grey", "#e95f5c")) +
   scale_y_continuous(expand = c(0, 0), limit = c(-2.5, 2.5)) +
-  scale_x_discrete(position = "bottom") +
-  annotate("rect", xmin = 0.5, xmax = 16.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#79ceb8") +
-  annotate("rect", xmin = 16.5, xmax = 18.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#e95f5c") +
-  annotate("rect", xmin = 18.5, xmax = 22.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#5cc3e8") +
-  annotate("rect", xmin = 22.5, xmax = 29.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#ffdb00") +
-  annotate("rect", xmin = 29.5, xmax = 37.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#e56eee") +
-  annotate("rect", xmin = 37.5, xmax = 40.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#5fb236") +
+  scale_x_discrete(position = "bottom", labels = strategy_names) +
+  annotate("rect", xmin = 0.5, xmax = 2.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#79ceb8") +
+  annotate("rect", xmin = 2.5, xmax = 10.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#e95f5c") +
+  annotate("rect", xmin = 10.5, xmax = 15.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#5cc3e8") +
+  annotate("rect", xmin = 15.5, xmax = 20.5, ymin = -2.5, ymax = 2.5, alpha = 0.1, fill = "#ffdb00") +
   main_theme +
   theme(legend.position = "none",
         strip.background = element_rect(fill = c("#FFF6E1")),
@@ -391,8 +554,8 @@ mags_plots <- plot_grid(dist_mags_trait_plot, each_trait_comparison,
 mags_plots
 
 # Save the combined plot
-# ggsave(file.path("E:/thermokarst_gully/revision/result/mags_plots.pdf"), 
-#        mags_plots, width = 183, height = 155, units = "mm")
+ggsave(file.path("E:/thermokarst_gully/revision/result/mags_plots.pdf"),
+       mags_plots, width = 183, height = 155, units = "mm")
 
 
 

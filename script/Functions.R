@@ -58,9 +58,9 @@ plot_correlation <- function(data, x_var, y_var, method = "pearson") {
 main_theme = theme_bw() + 
   theme(panel.grid = element_blank(),
         panel.border = element_rect(size = 0.5),
-        strip.text = element_text(colour = 'black', size = 6),
+        strip.text = element_text(colour = 'black', size = 7),
         strip.background = element_rect(colour = 'black', fill = 'grey'),
-        axis.title = element_text(color = 'black',size = 6),
+        axis.title = element_text(color = 'black',size = 7),
         axis.ticks = element_line(color = "black", linewidth = 0.5),
         axis.text.y = element_text(colour = 'black', size = 6),
         axis.text.x = element_text(colour = 'black', size = 6),

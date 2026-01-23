@@ -8,25 +8,12 @@ save.dir <- file.path(getwd(),"result")
 pacman::p_load(phyloseq, ape, vegan, Biostrings, 
                microbiome, tidytable, tidyverse, rstatix, networkD3)
 
-# bin genome information
-# mags_abun_tab.file <- file.path(wd_fun, "MAGs/bin_abundance_coverm.txt")
-# mags_abun_tab.file <- "E:/thermokarst_gully/result/MAGs/coverM_75_abundance.tsv"
-# tax.file <- file.path(wd_fun, "MAGs/annotation.txt")
-# mags.att.file <- file.path(wd_fun, "MAGs/MAGs_attributes.txt")
-
-# Reading data
-# mags_abun_tab <- read.delim(mags_abun_tab.file, header = TRUE, sep = "\t", row.names = 1,
-#                             as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
-#                             check.names = FALSE)[-1, ]
-# tax_bin <- read.delim(tax.file, header = TRUE, sep = "\t", as.is = TRUE, 
-#                       stringsAsFactors = FALSE, comment.char = "", check.names = FALSE)
-# 
-# mags.att <- read.delim(mags.att.file, header = TRUE, sep = "\t", row.names = 1,
-#                        as.is = TRUE, stringsAsFactors = FALSE, comment.char = "",
-#                        check.names = FALSE)
+# Data input
+source("script/read_data.R")
+source("script/Functions.R")
 
 # data preparation
-mag_num_in_phylum <- data.frame(table(tax_bin[,"Phylum"]))
+mag_num_in_phylum <- data.frame(table(mags_tax[,"Phylum"]))
 mag_num_in_phylum <- mag_num_in_phylum %>% arrange(desc(Freq))
 mag_num_in_phylum <- rbind(mag_num_in_phylum[1:11, ], data.frame(Var1 = c('Others'),
                                                                  Freq = sum(mag_num_in_phylum[-c(1:11), 2])))
@@ -56,12 +43,12 @@ pie_for_mag_num_phylum <- ggplot(mag_count.data, aes(x = "", y = prop,
   theme_void() +
   theme(legend.position = "left",
         legend.key.size = unit(0.25, 'cm'))
-
+pie_for_mag_num_phylum
 # Count the number of MAGs of bacteria and fungi, respectively
-tax_bin %>% dplyr::select(c("Domain")) %>%
-  mutate(number = c(rep(1, nrow(tax_bin)))) %>%
+mags_tax %>% dplyr::select(c("Domain")) %>%
+  mutate(number = c(rep(1, nrow(mags_tax)))) %>%
   group_by(Domain) %>%
-  summarise(across(everything(), sum)) %>%
+  summarise(across(number, sum)) %>%
   arrange(desc(number)) %>%
   mutate(Domain = gsub("d__", "", Domain)) %>%
   mutate(Domain = factor(Domain, levels = Domain))
@@ -70,8 +57,8 @@ tax_bin %>% dplyr::select(c("Domain")) %>%
 # Archaea   24
 
 # Count the number of MAGs of each Order
-mags_num_order_plot <- tax_bin %>% dplyr::select(c("Order")) %>%
-  mutate(number = c(rep(1, nrow(tax_bin)))) %>%
+mags_num_order_plot <- mags_tax %>% dplyr::select(c("Order")) %>%
+  mutate(number = c(rep(1, nrow(mags_tax)))) %>%
   group_by(Order) %>%
   summarise(across(everything(), sum)) %>%
   arrange(desc(number)) %>%
@@ -88,14 +75,127 @@ mags_num_order_plot <- tax_bin %>% dplyr::select(c("Order")) %>%
         axis.text.x = element_text(colour = "black", angle = 90, 
                                    vjust = 0.5, hjust=1, size = 6),
         axis.text.y = element_text(colour = "black", size = 6))
-# combine the two plots
-mags_num_plot <- cowplot::plot_grid(pie_for_mag_num_phylum, mags_num_order_plot,
-                 nrow = 1, labels = c("a", "b"), label_size = 7,
-                 rel_widths = c(0.3, 0.7), align = "hv")
 
+# Determine the changes in relative abundance of top 10 genera
+top10_mags_id <- mags_abun_tab %>%
+  rownames_to_column("ID") %>%
+  left_join(mags_tax, by = "ID") %>%
+  select("Genus", starts_with("G")) %>%
+  mutate(Genus = gsub("g__", "", Genus)) %>%
+  group_by(Genus) %>%
+  summarise(row_mean = mean(c_across(where(is.numeric)), na.rm = TRUE)) %>%
+  filter(!Genus == "") %>%
+  slice_max(row_mean, n = 10) %>%
+  pull(Genus)
+
+# LMM analysis
+top10_mags_meta <- mags_abun_tab %>%
+  rownames_to_column("ID") %>%
+  left_join(mags_tax, by = "ID") %>%
+  select("Genus", starts_with("G")) %>%
+  mutate(Genus = gsub("g__", "", Genus)) %>%
+  filter(Genus %in% top10_mags_id) %>%
+  group_by(Genus) %>%
+  summarize(across(where(is.numeric), sum)) %>%
+  column_to_rownames("Genus") %>%
+  t() %>% as.data.frame() %>%
+  rownames_to_column("Sample_name") %>%
+  left_join(metadata, by = "Sample_name")
+
+# Linear mixed models test the effect of collapsed and gully_id
+top10_mags_scale <- top10_mags_meta  %>% 
+  select(all_of(c("Group", "Gully_id",  "Time", "Slope", "MAP", top10_mags_id))) %>%
+  mutate(across(where(is.numeric), scale)) %>%
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
+  select(where(~ !any(is.na(.))))
+
+# codes for calculating the effect size refer to wu et al. 2022:https://github.com/Linwei-Wu/warming_soil_biodiversity.
+library(lme4)
+library(lmerTest)
+top10_mags_S1_mag <- sapply(6:ncol(top10_mags_scale), function(j) {
+  if (length(unique(top10_mags_scale[, j])) < 3) {
+    result <- rep(NA, 23)
+  } else {
+    fm1 <- lmer(top10_mags_scale[, j] ~ Group + Time + Slope + MAP + (1 | Gully_id), data = top10_mags_scale)
+    
+    presult <- car::Anova(fm1, type = 2)
+    coefs <- coef(summary(fm1))[, "Estimate"]  ##four coefs
+    names(coefs) <- paste0(names(coefs), ".mean")
+    
+    SEvalues <- coef(summary(fm1))[, "Std. Error"]  ##standard errors
+    names(SEvalues) <- paste0(names(SEvalues), ".se")
+    
+    tvalues <- coef(summary(fm1))[, "t value"]  ##t values
+    names(tvalues) <- paste0(names(tvalues), ".t")
+    
+    chisqP <- c(presult[, 1], presult[, 3])
+    names(chisqP) <- c(paste0(row.names(presult), ".chisq"), paste0(row.names(presult), ".P"))
+    
+    result <- c(coefs, tvalues, SEvalues, chisqP)
+  }
+  result
+})
+colnames(top10_mags_S1_mag)<-colnames(top10_mags_scale)[-c(1:5)]
+data.frame(top10_mags_S1_mag)
+
+p.stars <- function(p.values) {
+  unclass(symnum(p.values, corr = FALSE, 
+                 na = FALSE, cutpoints = c(0, 0.001, 0.01, 0.05, 1),
+                 symbols = c("***", "**", "*", "n.s")))}
+
+# Add significance label
+sig_labels <- top10_mags_S1_mag %>% 
+  t() %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column(., "variables") %>%
+  mutate(sig = as.vector(unlist(lapply(Group.P, p.stars))),
+         x1 = top10_mags_id, y1 = rep(1.85, 10)) %>%
+  as.tibble()
+
+# Boxplot for the relative abundance of top 10 genus
+top10_mags_abun_df <- mags_abun_tab %>%
+  rownames_to_column("ID") %>%
+  left_join(mags_tax, by = "ID") %>%
+  select("Genus", starts_with("G")) %>%
+  mutate(Genus = gsub("g__", "", Genus)) %>%
+  filter(Genus %in% top10_mags_id) %>%
+  pivot_longer(-Genus, names_to = "Sample_name", values_to = "Rela_abun") %>%
+  mutate(Group = case_when(grepl("_C", Sample_name) ~ "Un-collapsed",
+                           grepl("_T", Sample_name) ~ "Collapsed"),
+         Genus = factor(Genus, levels = top10_mags_id)) %>%
+  mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed")))
+
+# plot
+library(ggpubr)
+top10_mags_box_plot <- ggplot(top10_mags_abun_df, aes(Genus, Rela_abun)) + 
+  geom_boxplot(width = 0.5, aes(fill = Group), 
+               outlier.color = NA, lwd = 0.5) +
+  scale_y_continuous(limits = c(0, 2)) +
+  scale_fill_manual(values = c("#79ceb8", "#e95f5c")) +
+  geom_text(data = sig_labels, aes(x = x1, y = y1, label = sig), 
+                      size = 3, inherit.aes = F) +
+  labs(x = 'Genera', y = 'Relative abundance (%)', fill = 'Group') +
+  theme_bw() +
+  guides(fill = guide_legend(keywidth = 0.5, keyheight = 0.5)) +
+  theme(axis.title = element_text(size = 8, colour = "black"),
+        axis.text.x = element_text(size = 6, colour = "black", 
+                                   angle = 45, vjust = 1, hjust = 1),
+        axis.text.y = element_text(size = 6, colour = "black"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6),
+        panel.grid = element_blank())
+top10_mags_box_plot
+
+# combine the two plots
+mags_num_plot <- cowplot::plot_grid(pie_for_mag_num_phylum, top10_mags_box_plot,
+                                    nrow = 1, labels = c("a", "b"), label_size = 7,
+                                    rel_widths = c(0.3, 0.7), align = "hv")
 # save the plot
-# ggsave(file.path(save.dir, "./figs/MAGs/mags_num_plot.pdf"),
-#        mags_num_plot, width = 8.9, height = 4.5, units = "in")
+# ggsave("E:/thermokarst_gully/revision/result/pie_for_mag_num_phylum.pdf",
+#        pie_for_mag_num_phylum, width = 90, height = 55, units = "mm")
+# ggsave("E:/thermokarst_gully/revision/result/top10_mags_box_plot.pdf",
+#        top10_mags_box_plot, width = 115, height = 55, units = "mm")
+
 
 # determine the effect size of the permafrost thawing on each MAG
 mags_abun <- mags_abun_tab %>% t() %>% as.data.frame() %>% 
@@ -177,26 +277,28 @@ lmm.fun <- function(data) {
 }
 
 mags_result_lmm <- lmm.fun(mags_scale)
-# write.table(mags_result_lmm, file = "E:/thermokarst_gully/result/tables/MAGs/diff_in_mags.csv", 
+nrow(mags_result_lmm %>% filter(eff.group == "Positive"))
+nrow(mags_result_lmm %>% filter(eff.group == "Negative"))
+# write.table(mags_result_lmm, file = "E:/thermokarst_gully/result/tables/MAGs/diff_in_mags.csv",
 #             sep = ",", col.names = NA, qmethod = "double")
 
 # Exploring the composition of the MAGs within significant positive and negative groups
 mags_tax_group_df <- mags_result_lmm %>% rownames_to_column("ID") %>% 
-  left_join(tax_bin, by = "ID") %>%
-  select(Class, eff.group) %>% 
+  left_join(mags_tax, by = "ID") %>%
+  select(Genus, eff.group) %>% 
   filter(eff.group %in% c("Positive", "Negative")) %>%
   mutate(Number = rep(1, nrow(.))) %>%
-  summarize(across(everything(), sum), .by = c(Class, eff.group)) %>%
-  mutate(Class = sapply(Class, function(x) gsub("c__", '', x, perl = TRUE))) %>%
-  mutate(Class = factor(Class),
-         Class = fct_reorder(Class, Number, .desc = T))
+  summarize(across(everything(), sum), .by = c(Genus, eff.group)) %>%
+  mutate(Genus = sapply(Genus, function(x) gsub("g__", '', x, perl = TRUE))) %>%
+  mutate(Genus = factor(Genus),
+         Genus = fct_reorder(Genus, Number, .desc = T))
 
 # loading the appropriate libraries
 library(ggplot2)
 library(webr)
 library(dplyr)
 library(RColorBrewer)
-PieDonut(mags_tax_group_df, aes(eff.group, Class, count = Number), 
+PieDonut(mags_tax_group_df, aes(eff.group, Genus, count = Number), 
          r0 = 0.45, r1 = 0.9, explode = 1)
 
 
@@ -223,45 +325,48 @@ MAGs_all_aatr <- mags.att %>% left_join(growth_rate, by = "Genome_id") %>%
 microtrait_results_metadata = microtrait::add.metadata(microtrait_results_metadata_norm, 
                                                        MAGs_all_aatr, genome_metadata_idcol = "Genome_id")
 # saveRDS(genomeset_results_wmetadata, file.path(base_dir, paste0(dataset, ".microtraitresults.rds")))
-
-
-strategy_vars <- c("Genome_size", "Max growth rate", "GC",  
+strategy_vars <- c("Genome_size", "Max growth rate",
                    "Resource Acquisition:Substrate degradation:complex carbohydrate depolymerization",
                    "Resource Acquisition:Substrate degradation:simple compound degradation",
                    "Resource Acquisition:Substrate uptake:carbohydrate transport",
                    "Resource Acquisition:Substrate uptake:N compound transport",
+                   "Resource Acquisition:Substrate uptake:organophosphorus transport",
                    "Resource Acquisition:Substrate assimilation:C1 compounds",
                    "Resource Acquisition:Substrate assimilation:N compounds",
-                   "Resource Use:Chemotrophy:chemolithoautotrophy",
+                   "Resource Acquisition:Substrate assimilation:P compounds",
                    "Resource Use:Chemotrophy:chemoorganoheterotrophy:aerobic respiration",
                    "Resource Use:Chemotrophy:chemolithoheterotrophy:anaerobic respiration",
                    "Resource Use:Chemotrophy:chemoorganoheterotrophy:fermentation",
-                   "Stress Tolerance:General",
-                   "Stress Tolerance:Specific:pH stress",
+                   "Resource Use:Chemotrophy:chemolithoautotrophy",
+                   "Resource Use:Phototrophy:photosystem",
                    "Stress Tolerance:Specific:temperature:low",
+                   "Stress Tolerance:Specific:pH stress",
                    "Stress Tolerance:Specific:desiccation/osmotic/salt stress",
-                   "Stress Tolerance:Specific:oxidative stress")
+                   "Stress Tolerance:Specific:oxidative stress",
+                   "Stress Tolerance:Specific:envelope stress")
 
 # writing a function to change the facet labels
 strategy_names <- list(
   "Genome_size" = "Genome size (Mb)",
   "Max growth rate" = expression(paste("Max growth rate", " (h"^-1, ")")),
-  "GC" = "GC content (%)",
   "Resource Acquisition:Substrate degradation:complex carbohydrate depolymerization" = "Complex carbohydrate depolymerization",
   "Resource Acquisition:Substrate degradation:simple compound degradation" = "Simple compound degradation",
   "Resource Acquisition:Substrate uptake:carbohydrate transport" = "Carbohydrate transport",
   "Resource Acquisition:Substrate uptake:N compound transport" = "N compound transport",
+  "Resource Acquisition.Substrate uptake:organophosphorus transport" = "Organophosphorus transport",
   "Resource Acquisition:Substrate assimilation:C1 compounds" = "C1 compounds assimilation",
   "Resource Acquisition:Substrate assimilation:N compounds" = "N compounds assimilation",
-  "Resource Use:Chemotrophy:chemolithoautotrophy" = "Chemolithoautotrophy",
+  "Resource Acquisition.Substrate assimilation:P compounds" = "P compounds assimilation",
   "Resource Use:Chemotrophy:chemoorganoheterotrophy:aerobic respiration" = "Aerobic respiration", 
   "Resource Use:Chemotrophy:chemolithoheterotrophy:anaerobic respiration" = "Anaerobic respiration", 
   "Resource Use:Chemotrophy:chemoorganoheterotrophy:fermentation" = "Fermentation",
-  "Stress Tolerance:General" = "General stress tolerance", 
-  "Stress Tolerance:Specific:pH stress" = "pH stress",
+  "Resource Use:Chemotrophy:chemolithoautotrophy" = "Chemolithoautotrophy",
+  "Resource Use:Phototrophy:photosystem" = "Photosystem",
   "Stress Tolerance:Specific:temperature:low" = "Low temperature stress",
+  "Stress Tolerance:Specific:pH stress" = "pH stress",
   "Stress Tolerance:Specific:desiccation/osmotic/salt stress" = "Desiccation/osmotic/salt stress", 
-  "Stress Tolerance:Specific:oxidative stress" = "Oxidative stress")
+  "Stress Tolerance:Specific:oxidative stress" = "Oxidative stress",
+  "Stress Tolerance:Specific:envelope stress" = "Envelope stress")
 
 facet_labeller <- function(variable,value){
   return(strategy_names[value])
@@ -271,20 +376,6 @@ facet_labeller <- function(variable,value){
 library(gghalves)
 library(ggpubr)
 # seting the main theme for ploting
-main_theme = theme_bw() + 
-  theme(panel.grid = element_blank(),
-        panel.border = element_rect(size = 0.5),
-        strip.text = element_text(colour = 'black', size = 6),
-        strip.background = element_rect(colour = 'black', fill = 'grey'),
-        axis.title = element_text(color = 'black',size = 6),
-        axis.ticks = element_line(color = "black", linewidth = 0.5),
-        axis.text.y = element_text(colour = 'black', size = 6),
-        axis.text.x = element_text(colour = 'black', size = 6),
-        legend.title = element_text(colour = 'black', size = 6),
-        legend.text = element_text(colour = 'black', size = 6),
-        legend.key.size = unit(0.5, 'cm'))
-
-
 my_comparisons <- list(c('Negative', 'Positive'))
 microtraits_comparison <- microtrait_results_metadata$trait_matrixatgranularity1 %>% 
   select(c("eff.group", all_of(strategy_vars))) %>%
@@ -294,24 +385,27 @@ microtraits_comparison <- microtrait_results_metadata$trait_matrixatgranularity1
   mutate(mag.attrs = factor(mag.attrs, levels = strategy_vars)) %>%
   ggplot(aes(eff.group, value, fill = eff.group)) +
   geom_half_violin(position = position_nudge(x = 0.25), 
-                   side = "r", width = 0.6, color = NA, alpha = 0.75) +
+                   side = "r", width = 0.6, color = NA, alpha = 0.65) +
   # geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
-  geom_jitter(aes(fill = eff.group), size = 1.5, 
-              width = 0.15, stroke = 0, pch = 21, alpha = 0.75) +
+  geom_jitter(aes(fill = eff.group, colour = eff.group), 
+              shape = 16, size = 0.5,
+              width = 0.15, alpha = 0.65) +
   stat_summary(fun = median, geom = "crossbar", width = 0.35, linewidth = 0.25) +
   stat_compare_means(comparisons = my_comparisons, paired = F,
                      p.adjust.method = "BH", label = "p.signif", 
-                     bracket.size = 0.5, bracket.width = 0.1,  size = 3.5,
+                     bracket.size = 0.25, bracket.width = 0.1,  size = 2.5,
                      tip.length = 0.00, method = "wilcox.test") +
-  scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
+  scale_y_continuous(expand = expansion(mult = c(0.05, 0.15))) +
   labs(x = NULL, y = NULL) +
   scale_fill_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
-  facet_wrap(~mag.attrs, scales = "free_y", ncol = 6, labeller = facet_labeller) + #
+  scale_color_manual(values = c("#79ceb8", "#e95f5c", "#5cc3e8", "#ffdb00")) +
+  facet_wrap(~mag.attrs, scales = "free_y", ncol = 5, labeller = facet_labeller) + #
   main_theme +
   theme(legend.position = "none",
+        strip.text = element_text(colour = 'black', size = 5),
         strip.text.x = element_text(margin = margin(0.05, 0, 0.05, 0, "cm")))
-# ggsave(file.path(save.dir, "./figs/MAGs/microtraits_comparison.pdf"),
-#        microtraits_comparison, width = 8.9, height = 4.5, units = "in")
+ggsave("E:/thermokarst_gully/revision/result/microtraits_comparison_基于丰度.pdf",
+       microtraits_comparison, width = 170, height = 120, units = "mm")
 
 microtraits_comparison
 

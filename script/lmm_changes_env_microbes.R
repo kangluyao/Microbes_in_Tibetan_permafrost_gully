@@ -92,13 +92,17 @@ env_plot <- env_stats %>%
         legend.text = element_text(colour = 'black', size = 7),
         legend.key.size = unit(0.5, 'cm'))
 
-lines <- tibble(variable = factor(c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
+lines <- tibble(variable = factor(c("Plant_richness", "AGB", "pH", 
+                                    "Soil_moisture", "Clay_Silt", "SOC", 
+                                    "NH4_N", "NO3_N", "AP"), levels = env_vars),
                 x = c(1, 1, 1, 1, 1, 1, 1, 1, 1),
                 xend = c(2, 2, 2, 2, 2, 2, 2, 2, 2),
                 y = c(17, 270, 8, 220, 72, 185, 19, 40, 2.4),
                 yend = c(17, 270, 8, 220, 72, 185, 19, 40, 2.4)
 )
-stars <- tibble(variable = factor(c("Plant_richness", "AGB", "pH", "Soil_moisture", "Clay_Silt", "SOC", "NH4_N", "NO3_N", "AP"), levels = env_vars),
+stars <- tibble(variable = factor(c("Plant_richness", "AGB", "pH", 
+                                    "Soil_moisture", "Clay_Silt", "SOC", 
+                                    "NH4_N", "NO3_N", "AP"), levels = env_vars),
                 x1 = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
                 y1 = c(0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95, 0.95),
                 sig.labels = env_result_lmm %>% filter(fixed_factors == "Group") %>%
@@ -183,7 +187,7 @@ env_dist_plot <- env_dis_plot_df %>%
   mutate(Group = factor(Group, levels = c("Un-collapsed", "Collapsed"))) %>%
   ggplot(aes(Group, distance, fill = Group)) +
   geom_half_violin(position = position_nudge(x = 0.25), side = "r", width = 0.8, color = NA) +
-  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
+  geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA, lwd = 0.5) +
   geom_jitter(aes(fill = Group), shape = 21, size = 1.5, width = 0.2) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) + 
   ggpp::geom_text_npc(aes(npcx = 0.5, npcy = 0.95, label = "**")) +
@@ -233,8 +237,8 @@ library(vegan)
 # Determine the microbial dissimilarity matrix based on the bray-curties distance
 tax_16s_hell_trans <- decostand(t(otu_16s), method = "hellinger")
 tax_16s_dist <-vegdist(tax_16s_hell_trans, "bray")
-tax_its_hell_trans <- decostand(t(otu_its), method = "hellinger")
-tax_its_dist <-vegdist(tax_its_hell_trans, "bray")
+tax_singlem_hell_trans <- decostand(t(singlem_genu), method = "hellinger")
+tax_singlem_dist <-vegdist(tax_singlem_hell_trans, "bray")
 
 fun_dist <-vegdist(t(ko_tpm_table), "bray" )
 

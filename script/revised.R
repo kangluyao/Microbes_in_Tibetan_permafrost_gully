@@ -54,33 +54,40 @@ main_theme = theme_bw() +
         legend.text = element_text(colour = 'black', size = 6),
         legend.key.size = unit(0.5, 'cm'))
 
-seq_depth %>%
-  pivot_longer(cols = -Sample, names_to = "variable", values_to = "value") %>%
-  mutate(variable = factor(variable, levels = c(
-    "16S_clean_tags_per_sample", 
-    "ITS_clean_tags_per_sample",
-    "Depth (GB)", 
-    "contig_mapping (%)",
-    "MAG_mapping rate"
-  ))) %>%
-  group_by(variable) %>%
-  summarise(
-    mean_value = mean(value, na.rm = TRUE), # Calculate mean of mpg
-    sd_value = sd(value, na.rm = TRUE),     # Calculate standard deviation of mpg
-    n_value = n(),                        # Count the number of observations
-    se_value = sd_value / sqrt(n_value),      # Calculate standard error
-    .groups = "drop"                    # Ungroup the data frame after summarising
-  )
+basic_sequencing_stat <- rbind(seq_depth %>%
+                                 pivot_longer(cols = -Sample, names_to = "variable", values_to = "value") %>%
+                                 select(variable, value), 
+                               data.frame(variable = rep("Completeness", nrow(mags_att)), 
+                                          value = mags_att$Completeness),
+                               data.frame(variable = rep("Contamination", nrow(mags_att)), 
+                                          value = mags_att$Contamination)) %>%
+  filter(variable %in% c("16S_clean_tags_per_sample", 
+                         "Depth (GB)", 
+                         "contig_mapping (%)",
+                         "MAG_mapping rate",
+                         "Completeness",
+                         "Contamination")) %>%
+  mutate(variable = factor(variable, levels = c("16S_clean_tags_per_sample", 
+                                                "Depth (GB)", 
+                                                "contig_mapping (%)",
+                                                "MAG_mapping rate",
+                                                "Completeness",
+                                                "Contamination")))
 
-seq_depth %>%
-  pivot_longer(cols = -Sample, names_to = "variable", values_to = "value") %>%
-  mutate(variable = factor(variable, levels = c(
-    "16S_clean_tags_per_sample", 
-    "ITS_clean_tags_per_sample",
-    "Depth (GB)", 
-    "contig_mapping (%)",
-    "MAG_mapping rate"
-  ))) %>%
+basic_sequencing_stat %>%
+     group_by(variable) %>%
+     summarise(
+         mean_value = mean(value, na.rm = TRUE), # Calculate mean of mpg
+         sd_value = sd(value, na.rm = TRUE),     # Calculate standard deviation of mpg
+         n_value = n(),                        # Count the number of observations
+         se_value = sd_value / sqrt(n_value),      # Calculate standard error
+         .groups = "drop"                    # Ungroup the data frame after summarising
+       )
+
+# plot
+library(gghalves)
+library(ggpubr)
+basic_sequencing_stat_plot <- basic_sequencing_stat %>%
   ggplot(aes(x = 1, y = value)) + 
   geom_half_violin(
     fill = "#79ceb8", 
@@ -93,13 +100,14 @@ seq_depth %>%
     fill = "#e95f5c", 
     width = 0.01, 
     size = 1.2, 
+    lwd = 0.5,
     outlier.color = NA, 
     position = position_nudge(x = 0.01)
   ) + 
   geom_jitter(
-    fill = "#5cc3e8",
-    shape = 21, 
-    size = 3, 
+    color = "#e95f5c",
+    shape = 16, 
+    size = 1, 
     stroke = 0.5,
     width = 0.01, 
     alpha = 0.5
@@ -110,9 +118,12 @@ seq_depth %>%
   theme_bw() +
   main_theme
 
+ggsave(file.path("E:/thermokarst_gully/revision/result/basic_sequencing_stat_plot.pdf"),
+       basic_sequencing_stat_plot, width = 120, height = 80, units = "mm")
+
+
+
 # Explore the MAGs completeness and contamination distributions
-library(gghalves)
-library(ggpubr)
 
 mags_att %>%
   summarise(
@@ -131,6 +142,12 @@ mags_att %>%
     se_value = sd_value / sqrt(n_value),      # Calculate standard error
     .groups = "drop"                    # Ungroup the data frame after summarising
   )
+
+
+
+
+
+
 
 
 p1 <- ggplot(mags_att, aes(Completeness, Contamination)) + 

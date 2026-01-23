@@ -7,6 +7,7 @@ pacman::p_load(phyloseq, ape, vegan, Biostrings,
                microbiome, tidytable, tidyverse, rstatix, networkD3)
 # read data
 source("script/read_data.R")
+source("script/functions.R")
 
 ###### Composition analysis #######
 # extract the taxa at phylum level for bacteria

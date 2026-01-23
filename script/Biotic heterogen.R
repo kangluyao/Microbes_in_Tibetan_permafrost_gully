@@ -9,8 +9,10 @@ source("script/read_data.R")
 ## Test the overall difference in the taxonomic and functional composition.
 library(vegan)
 #determine the dissimilarity matrix based on the bray-curties distance
-tax_16s_dist <-vegdist(t(otu_16s), "bray")
-tax_its_dist <-vegdist(t(otu_its), "bray")
+commu_16s <- t(otu_16s)
+commu_its <- t(otu_its)
+tax_16s_dist <-vegdist(commu_16s, "bray")
+tax_its_dist <-vegdist(commu_its, "bray")
 #permanova test the difference in compositional variance
 adonis2(tax_16s_dist ~ Group, data = metadata)
 adonis2(tax_its_dist ~ Group, data = metadata)
@@ -59,6 +61,33 @@ pcoa_its_plot <- data.frame(Group = metadata$Group, scores(ord.its)) %>%
         panel.border = element_rect(fill = NA, colour = "black"))
 pcoa_tax <- cowplot::plot_grid(pcoa_16s_plot, pcoa_its_plot, ncol = 2)
 pcoa_tax
+
+# --- β dispersion ---
+treatment <- metadata$Group
+block <- metadata$Gully_id
+
+# --- 1) Beta-diversity decomposition ---
+# For abundance data
+library(betapart)
+bpair_16s_abund <- beta.pair.abund(commu_16s, index.family = "bray")
+bpair_its_abund <- beta.pair.abund(commu_its, index.family = "bray")
+# Convert to dist objects for betadisper()
+dist_16s <- as.dist(bpair_16s_abund$beta.bray)
+dist_its <- as.dist(bpair_its_abund$beta.bray)
+
+# --- 2) Calculate dispersion (distance to group centroid) for each treatment ---
+bd_16s <- betadisper(dist_16s, treatment)
+bd_its <- betadisper(dist_its, treatment)
+
+# --- 3) Permutation test with block-constrained randomization ---
+# Create permutation control object
+# Permutations are restricted within each block (so that treatment labels are shuffled only within blocks)
+ctrl_how <- how(nperm = 999, blocks = block, within = Within(type = "free"))
+
+# Run permutational tests
+set.seed(123)
+pt_16s <- permutest(bd_16s, permutations = ctrl_how)
+pt_its <- permutest(bd_its, permutations = ctrl_how)
 
 ## Explore the difference in taxonomic variance between uncollapsed and collapsed soils
 vars <- c('G1_C', 'G1_T', 'G2_C', 'G2_T', 'G3_C', 'G3_T', 'G4_C', 
