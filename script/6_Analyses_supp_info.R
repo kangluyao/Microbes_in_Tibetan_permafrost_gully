@@ -426,6 +426,59 @@ fit_glmm_batch <- function(responses, data,
   })
 }
 
+run_glmm_workflow <- function(label, responses, data, fixed_terms,
+                              family, scale_vars = NULL,
+                              drop_invalid = FALSE, min_unique = 1,
+                              random_term = "(1 | Gully_id)",
+                              ziformula = ~0, n_sim = dharma_n_sim) {
+  if (!is.null(scale_vars)) data <- scale_covariates(data, scale_vars)
+  
+  if (drop_invalid) {
+    valid <- map_lgl(responses, \(v) !anyNA(scale(data[[v]])))
+    if (any(!valid)) {
+      message(
+        "[", label, "] dropped constant/NA responses: ",
+        paste(responses[!valid], collapse = ", ")
+      )
+    }
+    responses <- responses[valid]
+  }
+  
+  support <- summarise_response_support(data, responses)
+  fits <- fit_glmm_batch(responses, data,
+                         fixed_terms = fixed_terms, random_term = random_term,
+                         family = family, ziformula = ziformula, min_unique = min_unique
+  )
+  
+  effects <- extract_glmm_effects(fits)
+  group_effects <- extract_group_pvals(fits)
+  fitted_ok <- compact(fits)
+  dharma <- run_dharma_diagnostics(fitted_ok, n_sim = n_sim)
+  diagnostics <- check_glmm_convergence(fits) %>%
+    left_join(support, by = "id") %>%
+    left_join(dharma$diagnostics, by = "id")
+  
+  message(sprintf(
+    "[%s] %d/%d models fitted | not converged or non-PD Hessian: %d | DHARMa dispersion p<0.05: %d | uniformity p<0.05: %d",
+    label, length(fitted_ok), length(responses),
+    sum(!diagnostics$converged | !diagnostics$pd_hessian, na.rm = TRUE),
+    sum(diagnostics$dispersion_p < 0.05, na.rm = TRUE),
+    sum(diagnostics$ks_p < 0.05, na.rm = TRUE)
+  ))
+  
+  if (save_outputs) {
+    dir.create(diag_dir, recursive = TRUE, showWarnings = FALSE)
+    save_table(as_tibble(effects, rownames = "effect"), paste0("glmm_effects_", label, ".csv"))
+    save_table(group_effects, paste0("glmm_group_effects_BH_", label, ".csv"))
+    readr::write_csv(diagnostics, file.path(diag_dir, paste0("glmm_diagnostics_", label, ".csv")))
+    save_dharma_plots(dharma$residuals, file.path(diag_dir, paste0("dharma_", label, ".pdf")))
+  }
+  
+  list(
+    fits = fits, effects = effects, group_effects = group_effects,
+    diagnostics = diagnostics, dharma = dharma$residuals
+  )
+}
 ## 0.7 Effect-size plot helper (used for pathways and C/N/S/other genes) ------------------
 #' Axis limit of an effect-size plot: the original fixed limit (`min_limit`),
 #' expanded in steps of 0.5 when log-ratio effects need more room.
@@ -716,7 +769,7 @@ mags_num_plot <- cowplot::plot_grid(
   nrow = 2, labels = c("a", "b"), label_size = 7,
   rel_widths = c(0.3, 0.7), align = "hv"
 )
-
+mags_num_plot
 # save_plot(pie_for_mag_num_phylum, "pie_for_mag_num_phylum.pdf", 90, 55, "mm")
 # save_plot(top10_mags_box_plot, "top10_mags_box_plot.pdf", 115, 55, "mm")
 
