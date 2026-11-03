@@ -291,6 +291,23 @@ fit_glmm_batch <- function(responses, data,
   })
 }
 
+# fit_glmm_batch <- function(responses, data,
+#                            fixed_terms = "Group",
+#                            random_term = "(1 | Gully_id)",
+#                            family, ziformula = ~0) {
+#   map(set_names(responses), function(v) {
+#     formula_v <- reformulate(c(fixed_terms, random_term),
+#                              response = paste0("`", v, "`"))
+#     tryCatch(
+#       glmmTMB(formula_v, data = data, family = family, ziformula = ziformula),
+#       error = function(e) {
+#         message(v, ": model failed - ", conditionMessage(e))
+#         NULL
+#       }
+#     )
+#   })
+# }
+
 #' Wald chi-square tests (Type II) and Group-coefficient summary of all models,
 #' returned as a matrix with one column per response (NA for failed models).
 #' Row names follow the convention of the original script:
@@ -409,23 +426,6 @@ save_dharma_plots <- function(dharma_res, file) {
 #' @param min_unique Skip responses with fewer distinct values (NA results).
 #' @return List with fits, effects (matrix), group_effects (BH table),
 #'   diagnostics (table) and dharma (residual objects).
-fit_glmm_batch <- function(responses, data,
-                           fixed_terms = "Group",
-                           random_term = "(1 | Gully_id)",
-                           family, ziformula = ~0) {
-  map(set_names(responses), function(v) {
-    formula_v <- reformulate(c(fixed_terms, random_term),
-                             response = paste0("`", v, "`"))
-    tryCatch(
-      glmmTMB(formula_v, data = data, family = family, ziformula = ziformula),
-      error = function(e) {
-        message(v, ": model failed - ", conditionMessage(e))
-        NULL
-      }
-    )
-  })
-}
-
 run_glmm_workflow <- function(label, responses, data, fixed_terms,
                               family, scale_vars = NULL,
                               drop_invalid = FALSE, min_unique = 1,
@@ -715,6 +715,26 @@ top10_mags_meta <- mags_genus_abun %>%
 top10_mags_model_data <- top10_mags_meta %>%
   select(all_of(c("Group", "Gully_id", top10_mags_id))) %>%
   mutate(Group = factor(Group, levels = group_levels))
+
+top10_glmm <- run_glmm_workflow(
+  label = "top10_mags",
+  responses = top10_mags_id,
+  data = top10_mags_model_data,
+  fixed_terms = glmm_fixed_terms,
+  family = tweedie(link = "log")
+)
+
+top10_result_glmm <- top10_glmm$group_effects %>%
+  transmute(
+    Variables = id,
+    fixed_factors = "Group",
+    estimate, std.error,
+    p.value,
+    p.adj,
+    sig = p_to_stars(p.value, ns_label = "ns")
+  )
+top10_result_glmm
+
 
 top10_glmm <- fit_glmm_batch(top10_mags_id, top10_mags_model_data,
                            family = tweedie(link = "log"))
@@ -1036,9 +1056,6 @@ diff_in_pathway_plot
 sel_ko <- read_csv(sel_ko_file, col_names = TRUE, show_col_types = FALSE)
 
 # Count table of the selected KOs (kept from the original; not used below)
-C_N_ko_count_tab <- ko_count_table[rownames(ko_count_table) %in% sel_ko$KO, ]
-C_N_ko_count_tab <- cbind(KO = rownames(C_N_ko_count_tab), C_N_ko_count_tab)
-
 C_N_ko_tpm_tab <- ko_tpm_table[rownames(ko_tpm_table) %in% sel_ko$KO, ]
 C_N_ko_tpm_tab <- cbind(KO = rownames(C_N_ko_tpm_tab), C_N_ko_tpm_tab)
 
@@ -1065,8 +1082,6 @@ if (!identical(as.character(metadata$Sample_name), colnames(C_N_path2))) {
 
 ## 2.9 GLMM: effect of collapse on functional-gene abundance -------------------------------
 # Response : summed TPM per enzyme / protein.
-# Original : lmer(scaled TPM ~ Group + Time + Slope + MAP + (1 | Gully_id)).
-# GLMM     : covariates removed, i.e. TPM ~ Group + (1 | Gully_id).
 # GLMM     : glmmTMB, Gamma(log) if all values > 0, otherwise Tweedie(log)
 #            (rare genes frequently contain zeros); random effect (1 | Gully_id).
 #            Constant responses are dropped and responses with fewer than 3
@@ -1078,19 +1093,6 @@ functional_gene_data <- data.frame(
 ) %>%
   mutate(Group = factor(Group, levels = group_levels))
 
-functional_gene_glmm <- fit_glmm_batch(rownames(C_N_path2), functional_gene_data,
-                                       family = ziGamma(link = "log"))
-
-functional_gene_pvals <- extract_group_pvals(functional_gene_glmm)
-print(functional_gene_pvals)
-
-functional_gene_diag <- run_dharma_diagnostics(functional_gene_glmm)
-print(functional_gene_diag$diagnostics)
-
-functional_gene_effects <- extract_glmm_effects(functional_gene_glmm)
-functional_gene_effects[1:min(6, nrow(functional_gene_effects)), 1:min(6, ncol(functional_gene_effects))]
-
-
 functional_gene_glmm <- run_glmm_workflow(
   label = "functional_genes",
   responses = rownames(C_N_path2),
@@ -1099,10 +1101,21 @@ functional_gene_glmm <- run_glmm_workflow(
   family = family_nonneg_continuous,
   drop_invalid = TRUE,
   min_unique = 3
-)
+  )
+
 functional_gene_effects <- functional_gene_glmm$effects
 functional_gene_effects[1:min(6, nrow(functional_gene_effects)), 1:min(6, ncol(functional_gene_effects))]
 
+functional_gene_result_glmm <- functional_gene_glmm$group_effects %>%
+  transmute(
+    Variables = id,
+    fixed_factors = "Group",
+    estimate, std.error,
+    p.value,
+    p.adj,
+    sig = p_to_stars(p.value, ns_label = "ns")
+  )
+functional_gene_result_glmm
 ## 2.10 Effect-size plots for functional genes ---------------------------------------------
 # Gene names in plotting order, per element cycle
 C_names <- c(
@@ -1131,10 +1144,7 @@ S_names <- c(
   "hydG", "psrA", "psrB", "psrC", "sqr", "fccA", "fccB", "soxD", "soxX", "soxA", "soxB",
   "soxC", "soxY", "soxZ", "ttrA", "ttrB", "ttrC", "phsA", "phsB", "phsC"
 )
-Other_names <- c(
-  "Cyc1", "Cyc2", "MtrA", "MtrB", "MtrC", "arsC (grx)", "arsC (trx)",
-  "aioA", "arsM", "ygfM", "xdhD", "YgfK"
-)
+
 
 # Background bands (axis positions) copied from the original script. The bands of
 # the nitrogen, sulfur and other-element plots are identical to each other and
@@ -1160,12 +1170,13 @@ other_bands <- make_bands(
 
 eff.size_carbon_plot <- plot_effect_sizes(
   functional_gene_effects, C_names, carbon_bands,
-  style = "bar", errorbar_width = 0.5
+  style = "bar", errorbar_width = 0.5, min_limit = 1
 )
 eff.size_carbon_plot
 
 eff.size_nitrogen_plot <- plot_effect_sizes(
-  functional_gene_effects, N_names, nitrogen_bands, style = "point"
+  functional_gene_effects, N_names, nitrogen_bands, 
+  style = "point", min_limit = 2
 )
 eff.size_nitrogen_plot
 
@@ -1174,12 +1185,7 @@ eff.size_sulfur_plot <- plot_effect_sizes(
 )
 eff.size_sulfur_plot
 
-eff.size_other_plot <- plot_effect_sizes(
-  functional_gene_effects, Other_names, other_bands, style = "point"
-)
-eff.size_other_plot
-
-save_plot(eff.size_carbon_plot, "eff.size_carbon_plot.pdf", 5.5, 2.5)
+# save_plot(eff.size_carbon_plot, "eff.size_carbon_plot.pdf", 5.5, 2.5)
 
 
 # 3. ENVIRONMENTAL FACTORS -----------------------------------------------------------------
