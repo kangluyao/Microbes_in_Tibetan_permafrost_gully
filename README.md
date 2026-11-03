@@ -1,6 +1,5 @@
 # Microbial profiles in thermo-erosion gullies on the Tibetan plateau
 
-This depository contains the data and code used in the study "Microbial profiles in thermo-erosion gullies on the Tibetan plateau" published in *Nature Communications*. 
 The study investigates the microbial communities in thermo-erosion gullies on the Tibetan plateau, focusing on their diversity, composition, and potential ecological functions.
 
 ## Code structure
