@@ -348,8 +348,8 @@ venn_singlem
 # 8. Alpha diversity ==========================================================
 
 ## 8.1 Diversity indices ------------------------------------------------------
-# Matrix form of the genus table (taxa x samples) for vegan functions
-singlem_genu_mat <- as.matrix(singlem_genu)
+# Matrix form of the genus table for vegan functions
+singlem_genu_mat <- as.matrix(singlem_genu) # taxa x samples
 
 # Determine richness, Shannon diversity and Pielou's evenness for each sample.
 shannon  <- diversity(t(singlem_genu_mat), index = "shannon")
