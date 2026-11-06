@@ -87,7 +87,6 @@ fit_glmm_batch <- function(responses, data,
 #' Extract fixed-effect coefficients for a given term (default: "Group")
 #' from a named list of fitted models, with Benjamini-Hochberg (FDR)
 #' correction across all models in the list.
-#' `component` selects "cond" (conditional model) or "zi" (zero-inflation part).
 extract_group_pvals <- function(fits, term_pattern = "^Group",
                                 component = "cond") {
   map_dfr(fits, tidy, effects = "fixed", .id = "id") |>
