@@ -38,9 +38,6 @@ wd_fun <- file.path(getwd(),"data/metagenome")
 # if (!dir.exists(wd_fun)) {
 #   dir.create(wd_fun)
 # }
-ko_tpm_table <- read.delim(file.path(wd_fun, "./eggnog.KEGG_ko.raw.txt"), 
-                           header = T, row.names = 1, sep = "\t")
-ko_tpm_table <- ko_tpm_table[, metadata$Sample_name[metadata$Sample_name %in% colnames(ko_tpm_table)]]
 
 # Reading genome data
 # abundance_tab.file <- file.path(wd_fun, "MAGs/bin_abundance_coverm.txt")

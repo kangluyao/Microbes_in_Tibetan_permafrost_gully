@@ -2,16 +2,6 @@
 # 16S rRNA gene community analysis: composition, diversity and beta diversity
 # of Collapsed vs. Un-collapsed gullies
 # =============================================================================
-# Purpose : Describe the phylum-level composition, shared genera, alpha
-#           diversity, community composition (PERMANOVA, PCoA) and beta
-#           dispersion of the 16S communities in Collapsed and Un-collapsed
-#           samples.
-# Design  : Samples are nested in gullies (Gully_id), so Gully_id is a random
-#           intercept in the GLMMs and a permutation block in PERMANOVA and
-#           the dispersion test.
-# Inputs  : script/0.read_data.R (sourced)
-# Outputs : Figures (ggsave calls are commented out) and printed model tables.
-#
 # Sections
 #   1. Setup (paths, parameters, packages, plot theme)
 #   2. Data input
@@ -29,9 +19,9 @@ rm(list = ls())  # start from a clean workspace
 
 ## 1.1 Paths and parameters ---------------------------------------------------
 project_dir <- "E:/thermokarst_gully"
-setwd(project_dir)  # needed because the source() call below uses a relative path
+setwd(project_dir)
 
-save.dir   <- file.path(getwd(), "result")  # kept from the original script
+save.dir   <- file.path(getwd(), "result")
 result_dir <- file.path(project_dir, "revision/result")  # figures
 
 group_levels <- c("Un-collapsed", "Collapsed")  # reference level first
@@ -45,9 +35,9 @@ library(ggplot2)
 library(dplyr)
 library(stringr)
 library(ggsci)
-library(tidyr)        # pivot_longer(), gather(); not loaded in the original
+library(tidyr)        # pivot_longer(), gather()
 library(tibble)       # rownames_to_column()
-library(betapart)     # beta.pair.abund(); not loaded in the original
+library(betapart)     # beta.pair.abund()
 library(ggvenn)
 library(car)          # logit() transform for bounded [0, 1] data
 library(glmmTMB)      # generalized linear mixed models
@@ -80,10 +70,7 @@ source("script/0.read_data.R")
 
 # 3. Helper functions =========================================================
 
-#' Fit one glmmTMB model per response variable in `responses`.
-#' Each call is wrapped in tryCatch so that one failing model does not stop
-#' the loop. Response names are back-tick quoted to safely handle illegal
-#' characters (e.g. "Fen-183", which R would otherwise parse as "Fen - 183").
+# Fit one glmmTMB model per response variable in `responses`.
 fit_glmm_batch <- function(responses, data,
                            fixed_terms = "Group",
                            random_term = "(1 | Gully_id)",
@@ -173,8 +160,7 @@ phyla_group_ave_df <- phyla_df |>
             .groups = "drop")
 
 ## 4.2 Top phyla --------------------------------------------------------------
-# Top phyla by summed group-mean abundance; "Unassigned" is excluded from the
-# ranking (it is then pooled into "Others" in the plot)
+# Top phyla by summed group-mean abundance
 top_taxa <- phyla_group_ave_df |>
   group_by(taxonomy) |>
   summarise(total = sum(Relative_abundance_mean)) |>
@@ -208,8 +194,7 @@ composition_plot
 # Rarefied OTU table, transposed to samples x OTUs
 otu_16s_rare_mat <- as.matrix(t(otu_16s_rare))
 
-# Overview table (not used downstream; the same indices are recomputed in
-# `div_table` below together with the sample metadata)
+# Overview table
 shannon  <- diversity(otu_16s_rare_mat, index = "shannon")
 richness <- specnumber(otu_16s_rare_mat)
 alpha_div <- data.frame(
@@ -250,12 +235,8 @@ print(div_pvals)
 
 div_diag <- run_dharma_diagnostics(fits.div)
 print(div_diag$diagnostics)
-# iwalk(div_diag$residuals, \(res, v) plot(res, main = v))
 
 ## 5.3 Plot -------------------------------------------------------------------
-# WARNING: the P labels are typed by hand (as in the original script) and are
-# not linked to `div_pvals`; check them against the printed table. Order:
-# Richness, Shannon, Evenness.
 sig_labs_div <- tibble(
   Index = factor(div_index, levels = div_index),
   P     = div_pvals[["p.adj"]],

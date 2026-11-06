@@ -1,16 +1,6 @@
 # =============================================================================
 # SingleM community analysis: collapsed vs. un-collapsed thermokarst gullies
 # =============================================================================
-# Purpose : Compare microbial community composition, differential abundance,
-#           alpha diversity and beta diversity (SingleM profiles) between
-#           Collapsed (sample suffix "_T") and Un-collapsed ("_C") samples.
-# Design  : Samples are clustered within gullies (Gully_id), so Gully_id is
-#           treated as a random intercept (GLMMs) or as a permutation block
-#           (PERMANOVA).
-# Inputs  : - script/0.read_data.R, script/0.functions.R (sourced)
-#           - SingleM tables: gully-phylum.tsv, gully-genus.tsv
-# Outputs : Figures (ggsave calls are commented out) and printed model tables.
-#
 # Sections
 #   1. Setup (paths, parameters, packages)
 #   2. Helper functions
@@ -30,11 +20,11 @@ rm(list = ls())  # start from a clean workspace
 
 ## 1.1 Paths and parameters ---------------------------------------------------
 project_dir <- "E:/thermokarst_gully"
-setwd(project_dir)  # needed because the source() calls below use relative paths
+setwd(project_dir)  
 
-save.dir    <- file.path(getwd(), "result")  # kept from the original script
+save.dir    <- file.path(getwd(), "result")
 singlem_dir <- file.path(project_dir, "data/metagenome/singlem")
-fig_dir     <- file.path(project_dir, "revision/result")  # used by ggsave()
+fig_dir     <- file.path(project_dir, "revision/result")
 
 group_levels <- c("Un-collapsed", "Collapsed")  # reference level first
 n_top_taxa   <- 10                              # taxa shown / modelled
@@ -76,10 +66,7 @@ group_colors <- c("Un-collapsed" = "#79ceb8", "Collapsed" = "#e95f5c")
 
 ## 2.1 Model fitting and diagnostics ------------------------------------------
 
-#' Fit one glmmTMB model per response variable in `responses`.
-#' Each call is wrapped in tryCatch so that one failing model does not stop
-#' the loop. Response names are back-tick quoted to safely handle illegal
-#' characters (e.g. "Fen-183", which R would otherwise parse as "Fen - 183").
+# Fit one glmmTMB model per response variable in `responses`.
 fit_glmm_batch <- function(responses, data,
                            fixed_terms = "Group",
                            random_term = "(1 | Gully_id)",
@@ -147,8 +134,7 @@ read_singlem_table <- function(file, rank_prefix) {
     column_to_rownames("taxonomy")
 }
 
-#' Convert a taxa-by-sample table to long format and assign the land-type
-#' group from the sample-name suffix ("_C" = Un-collapsed, "_T" = Collapsed).
+# Convert a taxa-by-sample table to long format
 to_long_abundance <- function(abundance) {
   abundance |>
     rownames_to_column("taxonomy") |>
@@ -159,7 +145,7 @@ to_long_abundance <- function(abundance) {
            Group = factor(Group, levels = group_levels))
 }
 
-#' Mean, SD and n of relative abundance for each taxon within each group.
+# Mean, SD and n of relative abundance for each taxon within each group.
 summarise_by_group <- function(long_df) {
   long_df |>
     group_by(Group, taxonomy) |>
@@ -170,7 +156,7 @@ summarise_by_group <- function(long_df) {
               .groups = "drop")
 }
 
-#' Names of the `n` taxa with the highest summed group-mean abundance.
+# Names of the `n` taxa with the highest summed group-mean abundance.
 select_top_taxa <- function(group_mean_df, n = n_top_taxa) {
   group_mean_df |>
     group_by(taxonomy) |>
@@ -213,8 +199,7 @@ composition_plot
 # 5. Phylum-level differential abundance ======================================
 # Beta-regression GLMM (logit link) per phylum, with Gully_id as a random
 # intercept. Beta regression requires responses strictly within (0, 1), so
-# percentages are converted to proportions (no boundary adjustment is applied
-# to phyla, unlike genera in section 7).
+# percentages are converted to proportions.
 singlem_top10_phyla <- data.frame(
   metadata[, c("Gully_id", "Group")],
   t(singlem_phyla[top_phyla, ]),
@@ -270,8 +255,8 @@ id.gen <- intersect(top_genera, names(singlem_top10_genu))
 colnames(singlem_top10_genu) <- make.names(colnames(singlem_top10_genu))
 id.gen <- make.names(id.gen)
 
-# According to the original analysis, only 2 zero values occur across all
-# genera. Instead of a full zero-inflation model (overkill and prone to
+# There are 2 zero values occur across all genera. 
+# Instead of a full zero-inflation model (overkill and prone to
 # quasi-separation with so few zeros), proportions are shrunk away from the
 # boundaries (Smithson & Verkuilen, 2006). The transform is applied to every
 # observation of each genus, not only to the zeros.
@@ -292,9 +277,6 @@ print(gen_diag$diagnostics)
 # save_dharma_plots(gen_diag$residuals, "DHARMa_diagnostics_genera.pdf")
 
 ## 6.4 Plot: dominant genera --------------------------------------------------
-# Genera shown in the figure (selected manually). Original spelling is used
-# here to match `singlem_genu_df$taxonomy`, whereas the model IDs were
-# sanitised with make.names(); the "Fen.183" ID is therefore restored below.
 plot_genera <- c("Defluviicoccus", "Rhodoplanes",
                  "Deferrimicrobium", "Fen-183", "Methyloceanibacter")
 gen_pvals$id[gen_pvals$id == "Fen.183"] <- "Fen-183"
@@ -369,8 +351,7 @@ venn_singlem
 # Matrix form of the genus table (taxa x samples) for vegan functions
 singlem_genu_mat <- as.matrix(singlem_genu)
 
-# Overview table (not used downstream; the same indices are recomputed in
-# `div_table` below together with the sample metadata)
+# Determine richness, Shannon diversity and Pielou's evenness for each sample.
 shannon  <- diversity(t(singlem_genu_mat), index = "shannon")
 richness <- specnumber(t(singlem_genu_mat))
 alpha_div <- data.frame(
@@ -423,11 +404,6 @@ print(div_diag$diagnostics)
 # iwalk(div_diag$residuals, \(res, v) plot(res, main = v))
 
 ## 8.3 Plot -------------------------------------------------------------------
-# P labels are taken from the model output instead of being typed by hand.
-# WARNING: `div_pvals` follows the order of `fits.div` (shannon, richness,
-# evenness), whereas `div_index` is ordered Richness, Shannon, Evenness. The
-# line below pairs them by position, as in the original script; see the
-# "potential problems" notes before using these labels.
 sig_labs_div <- tibble(
   Index = factor(div_index, levels = div_index),
   P     = div_pvals[["p.adj"]],

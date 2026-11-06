@@ -2,19 +2,6 @@
 # MAG-based beta diversity: dispersion, PERMANOVA/PCoA and partitioning of
 # beta-diversity change (Collapsed vs. Un-collapsed gullies)
 # =============================================================================
-# Purpose : (i) Test whether multivariate dispersion (beta dispersion) differs
-#           between Collapsed and Un-collapsed samples, (ii) test and
-#           visualise differences in community composition (PERMANOVA, PCoA),
-#           and (iii) partition the change in beta diversity within each gully
-#           into additive/subtractive and differentiation/homogenization
-#           components, including the contribution of individual MAGs.
-# Design  : Samples are nested in gullies (Gully_id); permutations are
-#           restricted within gullies, and the partitioning is done per gully.
-# Inputs  : - script/0.read_data.R, script/0.Functions.R)
-#           - Cached partitioning results (CSV) in `result_dir`, read in 6.5
-# Outputs : Figures (ggsave calls are commented out); the partitioning results
-#           can be exported to CSV (commented out in 6.5).
-#
 # Sections
 #   1. Setup (paths, parameters, packages)
 #   2. Helper functions
@@ -32,7 +19,7 @@ rm(list = ls())  # start from a clean workspace
 
 ## 1.1 Paths and parameters ---------------------------------------------------
 project_dir <- "E:/thermokarst_gully"
-setwd(project_dir)  # needed because the source() calls below use relative paths
+setwd(project_dir)
 result_dir  <- file.path(project_dir, "revision/result")  # CSV and figures
 
 group_levels     <- c("Un-collapsed", "Collapsed")  # reference level first
@@ -42,9 +29,9 @@ cluster_port     <- 20000
 
 # Colours
 group_colors     <- c("Un-collapsed" = "#79ceb8", "Collapsed" = "#e95f5c")
-component_colors <- c("#9966cc", "#79ceb8", "#e95f5c",   # total, additive, subtractive
-                      "#007fff", "#5cc3e8", "#ffdb00",   # four-component palette:
-                      "#21abcd")                         # elements 4-7 (alphabetical)
+component_colors <- c("#9966cc", "#79ceb8", "#e95f5c",
+                      "#007fff", "#5cc3e8", "#ffdb00",
+                      "#21abcd")
 
 # Labels (Unicode escapes keep the script independent of file encoding)
 total_change_label <- "Total change (\u0394\u03b2)"          # "Total change (Δβ)"
@@ -66,7 +53,7 @@ four_component_labels <- c("Subtractive homogenization",
 library(betapart)    # beta.pair.abund()
 library(vegan)
 library(tidyverse)
-library(gghalves)    # geom_half_violin(); not loaded in the original script
+library(gghalves)    # geom_half_violin()
 library(parallel)
 library(foreach)
 library(doParallel)
@@ -251,8 +238,6 @@ pcoa_mag_plot
 
 ## 6.1 Inputs -----------------------------------------------------------------
 # `comm`: samples (rows) x MAGs (columns); `meta`: sample, treatment, block.
-# Hyphens are removed from the treatment labels ("Un-collapsed" ->
-# "Uncollapsed") to match the labels used in partition_gully_beta().
 comm <- mag_comm
 comm[1:5, 1:5]  # quick inspection
 
@@ -269,8 +254,6 @@ SiteComb <- permutations(n = n_sites_per_cell, r = n_sites_per_cell,
                          v = seq_len(n_sites_per_cell))
 
 n_cores <- detectCores() - n_reserved_cores
-# cl <- makeCluster(n_cores)  # redundant: replaced by the call below, and the
-#                             # first cluster was never stopped in the original
 cl <- makeCluster(n_cores, type = "PSOCK", port = cluster_port)
 registerDoParallel(cl)
 
@@ -410,7 +393,7 @@ all_beta_mag_plot
 
 ## 7.3 Contribution of individual MAGs ----------------------------------------
 # Mean and SE of each MAG's contribution across gullies (zero values are
-# excluded before averaging, as in the original analysis)
+# excluded before averaging.
 summary_DBeta_sp_mags_data <- DBeta_blocks_sp |>
   filter(value != 0) |>
   group_by(taxonomy, components) |>

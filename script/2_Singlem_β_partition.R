@@ -1,19 +1,6 @@
 # =============================================================================
 # SingleM beta diversity: dispersion and partitioning of beta-diversity change
 # =============================================================================
-# Purpose : (i) Test whether multivariate dispersion (beta dispersion) differs
-#           between Collapsed and Un-collapsed samples, and (ii) partition the
-#           change in beta diversity (Collapsed vs. Un-collapsed) within each
-#           gully into additive/subtractive and differentiation/homogenization
-#           components, including the contribution of individual genera.
-# Design  : Samples are nested in gullies (Gully_id); permutations are
-#           restricted within gullies, and the partitioning is done per gully.
-# Inputs  : - script/0.read_data.R, script/0.Functions.R 
-#           - SingleM genus table: gully-genus.tsv
-#           - Cached partitioning results (CSV) in `result_dir`, read in 5.5
-# Outputs : Figures (ggsave calls are commented out); the partitioning results
-#           can be exported to CSV (commented out in 5.5).
-#
 # Sections
 #   1. Setup (paths, parameters, packages)
 #   2. Helper functions
@@ -32,9 +19,9 @@ rm(list = ls())  # start from a clean workspace
 
 ## 1.1 Paths and parameters ---------------------------------------------------
 project_dir <- "E:/thermokarst_gully"
-setwd(project_dir)  # needed because the source() calls below use relative paths
+setwd(project_dir)
 
-save.dir    <- file.path(getwd(), "result")  # kept from the original script
+save.dir    <- file.path(getwd(), "result")
 singlem_dir <- file.path(project_dir, "data/metagenome/singlem")
 result_dir  <- file.path(project_dir, "revision/result")  # CSV and figures
 
@@ -92,18 +79,18 @@ main_theme <- theme_bw() +
         axis.text.x      = element_text(colour = "black", size = 6),
         legend.position  = "none")
 group_colors     <- c("Un-collapsed" = "#79ceb8", "Collapsed" = "#e95f5c")
-component_colors <- c("#9966cc", "#79ceb8", "#e95f5c",   # total, additive, subtractive
-                      "#007fff", "#5cc3e8", "#ffdb00",   # four-component palette:
-                      "#21abcd")                         # elements 4-7 (alphabetical)
+component_colors <- c("#9966cc", "#79ceb8", "#e95f5c",
+                      "#007fff", "#5cc3e8", "#ffdb00",
+                      "#21abcd")
 
 # 2. Helper functions =========================================================
 
-#' Standard error of the mean.
+# Standard error of the mean.
 se <- function(x) {
   sd(x) / sqrt(length(x))
 }
 
-#' Partition the beta-diversity change for one gully.
+# Partition the beta-diversity change for one gully.
 #' The Un-collapsed samples are re-ordered in every row of `site_comb` and
 #' ecopart.multi() is run against the Collapsed samples each time; the results
 #' are averaged over all orderings so that they do not depend on an arbitrary
@@ -214,8 +201,6 @@ disp_singlem_plot
 
 ## 5.1 Inputs -----------------------------------------------------------------
 # `comm`: samples (rows) x genera (columns); `meta`: sample, treatment, block.
-# Hyphens are removed from the treatment labels ("Un-collapsed" ->
-# "Uncollapsed") to match the labels used in partition_gully_beta().
 comm <- singlem_comm
 comm[1:5, 1:5]  # quick inspection
 
@@ -305,8 +290,7 @@ DBeta_blocks_four.comp |>
   summarise(mean_value = mean(value, na.rm = TRUE))
 
 # Mean and SE per component, including the total change per gully (sum of the
-# four components). The SE of negative means is sign-flipped so that the error
-# bar extends away from zero (ymin = mean, ymax = mean + se in the plot).
+# four components).
 plot_component_df <- rbind(
   DBeta_blocks_four.comp |>
     select(components, value),
@@ -355,8 +339,6 @@ beta_singlem_barplot <- plot_component_df |>
 beta_singlem_barplot
 
 ## 6.2 Contribution of individual genera --------------------------------------
-# Mean and SE of each genus's contribution across gullies (zero values are
-# excluded before averaging, as in the original analysis)
 summary_DBeta_sp_data <- DBeta_blocks_sp |>
   filter(value != 0) |>
   group_by(taxonomy, components) |>
@@ -416,8 +398,6 @@ singlem_disp_parti_4.comp_plots
 
 
 # 8. Relative abundance of the top-contributing genera ========================
-# Mean, SD and SE of the relative abundance of the top-20 genera of each
-# component, in Un-collapsed samples ("_C") only.
 top20_tax_control_df <- top20_data |>
   select(taxonomy, components) |>
   left_join(singlem_genu |> rownames_to_column("taxonomy"),

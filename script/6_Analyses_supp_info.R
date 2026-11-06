@@ -1,5 +1,5 @@
 # ==============================================================================
-# Thermokarst gully: supplementary analyses (reorganised script)
+# Thermokarst gully: supplementary analyses
 # ==============================================================================
 # Purpose
 #   Compares un-collapsed vs. collapsed (thermokarst gully) plots for
@@ -57,7 +57,6 @@ rm(list = ls())  # start from a clean workspace
 ## 0.1 Paths ---------------------------------------------------------------------
 project_dir <- "e:/thermokarst_gully" # EDIT: project root
 
-# The sourced scripts use paths relative to the project root, so the working
 # directory is set once here.
 setwd(project_dir)
 
@@ -65,7 +64,7 @@ setwd(project_dir)
 wd_trait <- file.path(project_dir, "data", "trait", "rdp")
 wd_16s <- file.path(project_dir, "data", "16S", "rdp")
 wd_fun <- file.path(project_dir, "data", "metagenome")
-save.dir <- file.path(project_dir, "result") # legacy name, kept for sourced scripts
+save.dir <- file.path(project_dir, "result")
 
 # Input files read directly in this script
 ko_levels_file <- file.path(wd_fun, "ko_9_levels.txt")
@@ -82,10 +81,6 @@ diag_dir <- file.path(result_dir, "diagnostics")
 save_outputs <- TRUE # FALSE: run the analyses without writing any file
 
 ## 0.2 Packages ------------------------------------------------------------------
-# The attach order is the same as in the original script because it determines
-# function masking (e.g. tidyverse verbs take precedence over tidytable).
-# Some packages are not called directly in this script but are kept because the
-# sourced scripts may rely on them.
 pacman::p_load(
   phyloseq, ape, vegan, Biostrings, tidytable, tidyverse, 
   rstatix, ggrepel, EnhancedVolcano, edgeR, picante, readxl,
@@ -115,9 +110,7 @@ glmm_fixed_terms <- "Group"
 effect_axis_title <- "Effect size (log ratio)"
 
 ## 0.4 Plot themes -----------------------------------------------------------------
-# The original script redefined `main_theme` three times with different font
-# sizes. They are kept as two explicit themes so that every figure keeps the
-# size it had in the original workflow.
+# The original script redefined `main_theme` three times with different font sizes.
 main_theme <- theme_bw() +
   theme(panel.grid       = element_blank(),
         panel.border     = element_rect(size = 0.5),
@@ -160,13 +153,12 @@ group_from_sample <- function(sample_names) {
   )
 }
 
-#' Convert a percentage (0-100) to a proportion (0-1); values already on the
-#' 0-1 scale are returned unchanged.
+#' Convert a percentage (0-100) to a proportion (0-1)
 to_proportion <- function(x) {
-  if (max(x, na.rm = TRUE) > 1) x / 100 else x
+  x / 100
 }
 
-#' Mean, SD, n and SE of one column (works on grouped data frames as well).
+#' Mean, SD, n and SE of one column.
 summarise_variable <- function(data, column) {
   data %>%
     summarise(
@@ -178,7 +170,7 @@ summarise_variable <- function(data, column) {
     )
 }
 
-#' Save a ggplot to `result_dir` (skipped when save_outputs is FALSE).
+#' Save a ggplot to `result_dir`.
 save_plot <- function(plot, filename, width, height, units = "in") {
   if (!save_outputs) {
     return(invisible(NULL))
@@ -189,7 +181,7 @@ save_plot <- function(plot, filename, width, height, units = "in") {
   )
 }
 
-#' Write a table to `table_dir` (skipped when save_outputs is FALSE).
+#' Write a table to `table_dir`.
 save_table <- function(x, filename) {
   if (!save_outputs) {
     return(invisible(NULL))
@@ -199,16 +191,6 @@ save_table <- function(x, filename) {
 }
 
 ## 0.6 GLMM helper functions ------------------------------------------------------------
-# Design notes
-# * Responses are analysed on their original scale. The original LMMs z-scored
-#   the response, which is incompatible with Gamma/Beta/Tweedie likelihoods.
-# * Models contain Group as the only fixed effect (no Time, Slope or MAP).
-# * Gamma and Tweedie both use a log link, so the Group coefficient is a log
-#   ratio under either family and effect sizes stay comparable across responses.
-
-#' Family for non-negative continuous responses (relative abundance, TPM,
-#' concentrations): Gamma(log) when all values are positive, otherwise
-#' Tweedie(log), which also accommodates exact zeros.
 family_nonneg_continuous <- function(y) {
   if (all(y > 0, na.rm = TRUE)) {
     Gamma(link = "log")
@@ -249,11 +231,6 @@ summarise_response_support <- function(data, responses) {
 }
 
 #' Fit one GLMM per response with glmmTMB.
-#' Responses with fewer than `min_unique` distinct values are skipped (NULL).
-#' Failed fits return NULL. Warnings raised during fitting are stored in the
-#' "fit_warnings" attribute and reported by check_glmm_convergence().
-#' The response is copied to `.response` so that unusual column names (spaces,
-#' brackets, etc.) never have to be parsed in a formula.
 fit_glmm_batch <- function(responses, data,
                            fixed_terms = "Group",
                            random_term = "(1 | Gully_id)",
@@ -308,10 +285,8 @@ fit_glmm_batch <- function(responses, data,
 #   })
 # }
 
-#' Wald chi-square tests (Type II) and Group-coefficient summary of all models,
-#' returned as a matrix with one column per response (NA for failed models).
-#' Row names follow the convention of the original script:
-#'   <term>.mean (estimate), .z (Wald z), .se, .chisq and .P (Type-II test).
+#' Group-coefficient summary of all models, returned as a matrix with
+#' one column per response (NA for failed models).
 extract_glmm_effects <- function(fits) {
   one_fit <- function(fit) {
     tryCatch(
@@ -342,8 +317,7 @@ extract_glmm_effects <- function(fits) {
 
 #' Group coefficients with Benjamini-Hochberg (FDR) adjustment across all
 #' models of a batch. `component` selects the conditional ("cond") or
-#' zero-inflation ("zi") part of the model. Supplementary output only; the
-#' figures use the unadjusted P-values, as in the original analysis.
+#' zero-inflation ("zi") part of the model.
 extract_group_pvals <- function(fits, term_pattern = "^Group",
                                 component = "cond") {
   map_dfr(compact(fits), \(fit) {
@@ -415,17 +389,6 @@ save_dharma_plots <- function(dharma_res, file) {
 }
 
 #' Fit, check and export one family of GLMMs.
-#'
-#' @param label Short name used in output file names.
-#' @param responses Character vector of response columns in `data`.
-#' @param data Data frame holding responses, fixed terms and Gully_id.
-#' @param fixed_terms Fixed-effect terms.
-#' @param family Family object, named list of families, or function(y).
-#' @param drop_invalid Drop responses that are constant or contain NA, as the
-#'   original `select(where(~ !any(is.na(.))))` did after scaling.
-#' @param min_unique Skip responses with fewer distinct values (NA results).
-#' @return List with fits, effects (matrix), group_effects (BH table),
-#'   diagnostics (table) and dharma (residual objects).
 run_glmm_workflow <- function(label, responses, data, fixed_terms,
                               family, scale_vars = NULL,
                               drop_invalid = FALSE, min_unique = 1,
@@ -491,12 +454,6 @@ effect_axis_limit <- function(effect_table, min_limit) {
 }
 
 #' Effect of collapse (GroupCollapsed coefficient +/- SE) per variable.
-#' @param effects Matrix from extract_glmm_effects().
-#' @param variable_order Variables to plot, in axis order.
-#' @param bands Data frame (xmin, xmax, fill) of background shading.
-#' @param style "point" (flipped, labels at the top) or "bar" (horizontal axis).
-#' @param label_scale,label_add Position of the significance symbol:
-#'   sign(effect) * ((|effect| + SE) * label_scale + label_add).
 plot_effect_sizes <- function(effects, variable_order, bands,
                               style = c("point", "bar"),
                               min_limit = 2, band_alpha = 0.1,

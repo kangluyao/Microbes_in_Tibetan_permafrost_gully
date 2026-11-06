@@ -2,20 +2,6 @@
 # MAG functional traits: C-S-R strategy traits of MAGs that increase or
 # decrease in collapsed gullies
 # =============================================================================
-# Purpose : (i) Classify MAGs by the direction of their mean abundance change
-#           (Collapsed - Un-collapsed), (ii) compare microtrait-based life-
-#           history, resource and stress-tolerance traits between the two
-#           MAG groups, (iii) examine correlations among traits across MAGs,
-#           and (iv) test community-weighted mean (CWM) traits between
-#           Collapsed and Un-collapsed samples with Gaussian GLMMs.
-# Design  : Samples are nested in gullies, so Gully_id is a random intercept
-#           in the GLMMs.
-# Inputs  : - script/0.read_data.R
-#           - microtrait results (RDS) and MAG growth-rate table (CSV) under
-#             data/metagenome/MAGs
-# Outputs : Figures (ggsave calls are commented out) and optional CSV exports
-#           of the selected traits and CWM table (commented out).
-#
 # Sections
 #   1. Setup (paths, parameters, packages, plot theme)
 #   2. Data input
@@ -34,9 +20,9 @@ rm(list = ls())  # start from a clean workspace
 
 ## 1.1 Paths and parameters ---------------------------------------------------
 project_dir <- "E:/thermokarst_gully"
-setwd(project_dir)  # needed because the source() call below uses a relative path
+setwd(project_dir)
 
-# Defined before sourcing, as in the original (the sourced script may use them)
+# Defined before sourcing, as in the original
 wd_16s   <- file.path(getwd(), "data/16S/rdp")
 wd_fun   <- file.path(getwd(), "data/metagenome")
 save.dir <- file.path(getwd(), "result")
@@ -92,10 +78,7 @@ source("script/0.read_data.R")
 
 ## 3.1 GLMM fitting and diagnostics -------------------------------------------
 
-#' Fit one glmmTMB model per response variable in `responses`.
-#' Each call is wrapped in tryCatch so that one failing model does not stop
-#' the loop. Response names are back-tick quoted to safely handle illegal
-#' characters (e.g. "Fen-183", which R would otherwise parse as "Fen - 183").
+# Fit one glmmTMB model per response variable in `responses`.
 fit_glmm_batch <- function(responses, data,
                            fixed_terms = "Group",
                            random_term = "(1 | Gully_id)",
@@ -181,8 +164,6 @@ p.stars <- function(p.values) {
 # 4. MAG abundance change and effect groups ===================================
 
 ## 4.1 MAG abundance table with sample information ----------------------------
-# Gully and group labels are derived from the sample names ("G1"-"G6";
-# "_C" = Un-collapsed, "_T" = Collapsed).
 mags_abun <- mags_abun_tab |>
   t() |>
   as.data.frame() |>
@@ -203,8 +184,6 @@ mags_abun <- mags_abun_tab |>
   data.frame()
 
 ## 4.2 MAGs that increase or decrease in collapsed gullies --------------------
-# Classification is based only on the sign of the difference between group
-# means (Collapsed - Un-collapsed); no statistical test or threshold is used.
 mags_result_diff <- mags_abun |>
   select(-Time, -Slope, -MAP, -Gully_id) |>
   group_by(Group) |>
@@ -306,7 +285,6 @@ microtraits_comparison <- trait_sel_df |>
   ggplot(aes(eff.group, value, fill = eff.group)) +
   geom_half_violin(position = position_nudge(x = 0.25),
                    side = "r", width = 0.6, color = NA, alpha = 0.65) +
-  # geom_boxplot(width = 0.4, size = 0.75, outlier.color = NA) +
   geom_jitter(aes(fill = eff.group, colour = eff.group),
               shape = 16, size = 0.5, height = 0,
               width = 0.15, alpha = 0.65) +
@@ -333,9 +311,6 @@ microtraits_comparison
 ## 5.5 Correlations among traits across MAGs ----------------------------------
 # Spearman correlations between two sets of trait columns, with BH-adjusted
 # p-values over all pairs.
-# WARNING: `trait_sel_df` has `eff.group` in column 1, so columns 3:15 and
-# 16:20 are not the trait blocks implied by `strategy_vars` positions; see the
-# "potential problems" notes before using these results.
 trait_sel_df <- trait_sel_df |> 
   select(-eff.group)  # drop the effect group column for correlation analysi
 cross_cor_indi <- cor(trait_sel_df[, 3:15],
@@ -376,9 +351,6 @@ corrplot::corrplot(cross_cor_indi,
 
 
 # 6. Community-weighted mean (CWM) traits =====================================
-# CWM of trait t in community j = sum_k(p_kj * t_k) / sum_k(p_kj), where p_kj is
-# the relative abundance of MAG k in sample j. The trait table is first
-# re-ordered to match the rows of the abundance table.
 trait_sel_df <- trait_sel_df[rownames(mags_abun_tab), ]
 relative_abundance <- mags_abun_tab / 100   # percent -> proportion
 
