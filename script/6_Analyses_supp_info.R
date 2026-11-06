@@ -805,13 +805,6 @@ ko_pcoa_plot <- ggplot(plot_data, aes(x = Dim1, y = Dim2,
 ko_pcoa_plot
 
 ## 2.2 Within-group dissimilarity of functional composition -------------------------------
-# Response : Bray-Curtis dissimilarity between samples of the same gully and
-#            group (output of similar_deter_fun(), one row per sample pair).
-# Original : lmm_fun("distance", data); the formula inside lmm_fun() is defined
-#            in Functions.R, which was not available. The GLMM below is
-#            distance ~ Group + (1 | Gully_id).
-# GLMM     : glmmTMB, Beta(logit) because Bray-Curtis dissimilarity is bounded
-#            in (0, 1); random effect (1 | Gully_id).
 distance_ko_data <- similar_deter_fun(ko_dist)
 
 distance_ko_df <- distance_ko_data %>%
@@ -886,13 +879,7 @@ KO_L2_df <- read.table(file.path(wd_fun, "KEGG.PathwayL2.raw.txt"), header = TRU
                        sep = "\t", comment.char = "", check.names = FALSE) |>
   rename(L2 = PathwayL2)
 
-# NOTE: KO_L2_df is not created in this script (see the commented block above);
-# it must come from the sourced scripts. The L3 table built above, KO_L3_df,
-# is used for the pathway GLMMs in section 2.6.
-if (!exists("KO_L2_df")) {
-  stop("KO_L2_df is not defined; load it in read_data.R or see the note above.")
-}
-
+# Aggregate the TPM of all KOs of each L2 pathway
 aggre_top10_data <- KO_L2_df %>%
   filter(!is.na(L2)) %>%
   group_by(L2) %>%
@@ -951,12 +938,7 @@ ko_all_plot <- ggdraw() +
   )
 ko_all_plot
 
-## 2.6 GLMM: effect of collapse on metabolic pathways (KEGG L3) ---------------------------
-# Response : summed TPM of the KOs of each L3 pathway (Metabolism only).
-# Original : lmer(scaled TPM ~ Group + (1 | Gully_id)).
-# GLMM     : glmmTMB, Gamma(log) if all values > 0, otherwise Tweedie(log);
-#            random effect (1 | Gully_id). Pathways with fewer than 3 distinct
-#            values keep an NA result so that axis positions are unchanged.
+## 2.6 GLMM: effect of collapse on metabolic pathways (KEGG L2) ---------------------------
 pathway_data <- KO_L2_df %>%
   filter(!is.na(L2)) %>%
   group_by(L2) %>%
@@ -1038,11 +1020,6 @@ if (!identical(as.character(metadata$Sample_name), colnames(C_N_path2))) {
 }
 
 ## 2.9 GLMM: effect of collapse on functional-gene abundance -------------------------------
-# Response : summed TPM per enzyme / protein.
-# GLMM     : glmmTMB, Gamma(log) if all values > 0, otherwise Tweedie(log)
-#            (rare genes frequently contain zeros); random effect (1 | Gully_id).
-#            Constant responses are dropped and responses with fewer than 3
-#            distinct values are skipped, as in the original.
 functional_gene_data <- data.frame(
   metadata[, c("Gully_id", "Group")],
   t(C_N_path2),
@@ -1074,7 +1051,6 @@ functional_gene_result_glmm <- functional_gene_glmm$group_effects %>%
   )
 functional_gene_result_glmm
 ## 2.10 Effect-size plots for functional genes ---------------------------------------------
-# Gene names in plotting order, per element cycle
 C_names <- c(
   "Alpha-amylase", "Glucoamylase", "Pullulanase", "Isopullulanase",
   "Arabinofuranosidase", "Beta_mannanase", "Xylanase", "Xylose isomerase",
@@ -1105,7 +1081,7 @@ S_names <- c(
 
 # Background bands (axis positions) copied from the original script. The bands of
 # the nitrogen, sulfur and other-element plots are identical to each other and
-# do not span all genes; see the notes delivered with this script.
+# do not span all genes
 carbon_bands <- make_bands(
   edges = c(0.5, 4.5, 8.5, 11.5, 14.5, 15.5, 20.5, 22.5, 25.5, 30.5, 31.5),
   fills = c(
@@ -1146,8 +1122,6 @@ eff.size_sulfur_plot
 
 
 # 3. ENVIRONMENTAL FACTORS -----------------------------------------------------------------
-# metadata and the other input objects were loaded in section 2.
-
 ## 3.1 Descriptive statistics ------------------------------------------------------------------
 # Full variable set of the original analysis, currently reduced to the list below:
 # env_vars <- c("Plant_richness", "AGB", "BGB", "pH", "Soil_moisture", "Clay_Silt",
@@ -1165,30 +1139,11 @@ env_stats <- metadata %>%
 env_stats
 
 ## 3.2 GLMMs: effect of collapse on environmental variables --------------------------------------
-# GLMM     : variable ~ Group + (1 | Gully_id) (covariates removed).
-# GLMM     : glmmTMB with Type-II Wald chi-square tests. Families by variable type:
-#   Plant_richness  Poisson(log)       counts; check DHARMa dispersion
-#   pH              Gaussian(identity) pH is already a log10 scale; LMM-equivalent
-#   Clay_Silt       Beta(logit)        percentage, analysed as a proportion (0-1)
-#   all others      Gamma(log), or Tweedie(log) if zeros are present
-#                   (AGB, Soil_moisture [can exceed 100% on a dry-mass basis],
-#                   SOC, NH4_N, NO3_N, AP; also BGB / WHC if re-enabled above)
 env_model_data <- metadata %>%
   mutate(
     Group = factor(Group, levels = group_levels),
     Clay_Silt = to_proportion(Clay_Silt)
   )
-
-# env_special_families <- list(
-#   Plant_richness = poisson(link = "log"),
-#   pH = gaussian(link = "identity"),
-#   Clay_Silt = glmmTMB::beta_family(link = "logit")
-# )
-# env_rule_vars <- setdiff(env_vars, names(env_special_families))
-# env_families <- c(
-#   env_special_families,
-#   map(set_names(env_rule_vars), \(v) family_nonneg_continuous(env_model_data[[v]]))
-# )
 
 env_glmm <- run_glmm_workflow(
   label = "environment",
@@ -1319,10 +1274,6 @@ env_dis_plot_df <- env_dis_plot_table %>%
   )
 
 ## 3.5 GLMM: effect of collapse on environmental heterogeneity -----------------------------------
-# GLMM     : distance ~ Group + (1 | Gully_id) (covariates removed).
-# Original : lmer(distance ~ Group + Time + Slope + MAP + (1 | Gully_id)).
-# GLMM     : glmmTMB, Gamma(log): Euclidean distances are positive and continuous.
-#            Random effect (1 | Gully_id); Type-II Wald chi-square tests.
 env_dist_glmm <- run_glmm_workflow(
   label = "environmental_heterogeneity",
   responses = "distance",
@@ -1339,8 +1290,7 @@ env_dist_glmm_results <- tibble(
 env_dist_glmm_results
 # save_table(env_dist_glmm_results, "glmm_wald_tests_environmental_heterogeneity.csv")
 
-# The significance symbol in the figure is taken from the GLMM (the original
-# script had "**" typed in by hand).
+# The significance symbol in the figure is taken from the GLMM
 env_dist_label <- env_dist_glmm_results %>%
   filter(fixed_factors == "Group") %>%
   pull(sig)
@@ -1371,12 +1321,11 @@ env_dist_plot
 # 4. SEQUENCING STATISTICS, MAG RECRUITMENT AND MAG QUALITY ---------------------------------------
 
 ## 4.1 Read MAG tables ----------------------------------------------------------------------------
-# First row of the CoverM table is removed, as in the original script.
 mag_abundance_tab <- read.delim(
   mag_abundance_file,
   header = TRUE, sep = "\t", row.names = 1, comment.char = "", check.names = FALSE
 )[-1, ]
-mag_tax_bin <- read.delim( # not used below
+mag_tax_bin <- read.delim(
   mag_tax_file,
   header = TRUE, sep = "\t", comment.char = "", check.names = FALSE
 )
@@ -1402,7 +1351,6 @@ seq_depth <- read.csv(seq_depth_file, check.names = FALSE) %>%
 
 ## 4.2 GLMM: MAG recruitment rate between groups ----------------------------------------------------
 # Response : percentage of reads recruited by the MAGs (analysed as a proportion).
-# Original : lmer(MAG_mapping_rate ~ Group + (1 | Gully_id)).
 # GLMM     : glmmTMB, Beta(logit), because the rate is bounded in (0, 1);
 #            random effect (1 | Gully_id).
 mapping_rate_data <- seq_depth %>%
@@ -1443,9 +1391,6 @@ mag_mapping_rate
 # save_plot(mag_mapping_rate, "mag_mapping_rate.pdf", 5, 3.5)
 
 ## 4.3 Sequencing depth, mapping rate and MAG quality ------------------------------------------------
-# NOTE: this block is unchanged from the original. It assumes that `seq_depth`
-# still contains a column named `Sample` and that the metrics have the names
-# listed in the filter below; see the notes delivered with this script.
 sequencing_metrics <- c("Depth", "contig_mapping", "Completeness",
                         "Contamination", "MAG_mapping_rate", 
                         "16S_clean_tags_per_sample")
